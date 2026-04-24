@@ -316,7 +316,7 @@ export default async function HomePage() {
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xl text-primary">✉️</div>
                   <div>
                     <h3 className="font-semibold text-white">Email directo</h3>
-                    <p className="mt-1 text-muted hover:text-white transition-colors"><a href="mailto:hola@garagestudios.com">hola@garagestudios.com</a></p>
+                    <p className="mt-1 text-muted hover:text-white transition-colors"><a href="mailto:garagestudioslp@gmail.com">garagestudioslp@gmail.com</a></p>
                   </div>
                 </div>
 
