@@ -63,10 +63,16 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Copyright */}
-      <div className="border-t border-card-border px-4 py-4 text-center text-xs text-muted">
-        © {new Date().getFullYear()} Garage Studios. Todos los derechos
-        reservados.
+      {/* Copyright y Legal */}
+      <div className="border-t border-card-border px-4 py-6 text-center text-xs text-muted flex flex-col md:flex-row items-center justify-center gap-4">
+        <span>© {new Date().getFullYear()} Garage Studios. Todos los derechos reservados.</span>
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-2 md:mt-0">
+          <Link href="/aviso-legal" className="hover:text-white transition-colors">Aviso Legal</Link>
+          <span className="hidden md:inline text-card-border">|</span>
+          <Link href="/privacidad" className="hover:text-white transition-colors">Política de Privacidad</Link>
+          <span className="hidden md:inline text-card-border">|</span>
+          <Link href="/cookies" className="hover:text-white transition-colors">Política de Cookies</Link>
+        </div>
       </div>
     </footer>
   );
