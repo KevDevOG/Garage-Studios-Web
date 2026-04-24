@@ -10,9 +10,34 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Garage Studios - Estudio de grabación profesional",
+  title: "Garage Studios | Producción Musical y Audiovisual en Las Palmas",
   description:
-    "Grabación, mezcla, masterización y producción musical en Madrid. Reserva tu sesión en Garage Studios.",
+    "Estudio de grabación profesional en Las Palmas de Gran Canaria. Ofrecemos grabación, mezcla, masterización, producción musical y creación de contenido audiovisual.",
+  keywords: [
+    "estudio de grabación",
+    "producción musical",
+    "Las Palmas de Gran Canaria",
+    "videoclips",
+    "Garage Studios",
+    "mezcla",
+    "masterización",
+    "contenido audiovisual"
+  ],
+  openGraph: {
+    title: "Garage Studios | Producción Musical y Audiovisual",
+    description:
+      "Estudio de grabación profesional en Las Palmas de Gran Canaria. Grabación, mezcla, masterización y contenido audiovisual para llevar tu talento al siguiente nivel.",
+    url: "https://garage-studios-web.vercel.app",
+    siteName: "Garage Studios",
+    locale: "es_ES",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Garage Studios | Producción Musical y Audiovisual",
+    description:
+      "Estudio de grabación profesional en Las Palmas de Gran Canaria. Únete a la familia Garage Studios.",
+  },
 };
 
 export default function RootLayout({
