@@ -43,12 +43,12 @@ export default async function HomePage() {
           </div>
           <div className="grid gap-6 sm:grid-cols-3">
             <div className="relative overflow-hidden flex flex-col items-center justify-end text-center rounded-xl border border-card-border bg-card-bg transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-[0_0_30px_rgba(30,58,138,0.2)] group min-h-[250px] sm:min-h-[300px]">
-              <Image 
-                src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941483912-4e6d5084-4718-4368-8248-7bbb31bc67f8.jpg" 
-                alt="Producción musical" 
-                fill 
+              <Image
+                src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941483912-4e6d5084-4718-4368-8248-7bbb31bc67f8.jpg"
+                alt="Producción musical"
+                fill
                 sizes="(max-width: 768px) 100vw, 33vw"
-                className="object-cover object-center opacity-50 group-hover:scale-110 transition-transform duration-700 ease-in-out z-0" 
+                className="object-cover object-center opacity-50 group-hover:scale-110 transition-transform duration-700 ease-in-out z-0"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10" />
               <div className="relative z-20 p-6 w-full">
@@ -57,12 +57,12 @@ export default async function HomePage() {
               </div>
             </div>
             <div className="relative overflow-hidden flex flex-col items-center justify-end text-center rounded-xl border border-card-border bg-card-bg transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-[0_0_30px_rgba(30,58,138,0.2)] group min-h-[250px] sm:min-h-[300px]">
-              <Image 
-                src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941461306-fc3e4ee6-597b-4659-abc6-ed46e41a80fd.jpg" 
-                alt="Zona creativa" 
-                fill 
+              <Image
+                src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941461306-fc3e4ee6-597b-4659-abc6-ed46e41a80fd.jpg"
+                alt="Zona creativa"
+                fill
                 sizes="(max-width: 768px) 100vw, 33vw"
-                className="object-cover object-center opacity-50 group-hover:scale-110 transition-transform duration-700 ease-in-out z-0" 
+                className="object-cover object-center opacity-50 group-hover:scale-110 transition-transform duration-700 ease-in-out z-0"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10" />
               <div className="relative z-20 p-6 w-full">
@@ -71,12 +71,12 @@ export default async function HomePage() {
               </div>
             </div>
             <div className="relative overflow-hidden flex flex-col items-center justify-end text-center rounded-xl border border-card-border bg-card-bg transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-[0_0_30px_rgba(30,58,138,0.2)] group min-h-[250px] sm:min-h-[300px]">
-              <Image 
-                src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941377774-bcb5e4fc-9b6e-4f76-b51c-5ea8a8e07ae2.jpg" 
-                alt="Grabación" 
-                fill 
+              <Image
+                src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941377774-bcb5e4fc-9b6e-4f76-b51c-5ea8a8e07ae2.jpg"
+                alt="Grabación"
+                fill
                 sizes="(max-width: 768px) 100vw, 33vw"
-                className="object-cover object-center opacity-50 group-hover:scale-110 transition-transform duration-700 ease-in-out z-0" 
+                className="object-cover object-center opacity-50 group-hover:scale-110 transition-transform duration-700 ease-in-out z-0"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10" />
               <div className="relative z-20 p-6 w-full">
@@ -121,12 +121,12 @@ export default async function HomePage() {
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <div className="relative overflow-hidden rounded-xl border border-card-border bg-card-bg p-6 transition-all hover:-translate-y-2 hover:border-primary/40 hover:shadow-[0_0_30px_rgba(30,58,138,0.2)] animate-slide-up delay-100 min-h-[220px] group">
-            <Image 
-              src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941377774-bcb5e4fc-9b6e-4f76-b51c-5ea8a8e07ae2.jpg" 
-              alt="Micrófonos" 
-              fill 
+            <Image
+              src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941377774-bcb5e4fc-9b6e-4f76-b51c-5ea8a8e07ae2.jpg"
+              alt="Micrófonos"
+              fill
               sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
-              className="object-cover object-center opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-700 ease-in-out z-0" 
+              className="object-cover object-center opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-700 ease-in-out z-0"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10" />
             <div className="relative z-20 h-full flex flex-col justify-end">
@@ -139,12 +139,12 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="relative overflow-hidden rounded-xl border border-card-border bg-card-bg p-6 transition-all hover:-translate-y-2 hover:border-primary/40 hover:shadow-[0_0_30px_rgba(30,58,138,0.2)] animate-slide-up delay-200 min-h-[220px] group">
-            <Image 
-              src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941385359-0d545ba5-c0c6-4a79-bc3b-65a2fc9bfc9c.jpg" 
-              alt="Interfaz y Previo" 
-              fill 
+            <Image
+              src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941385359-0d545ba5-c0c6-4a79-bc3b-65a2fc9bfc9c.jpg"
+              alt="Interfaz y Previo"
+              fill
               sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
-              className="object-cover object-center opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-700 ease-in-out z-0" 
+              className="object-cover object-center opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-700 ease-in-out z-0"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10" />
             <div className="relative z-20 h-full flex flex-col justify-end">
@@ -157,12 +157,12 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="relative overflow-hidden rounded-xl border border-card-border bg-card-bg p-6 transition-all hover:-translate-y-2 hover:border-primary/40 hover:shadow-[0_0_30px_rgba(30,58,138,0.2)] animate-slide-up delay-300 min-h-[220px] group">
-            <Image 
-              src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941428088-81144e31-a481-43b5-b8c6-6d21416d6672.jpg" 
-              alt="Escucha" 
-              fill 
+            <Image
+              src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941428088-81144e31-a481-43b5-b8c6-6d21416d6672.jpg"
+              alt="Escucha"
+              fill
               sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
-              className="object-cover object-center opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-700 ease-in-out z-0" 
+              className="object-cover object-center opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-700 ease-in-out z-0"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10" />
             <div className="relative z-20 h-full flex flex-col justify-end">
@@ -175,12 +175,12 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="relative overflow-hidden rounded-xl border border-card-border bg-card-bg p-6 transition-all hover:-translate-y-2 hover:border-primary/40 hover:shadow-[0_0_30px_rgba(30,58,138,0.2)] animate-slide-up delay-400 min-h-[220px] group">
-            <Image 
-              src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941483912-4e6d5084-4718-4368-8248-7bbb31bc67f8.jpg" 
-              alt="Instrumentos y Edición" 
-              fill 
+            <Image
+              src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941483912-4e6d5084-4718-4368-8248-7bbb31bc67f8.jpg"
+              alt="Instrumentos y Edición"
+              fill
               sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
-              className="object-cover object-[center_70%] opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-700 ease-in-out z-0" 
+              className="object-cover object-[center_70%] opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-700 ease-in-out z-0"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10" />
             <div className="relative z-20 h-full flex flex-col justify-end">
@@ -261,14 +261,14 @@ export default async function HomePage() {
               <p className="mt-4 text-lg text-muted">
                 ¿Listo para grabar? Escríbenos y te responderemos en <span className="font-semibold text-white">menos de 24 horas</span> con un presupuesto adaptado a tu proyecto.
               </p>
-              
+
               <div className="mt-10 space-y-6">
                 <div className="flex items-start gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xl text-primary">📍</div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-white">Ubicación</h3>
-                    <p className="mt-1 text-muted">Avenida Parque Central 1<br/>Las Palmas de Gran Canaria</p>
-                    
+                    <p className="mt-1 text-muted">Avenida Parque Central 1<br />Las Palmas de Gran Canaria</p>
+
                     <div className="mt-4 overflow-hidden rounded-lg border border-card-border shadow-md">
                       <div className="h-[150px] w-full bg-black/50 relative">
                         <iframe
@@ -303,15 +303,15 @@ export default async function HomePage() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xl text-primary">🕒</div>
                   <div>
                     <h3 className="font-semibold text-white">Horarios</h3>
-                    <p className="mt-1 text-sm text-muted">L-V: 16:00 - 22:00<br/>Sáb: 10:00 - 00:00<br/>Dom: 15:00 - 22:00</p>
+                    <p className="mt-1 text-sm text-muted">L-V: 16:00 - 22:00<br />Sáb: 10:00 - 00:00<br />Dom: 15:00 - 22:00</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xl text-primary">✉️</div>
                   <div>
@@ -332,7 +332,7 @@ export default async function HomePage() {
                 </div>
               </div>
             </div>
-            
+
             <div className="animate-slide-up delay-200">
               <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-4 py-1.5 text-sm font-medium text-green-400">
                 <span className="relative flex h-2 w-2">
