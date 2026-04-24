@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/images/og-image.jpg",
         width: 1200,
         height: 630,
         alt: "Garage Studios",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     title: "Garage Studios | Producción Musical y Audiovisual en Las Palmas",
     description:
       "Estudio de grabación, producción musical, mezcla, masterización y videoclips en Las Palmas de Gran Canaria.",
-    images: ["/og-image.jpg"],
+    images: ["/images/og-image.jpg"],
   },
   icons: {
     icon: "/favicon.ico",
