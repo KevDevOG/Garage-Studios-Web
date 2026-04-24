@@ -2,7 +2,7 @@
 
 Proyecto final de Desarrollo de Aplicaciones Web (DAW). Se trata de una plataforma web completa y profesional para un estudio de grabación y producción audiovisual ubicado en Las Palmas de Gran Canaria.
 
-🔗 **[Visitar la web en producción](https://project-w9jbu.vercel.app)** *(Sustituir por el enlace definitivo si ha cambiado)*
+🔗 **[Visitar la web en producción](https://project-w9jbu.vercel.app)** 
 
 ## Descripción del Proyecto
 
