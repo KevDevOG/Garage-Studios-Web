@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://garage-studios-web.vercel.app"),
+  metadataBase: new URL("https://project-w9jbu.vercel.app"),
   title: "Garage Studios | Producción Musical y Audiovisual en Las Palmas",
   description:
     "Estudio de grabación, producción musical, mezcla, masterización y videoclips en Las Palmas de Gran Canaria.",
@@ -26,13 +26,13 @@ export const metadata: Metadata = {
     title: "Garage Studios | Producción Musical y Audiovisual en Las Palmas",
     description:
       "Estudio de grabación, producción musical, mezcla, masterización y videoclips en Las Palmas de Gran Canaria.",
-    url: "https://garage-studios-web.vercel.app",
+    url: "https://project-w9jbu.vercel.app",
     siteName: "Garage Studios",
     locale: "es_ES",
     type: "website",
     images: [
       {
-        url: "/images/og-image.jpg",
+        url: "https://project-w9jbu.vercel.app/og-image.jpg",
         width: 1200,
         height: 630,
         alt: "Garage Studios",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     title: "Garage Studios | Producción Musical y Audiovisual en Las Palmas",
     description:
       "Estudio de grabación, producción musical, mezcla, masterización y videoclips en Las Palmas de Gran Canaria.",
-    images: ["/images/og-image.jpg"],
+    images: ["https://project-w9jbu.vercel.app/og-image.jpg"],
   },
   icons: {
     icon: "/favicon.ico",
