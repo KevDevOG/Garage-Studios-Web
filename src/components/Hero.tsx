@@ -35,7 +35,7 @@ export default function Hero() {
 
         {/* Descripción */}
         <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-200 sm:text-xl drop-shadow">
-          Todo empezó en un garage. Somos el espacio de Alex, enfocado en apoyar a artistas emergentes. 
+          Todo empezó en un garage. Un espacio enfocado en apoyar a artistas emergentes. 
           Creemos que todo el mundo puede hacer música.
         </p>
 
