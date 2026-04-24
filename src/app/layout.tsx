@@ -10,33 +10,44 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://garage-studios-web.vercel.app"),
   title: "Garage Studios | Producción Musical y Audiovisual en Las Palmas",
   description:
-    "Estudio de grabación profesional en Las Palmas de Gran Canaria. Ofrecemos grabación, mezcla, masterización, producción musical y creación de contenido audiovisual.",
+    "Estudio de grabación, producción musical, mezcla, masterización y videoclips en Las Palmas de Gran Canaria.",
   keywords: [
-    "estudio de grabación",
+    "estudio grabación",
     "producción musical",
-    "Las Palmas de Gran Canaria",
+    "estudio Las Palmas",
+    "grabación música",
     "videoclips",
-    "Garage Studios",
-    "mezcla",
-    "masterización",
-    "contenido audiovisual"
+    "mezcla y mastering",
   ],
   openGraph: {
-    title: "Garage Studios | Producción Musical y Audiovisual",
+    title: "Garage Studios | Producción Musical y Audiovisual en Las Palmas",
     description:
-      "Estudio de grabación profesional en Las Palmas de Gran Canaria. Grabación, mezcla, masterización y contenido audiovisual para llevar tu talento al siguiente nivel.",
+      "Estudio de grabación, producción musical, mezcla, masterización y videoclips en Las Palmas de Gran Canaria.",
     url: "https://garage-studios-web.vercel.app",
     siteName: "Garage Studios",
     locale: "es_ES",
     type: "website",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Garage Studios",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Garage Studios | Producción Musical y Audiovisual",
+    title: "Garage Studios | Producción Musical y Audiovisual en Las Palmas",
     description:
-      "Estudio de grabación profesional en Las Palmas de Gran Canaria. Únete a la familia Garage Studios.",
+      "Estudio de grabación, producción musical, mezcla, masterización y videoclips en Las Palmas de Gran Canaria.",
+    images: ["/og-image.jpg"],
+  },
+  icons: {
+    icon: "/favicon.ico",
   },
 };
 
@@ -45,8 +56,26 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "MusicStudio",
+    name: "Garage Studios",
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Las Palmas de Gran Canaria",
+      addressCountry: "ES",
+    },
+    url: "https://garage-studios-web.vercel.app",
+  };
+
   return (
     <html lang="es" className={`${inter.variable} h-full antialiased`}>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="flex min-h-full flex-col font-[var(--font-inter)]">
         <Navbar />
         <main className="flex-1">{children}</main>
