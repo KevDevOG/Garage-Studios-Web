@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { validateSlotAvailable } from "@/app/actions/availability";
 import { minutesToTime, timeToMinutes } from "@/lib/schedule";
+import { findOrCreateClientePublic, updateClienteStats } from "@/app/actions/clientes";
 
 export interface ReservationData {
   name: string;
@@ -17,10 +18,10 @@ export interface ReservationData {
 export async function submitReservationAction(data: ReservationData) {
   const supabase = await createClient();
 
-  // 1. Obtener duración del servicio
+  // 1. Obtener duración y precio base del servicio
   const { data: servicio, error: srvErr } = await supabase
     .from("servicio")
-    .select("duracion_minutos")
+    .select("duracion_minutos, precio")
     .eq("id", data.service)
     .single();
 
@@ -29,6 +30,7 @@ export async function submitReservationAction(data: ReservationData) {
   }
 
   const duracion = servicio.duracion_minutos;
+  const precioBase = servicio.precio;
   const horaInicio = data.timeSlot;
   const horaFin = minutesToTime(timeToMinutes(horaInicio) + duracion);
 
@@ -45,7 +47,15 @@ export async function submitReservationAction(data: ReservationData) {
     );
   }
 
-  // 3. Insertar reserva con los nuevos campos
+  // 3. Crear o encontrar cliente
+  const clienteId = await findOrCreateClientePublic(supabase, {
+    nombre: data.name,
+    email: data.email,
+    telefono: data.phone,
+    origen: "web",
+  });
+
+  // 4. Insertar reserva con cliente_id
   const { error } = await supabase.from("reserva").insert([
     {
       servicio_id: data.service,
@@ -58,7 +68,9 @@ export async function submitReservationAction(data: ReservationData) {
       duracion_minutos: duracion,
       observaciones: data.notes || null,
       estado: "pendiente",
+      precio: precioBase,
       origen: "web",
+      cliente_id: clienteId,
     },
   ]);
 
@@ -66,4 +78,8 @@ export async function submitReservationAction(data: ReservationData) {
     console.error("Error al insertar reserva en Supabase:", error);
     throw new Error("No se pudo enviar la solicitud. Inténtalo más tarde.");
   }
+
+  // 5. Actualizar estadísticas del cliente
+  await updateClienteStats(supabase, clienteId);
 }
+

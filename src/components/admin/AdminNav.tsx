@@ -16,6 +16,9 @@ export default function AdminNav({ title }: { title: string }) {
           <Link href="/admin/galeria" className="transition-colors hover:text-accent">
             Galería
           </Link>
+          <Link href="/admin/clientes" className="transition-colors hover:text-accent">
+            Clientes
+          </Link>
           <Link href="/admin/calendario" className="transition-colors hover:text-accent">
             Calendario
           </Link>

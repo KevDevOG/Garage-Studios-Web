@@ -121,15 +121,29 @@ export default function EditarReservaForm({
           </div>
         </div>
 
-        <div>
-          <label className="mb-1 block text-sm font-medium">Teléfono *</label>
-          <input
-            name="telefono"
-            type="tel"
-            required
-            defaultValue={reservation.telefono}
-            className="w-full"
-          />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Teléfono *</label>
+            <input
+              name="telefono"
+              type="tel"
+              required
+              defaultValue={reservation.telefono}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Precio Final (€) *</label>
+            <input
+              name="precio"
+              type="number"
+              step="0.01"
+              required
+              defaultValue={reservation.precio || 0}
+              className="w-full border-accent/30 focus:border-accent"
+            />
+            <p className="mt-1 text-[10px] text-muted italic">Precio base del servicio: {currentService?.precio || "--"}€</p>
+          </div>
         </div>
 
         {/* Fecha y hora */}

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { validateSlotAvailable } from "@/app/actions/availability";
 import { minutesToTime, timeToMinutes } from "@/lib/schedule";
+import { findOrCreateClientePublic, updateClienteStats } from "@/app/actions/clientes";
 
 // ── Helpers ──
 
@@ -16,9 +17,12 @@ async function requireAuth() {
   return supabase;
 }
 
-function revalidateAll() {
+function revalidateAll(id?: string) {
   revalidatePath("/admin/calendario");
   revalidatePath("/admin/dashboard");
+  if (id) {
+    revalidatePath(`/admin/calendario/${id}`);
+  }
 }
 
 // ── Tipos ──
@@ -41,7 +45,10 @@ export interface ReservationRow {
   updated_at: string | null;
   deleted_at: string | null;
   calendar_event_id: string | null; // TODO: futura integración Apple Calendar
-  servicio?: { nombre: string } | null;
+  precio: number | null;
+  cliente_id?: string | null;
+  cliente_total_reservas?: number;
+  servicio?: { nombre: string; precio?: number } | null;
 
   // Campos opcionales para mostrar bloques en el calendario
   is_block?: boolean;
@@ -59,7 +66,7 @@ export async function getReservations(
 
   const { data, error } = await supabase
     .from("reserva")
-    .select("*, servicio(nombre)")
+    .select("*, servicio(nombre), cliente:cliente_id(total_reservas)")
     .gte("fecha_reserva", startDate)
     .lte("fecha_reserva", endDate)
     .is("deleted_at", null)
@@ -104,6 +111,7 @@ export async function createManualReservation(formData: FormData) {
   const duracionStr = formData.get("duracion_minutos") as string;
   const observaciones = formData.get("observaciones") as string;
   const notasAdmin = formData.get("notas_admin") as string;
+  const precio = parseFloat(formData.get("precio") as string);
   const estado = (formData.get("estado") as string) || "pendiente";
 
   const duracion = parseInt(duracionStr, 10);
@@ -119,6 +127,14 @@ export async function createManualReservation(formData: FormData) {
     return { error: "Ya hay una reserva en ese horario. Elige otro." };
   }
 
+  // Crear o encontrar cliente
+  const clienteId = await findOrCreateClientePublic(supabase, {
+    nombre,
+    email,
+    telefono,
+    origen: "manual",
+  });
+
   const { error } = await supabase.from("reserva").insert([
     {
       servicio_id: servicioId,
@@ -132,7 +148,9 @@ export async function createManualReservation(formData: FormData) {
       observaciones: observaciones || null,
       notas_admin: notasAdmin || null,
       estado,
+      precio: isNaN(precio) ? null : precio,
       origen: "manual",
+      cliente_id: clienteId,
     },
   ]);
 
@@ -141,6 +159,7 @@ export async function createManualReservation(formData: FormData) {
     return { error: "Error al guardar la reserva." };
   }
 
+  await updateClienteStats(supabase, clienteId);
   revalidateAll();
   return { success: true };
 }
@@ -160,6 +179,7 @@ export async function updateReservation(id: string, formData: FormData) {
   const notasAdmin = formData.get("notas_admin") as string;
   const estado = formData.get("estado") as string;
   const servicioId = formData.get("servicio_id") as string;
+  const precio = parseFloat(formData.get("precio") as string);
 
   const duracion = parseInt(duracionStr, 10);
   const horaFin = minutesToTime(timeToMinutes(horaInicio) + duracion);
@@ -191,6 +211,7 @@ export async function updateReservation(id: string, formData: FormData) {
       observaciones: observaciones || null,
       notas_admin: notasAdmin || null,
       estado,
+      precio: isNaN(precio) ? null : precio,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
@@ -200,7 +221,17 @@ export async function updateReservation(id: string, formData: FormData) {
     return { error: "Error al guardar los cambios." };
   }
 
-  revalidateAll();
+  // Recalcular stats del cliente si existe
+  const { data: resData } = await supabase
+    .from("reserva")
+    .select("cliente_id")
+    .eq("id", id)
+    .single();
+  if (resData?.cliente_id) {
+    await updateClienteStats(supabase, resData.cliente_id);
+  }
+
+  revalidateAll(id);
   return { success: true };
 }
 
@@ -208,6 +239,13 @@ export async function updateReservation(id: string, formData: FormData) {
 
 export async function deleteReservation(id: string) {
   const supabase = await requireAuth();
+
+  // Obtener cliente_id antes del borrado lógico
+  const { data: resData } = await supabase
+    .from("reserva")
+    .select("cliente_id")
+    .eq("id", id)
+    .single();
 
   const { error } = await supabase
     .from("reserva")
@@ -219,7 +257,12 @@ export async function deleteReservation(id: string) {
     return { error: "Error al eliminar." };
   }
 
-  revalidateAll();
+  // Recalcular stats del cliente
+  if (resData?.cliente_id) {
+    await updateClienteStats(supabase, resData.cliente_id);
+  }
+
+  revalidateAll(id);
   return { success: true };
 }
 
@@ -278,12 +321,19 @@ export async function addReservationBlock(formData: FormData) {
     return { error: "Error al añadir el bloque." };
   }
 
-  revalidateAll();
+  revalidateAll(reservaId);
   return { success: true };
 }
 
 export async function deleteReservationBlock(blockId: string) {
   const supabase = await requireAuth();
+
+  // Obtener el reserva_id antes de borrar para revalidar
+  const { data: block } = await supabase
+    .from("reserva_bloque")
+    .select("reserva_id")
+    .eq("id", blockId)
+    .single();
 
   const { error } = await supabase
     .from("reserva_bloque")
@@ -295,6 +345,11 @@ export async function deleteReservationBlock(blockId: string) {
     return { error: "Error al eliminar." };
   }
 
-  revalidateAll();
+  if (block?.reserva_id) {
+    revalidateAll(block.reserva_id);
+  } else {
+    revalidateAll();
+  }
+  
   return { success: true };
 }

@@ -37,8 +37,16 @@ export default async function CalendarioPage({
   sunday.setDate(monday.getDate() + 6);
   sunday.setHours(23, 59, 59, 999);
 
-  const startDate = monday.toISOString().split("T")[0];
-  const endDate = sunday.toISOString().split("T")[0];
+  // Función para obtener YYYY-MM-DD en local sin desplazamientos de zona horaria
+  const getLocalISO = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const startDate = getLocalISO(monday);
+  const endDate = getLocalISO(sunday);
   const fechaParam = params.fecha ? `&fecha=${params.fecha}` : "";
 
   const reservas = await getReservations(startDate, endDate);
@@ -47,7 +55,7 @@ export default async function CalendarioPage({
   const supabase = await createClient();
   const { data: bloques } = await supabase
     .from("reserva_bloque")
-    .select("*, reserva(*, servicio(nombre))")
+    .select("*, reserva(*, servicio(nombre), cliente:cliente_id(total_reservas))")
     .gte("fecha", startDate)
     .lte("fecha", endDate);
 
@@ -66,6 +74,9 @@ export default async function CalendarioPage({
     notas_admin: b.reserva?.notas_admin || null,
     estado: b.estado,
     origen: b.reserva?.origen || "web",
+    precio: b.reserva?.precio || null,
+    cliente_id: b.reserva?.cliente_id || null,
+    cliente_total_reservas: b.reserva?.cliente?.total_reservas || 0,
     created_at: b.created_at,
     updated_at: b.updated_at,
     deleted_at: null,
@@ -95,14 +106,15 @@ export default async function CalendarioPage({
     });
   }
 
-  // Generar todas las fechas de la semana (incluso las vacías)
   const weekDays: string[] = [];
   const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    weekDays.push(d.toISOString().split("T")[0]);
+    weekDays.push(getLocalISO(d));
   }
+
+  const todayStr = getLocalISO(today);
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr + "T00:00:00");
@@ -119,7 +131,7 @@ export default async function CalendarioPage({
       {/* Controles */}
       <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-4">
-          <DateJump currentFecha={params.fecha || today.toISOString().split("T")[0]} />
+          <DateJump currentFecha={params.fecha || todayStr} />
 
           <div className="flex items-center gap-3">
             <Link
@@ -160,7 +172,7 @@ export default async function CalendarioPage({
       <div className="space-y-6">
         {weekDays.map((dateStr, idx) => {
           const dayReservations = grouped[dateStr] || [];
-          const isToday = dateStr === today.toISOString().split("T")[0];
+          const isToday = dateStr === todayStr;
 
           return (
             <div

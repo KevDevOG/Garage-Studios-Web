@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import ReservationStatusSelect from "@/components/ReservationStatusSelect";
 import ContactStatusButton from "@/components/ContactStatusButton";
 import AdminNav from "@/components/admin/AdminNav";
+import DeleteReservationButton from "@/components/admin/DeleteReservationButton";
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
@@ -14,7 +15,8 @@ export default async function AdminDashboardPage() {
   // Obtenemos las últimas 50 reservas para tener una buena panorámica, ordenadas por fecha de solicitud
   const { data: reservas } = await supabase
     .from("reserva")
-    .select("*, servicio(nombre)")
+    .select("*, servicio(nombre), cliente:cliente_id(total_reservas)")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -117,8 +119,13 @@ export default async function AdminDashboardPage() {
                             </td>
                             <td className="py-5 pr-4">
                               <div className="font-semibold text-white">{res.nombre}</div>
+                              {res.cliente?.total_reservas > 1 && (
+                                <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-accent border border-accent/20">
+                                  RECURRENTE
+                                </span>
+                              )}
                               {res.origen === "manual" && (
-                                <span className="text-[10px] text-accent font-bold uppercase tracking-tighter">Manual</span>
+                                <span className="ml-1 text-[10px] text-accent font-bold uppercase tracking-tighter">Manual</span>
                               )}
                             </td>
                             <td className="py-5 pr-4">
@@ -134,7 +141,10 @@ export default async function AdminDashboardPage() {
                               <div>{res.telefono}</div>
                             </td>
                             <td className="py-5">
-                              <ReservationStatusSelect id={res.id} currentStatus={res.estado} />
+                              <div className="flex items-center gap-2">
+                                <ReservationStatusSelect id={res.id} currentStatus={res.estado} />
+                                <DeleteReservationButton id={res.id} />
+                              </div>
                             </td>
                           </tr>
                         ))}

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { updateClienteStats } from "@/app/actions/clientes";
 
 export async function updateReservationStatus(id: string, estado: string) {
   const supabase = await createClient();
@@ -26,9 +27,20 @@ export async function updateReservationStatus(id: string, estado: string) {
     throw new Error("Error al actualizar el estado");
   }
 
+  // Recalcular stats del cliente si existe
+  const { data: resData } = await supabase
+    .from("reserva")
+    .select("cliente_id")
+    .eq("id", id)
+    .single();
+  if (resData?.cliente_id) {
+    await updateClienteStats(supabase, resData.cliente_id);
+  }
+
   // Refrescar los datos de las rutas relevantes
   revalidatePath("/admin/dashboard");
   revalidatePath("/admin/calendario");
+  revalidatePath("/admin/clientes");
 }
 
 export async function updateContactStatus(id: string, leido: boolean) {
