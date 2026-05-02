@@ -54,19 +54,19 @@ export default async function ServiciosPage() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
       {/* Encabezado */}
-      <div className="mb-16 text-center">
-        <h1 className="text-3xl font-bold sm:text-4xl">Nuestros Servicios</h1>
-        <p className="mt-3 text-muted">
-          Ofrecemos todo lo que necesitas para crear, grabar y pulir tu música.
-          Elige el servicio que mejor se adapte a tu proyecto.
+      <div className="mb-24 text-center animate-fade-in">
+        <h1 className="text-4xl font-black uppercase italic tracking-tighter sm:text-6xl">Nuestros <span className="text-accent">Servicios</span></h1>
+        <div className="mx-auto mt-6 h-1.5 w-24 bg-accent"></div>
+        <p className="mx-auto mt-8 max-w-2xl text-lg font-medium text-muted">
+          Soluciones profesionales para llevar tu visión artística al siguiente nivel. Elige el servicio que mejor se adapte a tu sonido.
         </p>
       </div>
 
       {/* ── SONIDO ────────────────────────────────────────────── */}
       {sonido.length > 0 && (
-        <div className="mb-16">
-          <h2 className="mb-6 text-2xl font-bold border-b border-card-border pb-3 flex items-center gap-2">
-            <span>🎧</span> Sonido
+        <div className="mb-12">
+          <h2 className="mb-10 text-3xl font-black uppercase italic tracking-tighter flex items-center gap-4">
+            <span className="h-8 w-2 bg-accent"></span> Sonido
           </h2>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {sonido.map(service => (
@@ -80,9 +80,9 @@ export default async function ServiciosPage() {
 
       {/* ── DISEÑO ────────────────────────────────────────────── */}
       {diseno.length > 0 && (
-        <div className="mb-16">
-          <h2 className="mb-6 text-2xl font-bold border-b border-card-border pb-3 flex items-center gap-2">
-            <span>🎨</span> Diseño
+        <div className="mb-12">
+          <h2 className="mb-10 text-3xl font-black uppercase italic tracking-tighter flex items-center gap-4">
+            <span className="h-8 w-2 bg-accent"></span> Diseño
           </h2>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {diseno.map(service => (
@@ -94,17 +94,17 @@ export default async function ServiciosPage() {
 
       {/* ── PACKS ─────────────────────────────────────────────── */}
       {hasPacks && (
-        <div className="mb-16 rounded-3xl bg-gradient-to-br from-card-bg via-card-bg to-primary/10 p-6 sm:p-10 border border-primary/20 shadow-[0_0_40px_rgba(30,58,138,0.1)]">
+        <div className="mb-24 rounded-[2rem] bg-gradient-to-br from-card-bg via-card-bg to-accent/5 p-8 sm:p-16 border border-accent/20 shadow-[0_0_60px_rgba(0,0,0,0.8)]">
           <div className="mb-12 text-center">
-            <h2 className="text-3xl font-extrabold text-white drop-shadow-md">💎 Packs Completos</h2>
-            <p className="mt-2 text-gray-300">Las mejores opciones para lanzar tu proyecto al siguiente nivel con la mejor relación calidad-precio.</p>
+            <h2 className="text-4xl font-black uppercase italic tracking-tighter text-white">💎 Packs Especiales</h2>
+            <p className="mt-4 text-gray-400 font-medium">Las mejores opciones estratégicas para lanzar tu proyecto con la mejor relación calidad-precio.</p>
           </div>
 
           {/* Planes GST */}
           {packsGST.length > 0 && (
             <div className="mb-12">
-              <h3 className="mb-6 text-xl font-bold text-primary flex items-center gap-2">
-                <span>🚀</span> Planes GST
+              <h3 className="mb-6 text-xl font-bold text-accent uppercase italic tracking-tighter sm:text-2xl flex items-center gap-3">
+                <span className="h-0.5 w-10 bg-accent"></span> Planes GST
               </h3>
               <div className="grid gap-6 sm:grid-cols-3">
                 {packsGST.map(service => (
@@ -117,8 +117,8 @@ export default async function ServiciosPage() {
           {/* Packs Sonido */}
           {packsSonido.length > 0 && (
             <div className="mb-12">
-              <h3 className="mb-6 text-xl font-bold text-primary flex items-center gap-2">
-                <span>🎧</span> Packs Sonido
+              <h3 className="mb-6 text-xl font-bold text-accent uppercase italic tracking-tighter sm:text-2xl flex items-center gap-3">
+                <span className="h-0.5 w-10 bg-accent"></span> Packs Sonido
               </h3>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {packsSonido.map(service => (
@@ -133,8 +133,8 @@ export default async function ServiciosPage() {
           {/* Pack Diseño */}
           {packsDiseno.length > 0 && (
             <div>
-              <h3 className="mb-6 text-xl font-bold text-primary flex items-center gap-2">
-                <span>🎨</span> Pack Diseño
+              <h3 className="mb-6 text-xl font-bold text-accent uppercase italic tracking-tighter sm:text-2xl flex items-center gap-3">
+                <span className="h-0.5 w-10 bg-accent"></span> Pack Diseño
               </h3>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {packsDiseno.map(service => (

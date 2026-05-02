@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import Image from "next/image";
 
 const links = [
   { href: "/", label: "Inicio" },
@@ -17,11 +18,18 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-card-border bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+    <nav className="sticky top-0 z-50 border-b border-card-border bg-background/90 backdrop-blur-md">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 pt-3 pb-1 sm:px-6">
         {/* Logo */}
-        <Link href="/" className="text-xl font-bold tracking-tight">
-          🎸 <span className="text-accent">Garage</span> Studios
+        <Link href="/" className="flex items-center">
+          <Image 
+            src="/images/logo-sin-fondo.png" 
+            alt="Garage Studios Logo" 
+            width={400} 
+            height={120} 
+            className="h-24 w-auto object-contain sm:h-40 -my-6 sm:-my-10"
+            priority
+          />
         </Link>
 
         {/* Desktop links */}
@@ -30,7 +38,7 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`text-sm font-medium transition-colors hover:text-accent ${pathname === link.href ? "text-accent" : "text-muted"
+              className={`text-sm font-black uppercase tracking-widest transition-colors hover:text-accent ${pathname === link.href ? "text-accent" : "text-muted"
                 }`}
             >
               {link.label}
@@ -38,7 +46,7 @@ export default function Navbar() {
           ))}
           <Link
             href="/reservas"
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
+            className="rounded-lg bg-accent px-6 py-3 text-sm font-black uppercase tracking-widest text-black transition-all hover:bg-accent-hover hover:scale-105"
           >
             Reservar
           </Link>
@@ -64,7 +72,7 @@ export default function Navbar() {
               key={link.href}
               href={link.href}
               onClick={() => setMenuOpen(false)}
-              className={`block py-2 text-sm font-medium transition-colors hover:text-accent ${pathname === link.href ? "text-accent" : "text-muted"
+              className={`block py-3 text-sm font-black uppercase tracking-widest transition-colors hover:text-accent ${pathname === link.href ? "text-accent" : "text-muted"
                 }`}
             >
               {link.label}
@@ -73,7 +81,7 @@ export default function Navbar() {
           <Link
             href="/reservas"
             onClick={() => setMenuOpen(false)}
-            className="mt-2 block rounded-lg bg-accent px-4 py-2 text-center text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
+            className="mt-2 block rounded-lg bg-accent px-4 py-3 text-center text-sm font-black uppercase tracking-widest text-black transition-colors hover:bg-accent-hover"
           >
             Reservar
           </Link>

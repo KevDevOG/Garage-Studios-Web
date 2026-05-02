@@ -105,7 +105,7 @@ export default function EditarServicioForm({ servicio }: { servicio: any }) {
         </div>
         <div className="flex items-center h-10">
           <label className="flex items-center gap-2 cursor-pointer">
-            <input name="es_pack" type="checkbox" defaultChecked={servicio.es_pack} className="w-4 h-4 accent-primary" />
+            <input name="es_pack" type="checkbox" defaultChecked={servicio.es_pack} className="w-4 h-4 accent-accent" />
             <span className="text-sm font-medium">Es un Pack Destacado</span>
           </label>
         </div>

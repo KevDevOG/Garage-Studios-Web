@@ -18,7 +18,7 @@ export async function updateReservationStatus(id: string, estado: string) {
   // Actualizar el estado en la tabla reserva
   const { error } = await supabase
     .from("reserva")
-    .update({ estado })
+    .update({ estado, updated_at: new Date().toISOString() })
     .eq("id", id);
 
   if (error) {
@@ -26,8 +26,9 @@ export async function updateReservationStatus(id: string, estado: string) {
     throw new Error("Error al actualizar el estado");
   }
 
-  // Refrescar los datos de la ruta del dashboard
+  // Refrescar los datos de las rutas relevantes
   revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/calendario");
 }
 
 export async function updateContactStatus(id: string, leido: boolean) {

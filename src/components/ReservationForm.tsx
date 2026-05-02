@@ -3,6 +3,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { submitReservationAction } from "@/app/actions/reservation";
+import { getAvailableSlots } from "@/app/actions/availability";
 import type { DBService } from "@/app/actions/services";
 import {
   validateRequired,
@@ -18,6 +19,7 @@ interface FormErrors {
   email?: string;
   service?: string;
   date?: string;
+  timeSlot?: string;
   notes?: string;
 }
 
@@ -35,11 +37,18 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
     email: "",
     service: "",
     date: "",
+    timeSlot: "",
     notes: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  // ── Disponibilidad horaria ──
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotsMessage, setSlotsMessage] = useState<string | undefined>();
+  const [serviceDuration, setServiceDuration] = useState<number>(0);
 
   // Pre-seleccionar servicio si viene por URL
   useEffect(() => {
@@ -48,6 +57,32 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
       setFormData((prev) => ({ ...prev, service: servicio }));
     }
   }, [searchParams]);
+
+  // Cargar slots disponibles cuando cambian servicio + fecha
+  useEffect(() => {
+    if (formData.service && formData.date) {
+      setLoadingSlots(true);
+      setAvailableSlots([]);
+      setSlotsMessage(undefined);
+      setFormData((prev) => ({ ...prev, timeSlot: "" }));
+
+      getAvailableSlots(formData.service, formData.date)
+        .then((result) => {
+          setAvailableSlots(result.slots);
+          setServiceDuration(result.duracion);
+          setSlotsMessage(result.mensaje);
+        })
+        .catch(() => {
+          setSlotsMessage("Error al cargar horarios. Inténtalo de nuevo.");
+        })
+        .finally(() => {
+          setLoadingSlots(false);
+        });
+    } else {
+      setAvailableSlots([]);
+      setSlotsMessage(undefined);
+    }
+  }, [formData.service, formData.date]);
 
   // ── Validación ──
   function validate(): FormErrors {
@@ -68,6 +103,10 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
     const dateErr = validateDate(formData.date);
     if (dateErr) newErrors.date = dateErr;
 
+    if (!formData.timeSlot) {
+      newErrors.timeSlot = "Selecciona un horario";
+    }
+
     return newErrors;
   }
 
@@ -77,7 +116,6 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
   ) {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    // Limpiar error del campo al escribir
     if (errors[name as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
@@ -102,14 +140,20 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
         email: "",
         service: "",
         date: "",
+        timeSlot: "",
         notes: "",
       });
-    } catch {
-      setErrors({ notes: "Error al enviar. Inténtalo de nuevo." });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al enviar. Inténtalo de nuevo.";
+      setErrors({ notes: message });
     } finally {
       setLoading(false);
     }
   }
+
+  // ── Fecha mínima: hoy ──
+  const today = new Date().toISOString().split("T")[0];
 
   // ── Mensaje de éxito ──
   if (submitted) {
@@ -248,6 +292,7 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
           id="res-date"
           name="date"
           type="date"
+          min={today}
           value={formData.date}
           onChange={handleChange}
           aria-invalid={!!errors.date}
@@ -259,6 +304,62 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
           </p>
         )}
       </div>
+
+      {/* Hora — Solo visible cuando hay servicio + fecha */}
+      {formData.service && formData.date && (
+        <div>
+          <label htmlFor="res-timeSlot" className="mb-1 block text-sm font-medium">
+            Hora <span className="text-accent">*</span>
+          </label>
+          {loadingSlots ? (
+            <div className="flex items-center gap-2 py-3 text-sm text-muted">
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent"></span>
+              Cargando horarios disponibles...
+            </div>
+          ) : availableSlots.length > 0 ? (
+            <>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {availableSlots.map((slot) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => {
+                      setFormData((prev) => ({ ...prev, timeSlot: slot }));
+                      setErrors((prev) => ({ ...prev, timeSlot: undefined }));
+                    }}
+                    className={`rounded-lg border px-3 py-2.5 text-sm font-semibold transition-all ${
+                      formData.timeSlot === slot
+                        ? "border-accent bg-accent text-black"
+                        : "border-card-border bg-card-bg text-foreground hover:border-accent/50 hover:bg-accent/10"
+                    }`}
+                  >
+                    {slot}
+                  </button>
+                ))}
+              </div>
+              {serviceDuration > 0 && formData.timeSlot && (
+                <p className="mt-2 text-xs text-muted">
+                  Sesión de {serviceDuration} min — Termina a las{" "}
+                  {(() => {
+                    const [h, m] = formData.timeSlot.split(":").map(Number);
+                    const endMin = h * 60 + m + serviceDuration;
+                    const endH = Math.floor(endMin / 60) % 24;
+                    const endM = endMin % 60;
+                    return `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+                  })()}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+              {slotsMessage || "No hay horarios disponibles para este día."}
+            </p>
+          )}
+          {errors.timeSlot && (
+            <p className="mt-1 text-xs text-red-400">{errors.timeSlot}</p>
+          )}
+        </div>
+      )}
 
       {/* Observaciones */}
       <div>
@@ -288,7 +389,7 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-full bg-accent px-6 py-4 text-xs font-black uppercase tracking-widest text-black transition-all hover:scale-[1.02] hover:bg-accent-hover hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 disabled:hover:shadow-none"
       >
         {loading ? "Enviando solicitud..." : "Enviar solicitud de reserva"}
       </button>

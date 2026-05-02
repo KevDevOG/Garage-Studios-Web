@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Footer() {
   return (
@@ -6,14 +7,20 @@ export default function Footer() {
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-3">
         {/* Marca */}
         <div>
-          <h3 className="text-lg font-bold">
-            🎸 <span className="text-accent">Garage</span> Studios
-          </h3>
-          <p className="mt-2 text-sm font-medium italic text-gray-300">
+          <Link href="/" className="inline-block mb-4">
+            <Image 
+              src="/images/logo-sin-fondo.png" 
+              alt="Garage Studios Logo" 
+              width={200} 
+              height={70} 
+              className="h-14 w-auto object-contain"
+            />
+          </Link>
+          <p className="text-sm font-medium italic text-accent italic">
             "Music = Life"
           </p>
-          <p className="mt-2 text-sm text-muted">
-            Grabación y producción musical. Urbano, trap, rap, reggaeton, bachata, salsa, drill y R&B.
+          <p className="mt-4 text-sm leading-relaxed text-muted">
+            Grabación y producción musical profesional. Urbano, trap, rap, reggaeton, bachata, salsa, drill y R&B.
           </p>
         </div>
 

@@ -15,11 +15,11 @@ export default async function ReservasPage() {
   return (
     <section className="mx-auto max-w-2xl px-4 py-16 sm:px-6">
       {/* Encabezado */}
-      <div className="mb-10 text-center">
-        <h1 className="text-3xl font-bold sm:text-4xl">Solicitar Reserva</h1>
-        <p className="mt-3 text-muted">
-          Rellena el formulario y nos pondremos en contacto contigo para
-          confirmar disponibilidad y detalles de tu sesión.
+      <div className="mb-20 text-center animate-fade-in">
+        <h1 className="text-4xl font-black uppercase italic tracking-tighter sm:text-6xl">Tu Próxima <span className="text-accent">Sesión</span></h1>
+        <div className="mx-auto mt-6 h-1.5 w-24 bg-accent"></div>
+        <p className="mx-auto mt-8 max-w-2xl text-lg font-medium text-muted">
+          Reserva tu espacio en el estudio. Elige tu servicio y nos pondremos en contacto contigo para coordinar los detalles.
         </p>
       </div>
 

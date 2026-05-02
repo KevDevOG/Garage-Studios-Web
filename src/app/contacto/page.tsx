@@ -11,11 +11,11 @@ export default function ContactoPage() {
   return (
     <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
       {/* Encabezado */}
-      <div className="mb-10 text-center">
-        <h1 className="text-3xl font-bold sm:text-4xl">Contacto</h1>
-        <p className="mt-3 text-muted">
-          ¿Tienes un proyecto en mente? Cuéntanos y encontraremos la mejor
-          solución para ti.
+      <div className="mb-20 text-center animate-fade-in">
+        <h1 className="text-4xl font-black uppercase italic tracking-tighter sm:text-6xl">Hablemos de tu <span className="text-accent">Sonido</span></h1>
+        <div className="mx-auto mt-6 h-1.5 w-24 bg-accent"></div>
+        <p className="mx-auto mt-8 max-w-2xl text-lg font-medium text-muted">
+          ¿Listo para subir de nivel? Cuéntanos tu proyecto y encontraremos la mejor solución para ti.
         </p>
       </div>
 
@@ -81,21 +81,21 @@ export default function ContactoPage() {
         </div>
       </div>
       {/* ── Mapa de Ubicación ───────────────────────────────── */}
-      <div className="mt-16 rounded-xl border border-card-border bg-card-bg overflow-hidden animate-slide-up delay-300 shadow-xl">
+      <div className="mt-24 rounded-2xl border border-card-border bg-card-bg overflow-hidden animate-slide-up delay-300 shadow-2xl">
         {/* Map Header */}
-        <div className="p-6 sm:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b border-card-border">
+        <div className="p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-8 border-b border-card-border">
           <div>
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <span className="text-primary text-2xl">📍</span> Dónde estamos
+            <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white flex items-center gap-3">
+              <span className="text-accent text-3xl">📍</span> Ubicación
             </h2>
-            <p className="mt-2 text-muted">Avenida Parque Central 1, Las Palmas de Gran Canaria</p>
+            <p className="mt-2 text-sm font-medium text-muted">Avenida Parque Central 1, Las Palmas de Gran Canaria</p>
           </div>
-          <div className="flex flex-col w-full sm:w-auto sm:flex-row gap-3">
+          <div className="flex flex-col w-full sm:w-auto sm:flex-row gap-4">
             <a
               href="https://www.google.com/maps/search/?api=1&query=Avenida+Parque+Central+1,+Las+Palmas+de+Gran+Canaria"
               target="_blank"
               rel="noopener noreferrer"
-              className="shrink-0 flex justify-center items-center gap-2 rounded-lg border border-card-border bg-transparent px-6 py-3 font-semibold text-white transition-all hover:bg-white/5"
+              className="shrink-0 flex justify-center items-center gap-2 rounded-full border border-card-border bg-transparent px-8 py-4 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-white/5"
             >
               Ver en Google Maps
             </a>
@@ -103,7 +103,7 @@ export default function ContactoPage() {
               href="https://www.google.com/maps/dir/?api=1&destination=Avenida+Parque+Central+1,+Las+Palmas+de+Gran+Canaria"
               target="_blank"
               rel="noopener noreferrer"
-              className="shrink-0 flex justify-center items-center gap-2 rounded-lg bg-primary px-6 py-3 font-bold text-white transition-all hover:scale-105 hover:bg-primary-hover hover:shadow-[0_0_20px_rgba(30,58,138,0.4)]"
+              className="shrink-0 flex justify-center items-center gap-2 rounded-full bg-accent px-8 py-4 text-xs font-black uppercase tracking-widest text-black transition-all hover:scale-105 hover:bg-accent-hover hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]"
             >
               Cómo llegar
               <span aria-hidden="true">→</span>

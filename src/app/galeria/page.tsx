@@ -19,10 +19,11 @@ export default async function GaleriaPage() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
       {/* Encabezado */}
-      <div className="mb-10 text-center">
-        <h1 className="text-3xl font-bold sm:text-4xl">Dentro de Garage Studios</h1>
-        <p className="mt-3 text-muted">
-          Un vistazo al estudio, al equipo y al ambiente donde se crea cada proyecto.
+      <div className="mb-20 text-center animate-fade-in">
+        <h1 className="text-4xl font-black uppercase italic tracking-tighter sm:text-6xl">Nuestro <span className="text-accent">Estudio</span></h1>
+        <div className="mx-auto mt-6 h-1.5 w-24 bg-accent"></div>
+        <p className="mx-auto mt-8 max-w-2xl text-lg font-medium text-muted">
+          Un vistazo al equipo, la técnica y la atmósfera donde el talento local se transforma en sonido profesional.
         </p>
       </div>
 

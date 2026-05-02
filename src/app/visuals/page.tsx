@@ -66,23 +66,24 @@ export default async function VisualsPage() {
       </div>
 
       {/* Encabezado Visuals */}
-      <div className="mb-20 mt-12 text-center sm:mt-16">
-        <span className="mb-4 inline-block rounded-full bg-primary/20 px-4 py-1.5 text-xs font-bold text-primary uppercase tracking-wider backdrop-blur-md border border-primary/20 shadow-lg">
-          División Audiovisual
+      <div className="mb-20 mt-12 text-center sm:mt-16 animate-fade-in">
+        <span className="mb-6 inline-block rounded-full border border-accent/30 bg-accent/10 px-6 py-1.5 text-xs font-bold uppercase tracking-widest text-accent backdrop-blur-md shadow-lg">
+          Audiovisual Division
         </span>
-        <h1 className="text-4xl font-black sm:text-5xl lg:text-6xl tracking-tight mt-2 text-white drop-shadow-xl">
-          Garage <span className="text-primary drop-shadow-[0_0_15px_rgba(30,58,138,0.8)]">Visuals</span>
+        <h1 className="text-5xl font-black uppercase italic tracking-tighter sm:text-6xl lg:text-7xl text-white drop-shadow-2xl">
+          Garage <span className="text-accent drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]">Visuals</span>
         </h1>
-        <p className="mt-6 text-lg text-gray-200 max-w-2xl mx-auto drop-shadow-md sm:text-xl">
-          Elevamos tu imagen al mismo nivel que tu sonido. Ofrecemos producción de videoclips, sesiones fotográficas y contenido dinámico para redes.
+        <div className="mx-auto mt-6 h-1.5 w-24 bg-accent"></div>
+        <p className="mt-10 text-lg font-medium leading-relaxed text-gray-200 max-w-2xl mx-auto drop-shadow-md sm:text-xl">
+          Elevamos tu imagen al mismo nivel que tu sonido. Videoclips en 4K, sesiones fotográficas de alta gama y contenido estratégico para redes.
         </p>
       </div>
 
       {/* ── PRODUCCIÓN VISUAL ────────────────────────────────── */}
       {(fotoVideo.length > 0 || edicionVisual.length > 0) && (
-        <div className="mb-16">
-          <h2 className="mb-6 text-2xl font-bold border-b border-card-border pb-3 flex items-center gap-2">
-            <span>🎥</span> Fotografía, Vídeo y Edición
+        <div className="mb-12">
+          <h2 className="mb-10 text-3xl font-black uppercase italic tracking-tighter flex items-center gap-4">
+            <span className="h-8 w-2 bg-accent"></span> Producción Visual
           </h2>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {fotoVideo.map(service => (
@@ -97,13 +98,13 @@ export default async function VisualsPage() {
 
       {/* ── PACKS VISUALS ───────────────────────────────────────── */}
       {packsVisuals.length > 0 && (
-        <div className="mb-16 rounded-3xl bg-gradient-to-br from-card-bg via-card-bg to-primary/15 p-6 sm:p-10 border border-primary/30 shadow-[0_0_40px_rgba(30,58,138,0.15)]">
-          <div className="mb-8 text-center">
-            <h2 className="text-3xl font-extrabold text-white drop-shadow-md">🎬 Packs Garage Visuals</h2>
-            <p className="mt-2 text-gray-300">Soluciones integrales para que no tengas que preocuparte de nada.</p>
+        <div className="mb-24 rounded-[2rem] bg-gradient-to-br from-card-bg via-card-bg to-accent/5 p-8 sm:p-16 border border-accent/20 shadow-[0_0_60px_rgba(0,0,0,0.8)]">
+          <div className="mb-16 text-center">
+            <h2 className="text-4xl font-black uppercase italic tracking-tighter text-white">🎬 Packs Garage Visuals</h2>
+            <p className="mt-4 text-gray-400 font-medium">Soluciones integrales diseñadas para que no tengas que preocuparte de nada.</p>
           </div>
           
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {packsVisuals.map(service => (
               <ServiceCard key={service.id} service={service} featured={true} />
             ))}
