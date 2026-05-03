@@ -13,7 +13,7 @@ export default function AvisoLegalPage() {
         <section>
           <h2 className="text-xl font-semibold text-white mb-4">1. Identificación del Titular</h2>
           <p>
-            En cumplimiento de la Ley de Servicios de la Sociedad de la Información y de Comercio Electrónico (LSSI), se informa que la presente página web es titularidad de <strong>Garage Studios</strong>, con ubicación en Avenida Parque Central 1, Las Palmas de Gran Canaria, España.
+            En cumplimiento de la Ley de Servicios de la Sociedad de la Información y de Comercio Electrónico (LSSI), se informa que la presente página web es titularidad de <strong>Garage Studios</strong>, con ubicación en C. Drago, 35010 Las Palmas de Gran Canaria, Las Palmas, España.
           </p>
           <p className="mt-2">
             <strong>Email de contacto:</strong> garagestudioslp@gmail.com <br/>

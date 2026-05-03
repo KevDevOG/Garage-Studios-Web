@@ -34,7 +34,7 @@ const FAQS: FAQItem[] = [
   },
   {
     question: "¿Dónde está ubicado el estudio?",
-    answer: "Estamos situados en Las Palmas de Gran Canaria, concretamente en la zona de Avenida Parque Central. Es una ubicación de fácil acceso para que puedas venir cómodamente a trabajar en tu música."
+    answer: "Estamos situados en Las Palmas de Gran Canaria, concretamente en C. Drago (35010). Es una ubicación de fácil acceso para que puedas venir cómodamente a trabajar en tu música."
   },
   {
     question: "¿Puedo pedir presupuesto para un proyecto completo?",

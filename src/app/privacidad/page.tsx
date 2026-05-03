@@ -34,6 +34,7 @@ export default function PrivacidadPage() {
           </p>
           <ul className="list-disc pl-6 mt-2 space-y-1">
             <li>Gestionar las reservas de sesiones en nuestro estudio.</li>
+            <li>Enviar notificaciones y confirmaciones sobre tus reservas mediante correo electrónico o WhatsApp.</li>
             <li>Responder a consultas o peticiones enviadas mediante el formulario de contacto.</li>
             <li>Coordinar proyectos de grabación y producción audiovisual.</li>
             <li>Mantener un historial interno de atención al cliente para mejorar el servicio ofrecido.</li>

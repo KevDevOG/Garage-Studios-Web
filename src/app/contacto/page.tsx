@@ -29,7 +29,7 @@ export default function ContactoPage() {
             <h3 className="text-sm font-semibold uppercase tracking-wider text-muted">
               Dirección
             </h3>
-            <p className="mt-1 text-sm">Avenida Parque Central 1, Las Palmas de Gran Canaria</p>
+            <p className="mt-1 text-sm">C. Drago, 35010 Las Palmas de Gran Canaria, Las Palmas</p>
           </div>
 
           <div>
@@ -88,11 +88,11 @@ export default function ContactoPage() {
             <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white flex items-center gap-3">
               <span className="text-accent text-3xl">📍</span> Ubicación
             </h2>
-            <p className="mt-2 text-sm font-medium text-muted">Avenida Parque Central 1, Las Palmas de Gran Canaria</p>
+            <p className="mt-2 text-sm font-medium text-muted">C. Drago, 35010 Las Palmas de Gran Canaria, Las Palmas</p>
           </div>
           <div className="flex flex-col w-full sm:w-auto sm:flex-row gap-4">
             <a
-              href="https://www.google.com/maps/search/?api=1&query=Avenida+Parque+Central+1,+Las+Palmas+de+Gran+Canaria"
+              href="https://maps.app.goo.gl/heSYXrycMkAFsBoCA"
               target="_blank"
               rel="noopener noreferrer"
               className="shrink-0 flex justify-center items-center gap-2 rounded-full border border-card-border bg-transparent px-8 py-4 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-white/5"
@@ -100,7 +100,7 @@ export default function ContactoPage() {
               Ver en Google Maps
             </a>
             <a
-              href="https://www.google.com/maps/dir/?api=1&destination=Avenida+Parque+Central+1,+Las+Palmas+de+Gran+Canaria"
+              href="https://maps.app.goo.gl/heSYXrycMkAFsBoCA"
               target="_blank"
               rel="noopener noreferrer"
               className="shrink-0 flex justify-center items-center gap-2 rounded-full bg-accent px-8 py-4 text-xs font-black uppercase tracking-widest text-black transition-all hover:scale-105 hover:bg-accent-hover hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]"
@@ -114,7 +114,7 @@ export default function ContactoPage() {
         {/* Google Maps Iframe */}
         <div className="h-[400px] w-full bg-black/50 relative">
           <iframe
-            src="https://maps.google.com/maps?q=Avenida+Parque+Central+1,+Las+Palmas+de+Gran+Canaria&t=k&z=18&ie=UTF8&iwloc=&output=embed"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3519.2068559041677!2d-15.45431782387618!3d28.109726607628502!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xc40957fdb7a8903%3A0x8f5d83a7d7675671!2sGarage%20Studios!5e0!3m2!1ses!2ses!4v1777767285936!5m2!1ses!2ses"
             width="100%"
             height="100%"
             style={{ border: 0 }}

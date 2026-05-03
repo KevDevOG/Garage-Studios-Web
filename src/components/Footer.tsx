@@ -55,7 +55,7 @@ export default function Footer() {
             Contacto
           </h4>
           <ul className="space-y-2 text-sm text-muted">
-            <li>📍 Avenida Parque Central 1, Las Palmas</li>
+            <li>📍 C. Drago, 35010 Las Palmas de Gran Canaria</li>
             <li>📞 +34 693 48 93 79</li>
             <li>✉️ garagestudioslp@gmail.com</li>
           </ul>

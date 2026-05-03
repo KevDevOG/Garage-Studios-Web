@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { validateSlotAvailable } from "@/app/actions/availability";
 import { minutesToTime, timeToMinutes } from "@/lib/schedule";
 import { findOrCreateClientePublic, updateClienteStats } from "@/app/actions/clientes";
+import { sendReservationConfirmationEmail } from "@/lib/email";
 
 // ── Helpers ──
 
@@ -54,6 +55,12 @@ export interface ReservationRow {
   is_block?: boolean;
   block_title?: string;
   parent_reserva_id?: string;
+
+  // Confirmaciones
+  confirmacion_email_enviada_at?: string | null;
+  confirmacion_whatsapp_enviada_at?: string | null;
+  confirmacion_error?: string | null;
+  calendar_token?: string | null;
 }
 
 // ── Obtener reservas en rango ──
@@ -197,6 +204,16 @@ export async function updateReservation(id: string, formData: FormData) {
     }
   }
 
+  // 1. Obtener estado previo antes de actualizar
+  const { data: currentRes } = await supabase
+    .from("reserva")
+    .select("estado, confirmacion_email_enviada_at, servicio(nombre)")
+    .eq("id", id)
+    .single();
+
+  if (!currentRes) return { error: "Reserva no encontrada." };
+
+  // 2. Actualizar la reserva
   const { error } = await supabase
     .from("reserva")
     .update({
@@ -221,7 +238,7 @@ export async function updateReservation(id: string, formData: FormData) {
     return { error: "Error al guardar los cambios." };
   }
 
-  // Recalcular stats del cliente si existe
+  // 3. Recalcular stats del cliente si existe
   const { data: resData } = await supabase
     .from("reserva")
     .select("cliente_id")
@@ -229,6 +246,39 @@ export async function updateReservation(id: string, formData: FormData) {
     .single();
   if (resData?.cliente_id) {
     await updateClienteStats(supabase, resData.cliente_id);
+  }
+
+  // 4. Lógica de email: Solo si pasa a "confirmada" por primera vez y tiene email
+  if (
+    estado === "confirmada" &&
+    currentRes.estado !== "confirmada" &&
+    !currentRes.confirmacion_email_enviada_at &&
+    email
+  ) {
+    const emailResult = await sendReservationConfirmationEmail(email, {
+      nombre,
+      servicioNombre: (Array.isArray(currentRes.servicio) ? currentRes.servicio[0]?.nombre : (currentRes.servicio as any)?.nombre) || "Sesión en Garage Studios",
+      fecha: new Date(fecha + "T00:00:00").toLocaleDateString("es-ES", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+      horaInicio: horaInicio || "--:--",
+      horaFin: horaFin || "--:--",
+    });
+
+    if (emailResult.error) {
+      await supabase
+        .from("reserva")
+        .update({ confirmacion_error: emailResult.error })
+        .eq("id", id);
+    } else {
+      await supabase
+        .from("reserva")
+        .update({ confirmacion_email_enviada_at: new Date().toISOString() })
+        .eq("id", id);
+    }
   }
 
   revalidateAll(id);

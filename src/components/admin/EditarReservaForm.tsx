@@ -264,6 +264,130 @@ export default function EditarReservaForm({
         />
       )}
 
+      {/* Comunicaciones */}
+      <div className="rounded-xl border border-card-border bg-card-bg p-6 space-y-4">
+        <h3 className="text-sm font-black uppercase tracking-widest text-white border-b border-white/5 pb-2">
+          Comunicaciones
+        </h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Email Status */}
+          <div className="space-y-1">
+            <span className="text-[10px] uppercase tracking-widest text-muted font-bold block">
+              Email Automático
+            </span>
+            {reservation.confirmacion_email_enviada_at ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-bold text-green-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+                Enviado
+              </span>
+            ) : reservation.confirmacion_error ? (
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-xs font-bold text-red-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                  Error
+                </span>
+                <p className="text-[10px] text-red-400/80">{reservation.confirmacion_error}</p>
+              </div>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs font-bold text-muted">
+                <span className="h-1.5 w-1.5 rounded-full bg-muted"></span>
+                No enviado
+              </span>
+            )}
+          </div>
+
+          {/* WhatsApp Status & Actions */}
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase tracking-widest text-muted font-bold block">
+                WhatsApp Manual
+              </span>
+              {reservation.confirmacion_whatsapp_enviada_at ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-bold text-green-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+                  Enviado el {new Date(reservation.confirmacion_whatsapp_enviada_at).toLocaleDateString("es-ES")}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs font-bold text-muted">
+                  <span className="h-1.5 w-1.5 rounded-full bg-muted"></span>
+                  Pendiente
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  let phone = reservation.telefono.replace(/\D/g, "");
+                  if (!phone.startsWith("34") && phone.length <= 9) {
+                    phone = "34" + phone;
+                  }
+                  
+                  const fechaStr = new Date(reservation.fecha_reserva + "T00:00:00").toLocaleDateString("es-ES", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric"
+                  });
+                  
+                  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+                  const enlaceIcs = reservation.calendar_token ? `${baseUrl}/api/calendar/${reservation.calendar_token}` : '';
+                  
+                  const text = `Hola ${reservation.nombre},
+
+Tu reserva en Garage Studios está confirmada.
+
+Fecha: ${fechaStr}
+Hora: ${reservation.hora_inicio?.slice(0,5)} - ${reservation.hora_fin?.slice(0,5)}
+Servicio: ${currentService?.nombre || 'Sesión'}
+
+Dirección:
+C. Drago, 35010, Las Palmas de Gran Canaria
+
+${enlaceIcs ? `Añadir al calendario:\n${enlaceIcs}\n\n` : ''}Si necesitas cambiar algo o tienes alguna duda antes de la sesión, puedes responder directamente a este mensaje.
+
+Gracias por confiar en Garage Studios.
+Nos vemos en el estudio.`;
+                  
+                  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
+                }}
+                className="rounded-lg bg-[#25D366]/10 px-3 py-1.5 text-xs font-bold text-[#25D366] transition-colors hover:bg-[#25D366] hover:text-black"
+              >
+                Abrir WhatsApp
+              </button>
+              
+              {reservation.calendar_token && (
+                <a
+                  href={`/api/calendar/${reservation.calendar_token}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-card-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-white/5 hover:text-white inline-flex items-center"
+                >
+                  Añadir al calendario
+                </a>
+              )}
+              
+              {!reservation.confirmacion_whatsapp_enviada_at && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    startTransition(async () => {
+                      const { markWhatsappAsSent } = await import("@/app/actions/admin");
+                      await markWhatsappAsSent(reservation.id);
+                    });
+                  }}
+                  disabled={isPending}
+                  className="rounded-lg border border-card-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-white/5 hover:text-white disabled:opacity-50"
+                >
+                  Marcar Enviado
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Info de auditoría */}
       <div className="rounded-xl border border-card-border bg-card-bg p-4 text-xs text-muted">
         <div className="flex flex-wrap gap-x-6 gap-y-1">

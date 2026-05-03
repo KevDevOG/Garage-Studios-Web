@@ -283,12 +283,12 @@ export default async function HomePage() {
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-xl text-accent">📍</div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-white">Ubicación</h3>
-                    <p className="mt-1 text-muted">Avenida Parque Central 1<br />Las Palmas de Gran Canaria</p>
+                    <p className="mt-1 text-muted">C. Drago, 35010<br />Las Palmas de Gran Canaria, Las Palmas</p>
 
                     <div className="mt-4 overflow-hidden rounded-lg border border-card-border shadow-md">
                       <div className="h-[150px] w-full bg-black/50 relative">
                         <iframe
-                          src="https://maps.google.com/maps?q=Avenida+Parque+Central+1,+Las+Palmas+de+Gran+Canaria&t=k&z=17&ie=UTF8&iwloc=&output=embed"
+                          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3519.2068559041677!2d-15.45431782387618!3d28.109726607628502!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xc40957fdb7a8903%3A0x8f5d83a7d7675671!2sGarage%20Studios!5e0!3m2!1ses!2ses!4v1777767285936!5m2!1ses!2ses"
                           width="100%"
                           height="100%"
                           style={{ border: 0 }}
@@ -300,7 +300,7 @@ export default async function HomePage() {
                       </div>
                       <div className="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-card-border bg-card-bg border-t border-card-border">
                         <a
-                          href="https://www.google.com/maps/dir/?api=1&destination=Avenida+Parque+Central+1,+Las+Palmas+de+Gran+Canaria"
+                          href="https://maps.app.goo.gl/heSYXrycMkAFsBoCA"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex-1 flex items-center justify-center gap-2 px-4 py-4 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-accent hover:text-black"
@@ -308,7 +308,7 @@ export default async function HomePage() {
                           Cómo llegar <span aria-hidden="true">→</span>
                         </a>
                         <a
-                          href="https://www.google.com/maps/search/?api=1&query=Avenida+Parque+Central+1,+Las+Palmas+de+Gran+Canaria"
+                          href="https://maps.app.goo.gl/heSYXrycMkAFsBoCA"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-muted transition-colors hover:bg-white/5 hover:text-white"
