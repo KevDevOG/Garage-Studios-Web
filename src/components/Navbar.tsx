@@ -25,9 +25,9 @@ export default function Navbar() {
           <Image 
             src="/images/logo-sin-fondo.png" 
             alt="Garage Studios Logo" 
-            width={400} 
-            height={120} 
-            className="h-16 w-auto object-contain sm:h-28 -my-4 sm:-my-6"
+            width={200} 
+            height={60} 
+            className="h-10 w-auto object-contain md:h-14"
             priority
           />
         </Link>
