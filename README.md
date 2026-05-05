@@ -1,4 +1,4 @@
-# Garage Studios Web 🎸
+# Garage Studios Web 🎸 # Garage Studios Web - Plataforma de Producción Musical y Audiovisual (v1.1)
 
 Proyecto final de Desarrollo de Aplicaciones Web (DAW). Se trata de una plataforma web completa y profesional para un estudio de grabación y producción audiovisual ubicado en Las Palmas de Gran Canaria.
 
