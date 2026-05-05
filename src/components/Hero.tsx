@@ -24,19 +24,19 @@ export default function Hero() {
       {/* Contenido (con animaciones de entrada) */}
       <div className="relative z-10 max-w-4xl animate-slide-up opacity-0">
         {/* Logo Real */}
-        <div className="mb-8 flex justify-center">
+        <div className="mb-4 flex justify-center">
           <Image 
             src="/images/logo-sin-fondo.png" 
             alt="Garage Studios Logo" 
             width={1200} 
             height={400} 
-            className="h-auto w-full max-w-[280px] object-contain sm:max-w-[500px] md:max-w-[700px]"
+            className="h-auto w-full max-w-[200px] object-contain sm:max-w-[350px] md:max-w-[500px]"
             priority
           />
         </div>
 
         {/* Ubicación */}
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 text-xs font-bold tracking-widest text-accent uppercase">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 text-xs font-bold tracking-widest text-accent uppercase">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75"></span>
             <span className="relative inline-flex h-2 w-2 rounded-full bg-accent"></span>
@@ -50,13 +50,13 @@ export default function Hero() {
         </h1>
 
         {/* Descripción */}
-        <p className="mx-auto mt-8 max-w-2xl text-lg font-medium text-gray-200 sm:text-xl drop-shadow">
+        <p className="mx-auto mt-6 max-w-2xl text-lg font-medium text-gray-200 sm:text-xl drop-shadow">
           Todo empezó en un garage. Un espacio enfocado en apoyar a artistas emergentes. 
           Creemos que todo el mundo puede hacer música.
         </p>
 
         {/* Botones CTA */}
-        <div className="mt-12 flex flex-col items-center justify-center gap-6 sm:flex-row">
+        <div className="mt-10 flex flex-col items-center justify-center gap-6 sm:flex-row">
           <Link
             href="/reservas"
             className="group relative flex items-center justify-center gap-2 overflow-hidden rounded-full bg-accent px-10 py-5 text-lg font-bold text-black transition-all hover:scale-105 hover:bg-accent-hover hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]"
