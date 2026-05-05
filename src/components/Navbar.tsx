@@ -27,7 +27,7 @@ export default function Navbar() {
             alt="Garage Studios Logo" 
             width={400} 
             height={120} 
-            className="h-24 w-auto object-contain sm:h-40 -my-6 sm:-my-10"
+            className="h-16 w-auto object-contain sm:h-28 -my-4 sm:-my-6"
             priority
           />
         </Link>
