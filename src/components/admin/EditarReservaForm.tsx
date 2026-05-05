@@ -334,21 +334,21 @@ export default function EditarReservaForm({
                   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
                   const enlaceIcs = reservation.calendar_token ? `${baseUrl}/api/calendar/${reservation.calendar_token}` : '';
                   
-                  const text = `Hola ${reservation.nombre},
+                  const text = `Hola ${reservation.nombre} 👋,
 
-Tu reserva en Garage Studios ha sido confirmada.
+Tu reserva en Garage Studios ha sido confirmada ✅.
 
-Servicio: ${currentService?.nombre || 'Sesión'}
-${reservation.precio ? `Precio: ${reservation.precio}€\n` : ''}Fecha: ${fechaStr}
-Hora: ${reservation.hora_inicio?.slice(0,5)} - ${reservation.hora_fin?.slice(0,5)}
+🎵 Servicio: ${currentService?.nombre || 'Sesión'}
+${reservation.precio ? `💶 Precio: ${reservation.precio}€\n` : ''}📅 Fecha: ${fechaStr}
+🕒 Hora: ${reservation.hora_inicio?.slice(0,5)} - ${reservation.hora_fin?.slice(0,5)}
 
-Dirección:
+📍 Dirección:
 C. Drago, 35010, Las Palmas de Gran Canaria
 
-${enlaceIcs ? `Añadir al calendario:\n${enlaceIcs}\n\n` : ''}Si necesitas cambiar algo o tienes alguna duda antes de la sesión, puedes responder directamente a este mensaje.
+${enlaceIcs ? `🗓️ Añadir al calendario:\n${enlaceIcs}\n\n` : ''}Si necesitas cambiar algo o tienes alguna duda antes de la sesión, puedes responder directamente a este mensaje.
 
 Gracias por confiar en Garage Studios.
-Nos vemos en el estudio.`;
+¡Nos vemos en el estudio! 🎶`;
                   
                   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
                 }}
