@@ -54,43 +54,72 @@ export async function sendReservationConfirmationEmail(
       replyTo: "hola@garagestudios.es",
       subject: "Reserva confirmada en Garage Studios",
       html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #333; background-color: #ffffff; padding: 40px 30px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #000; font-size: 24px; margin: 0;">Reserva Confirmada ✅</h1>
+        <div style="background-color: #000000; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #111111; border-radius: 16px; overflow: hidden; border: 1px solid #333333;">
+            
+            <!-- Logo Header -->
+            <div style="padding: 40px 20px 20px; text-align: center;">
+              <img src="https://garagestudios.es/images/logo-sin-fondo.png" 
+                   alt="Garage Studios" 
+                   style="width: 180px; height: auto; display: block; margin: 0 auto;" />
+            </div>
+
+            <!-- Content Body -->
+            <div style="padding: 20px 40px 40px; color: #ffffff;">
+              <h1 style="color: #ffffff; font-size: 24px; margin: 0 0 20px; text-align: center; font-weight: 800; letter-spacing: -0.025em;">RESERVA CONFIRMADA ✅</h1>
+              
+              <p style="font-size: 16px; line-height: 1.6; color: #bbbbbb; margin-bottom: 30px; text-align: center;">
+                Hola <strong>${reserva.nombre}</strong>,<br>
+                Tu sesión en <strong>Garage Studios</strong> ha sido confirmada con éxito.
+              </p>
+              
+              <!-- Reservation Details Card -->
+              <div style="background-color: #1a1a1a; border: 1px solid #333333; padding: 25px; border-radius: 12px; margin-bottom: 30px;">
+                <div style="margin-bottom: 15px; display: flex; align-items: center;">
+                  <span style="font-size: 14px; color: #fbbf24; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Detalles de la reserva</span>
+                </div>
+                <p style="margin: 0 0 10px 0; font-size: 15px; color: #ffffff;">🎵 <strong>Servicio:</strong> ${reserva.servicioNombre}</p>
+                ${precioSection}
+                <p style="margin: 0 0 10px 0; font-size: 15px; color: #ffffff;">📅 <strong>Fecha:</strong> ${reserva.fecha}</p>
+                <p style="margin: 0; font-size: 15px; color: #ffffff;">🕐 <strong>Hora:</strong> ${reserva.horaInicio} - ${reserva.horaFin}</p>
+              </div>
+
+              <!-- Location Section -->
+              <div style="margin-bottom: 30px; border-left: 3px solid #fbbf24; padding-left: 20px;">
+                <h3 style="margin: 0 0 8px; font-size: 16px; color: #ffffff;">📍 Dónde estamos</h3>
+                <p style="font-size: 14px; line-height: 1.5; color: #bbbbbb; margin: 0 0 10px;">
+                  C. Drago, 35010<br>Las Palmas de Gran Canaria
+                </p>
+                <a href="https://maps.app.goo.gl/heSYXrycMkAFsBoCA" 
+                   style="color: #fbbf24; text-decoration: none; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;">
+                   Abrir en Google Maps →
+                </a>
+              </div>
+
+              <!-- Calendar Action -->
+              <div style="text-align: center; margin-bottom: 40px; padding-top: 10px;">
+                ${calendarSection}
+              </div>
+
+              <!-- Footer Info -->
+              <div style="border-top: 1px solid #333333; padding-top: 30px; text-align: center;">
+                <p style="font-size: 13px; line-height: 1.6; color: #888888; margin-bottom: 15px;">
+                  Este es un correo automático, por favor no respondas a este mensaje. Si tienes alguna duda antes de la sesión, contacta con nosotros por WhatsApp.
+                </p>
+                <a href="https://wa.me/34693489379" 
+                   style="display: inline-flex; align-items: center; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; background-color: #25D366; padding: 10px 20px; border-radius: 8px;">
+                   📱 Contactar por WhatsApp
+                </a>
+              </div>
+            </div>
+
+            <!-- Fine Print -->
+            <div style="background-color: #0a0a0a; padding: 20px; text-align: center;">
+              <p style="font-size: 11px; color: #555555; margin: 0; letter-spacing: 0.025em; text-transform: uppercase;">
+                Garage Studios &copy; ${new Date().getFullYear()} · Donde el sonido cobra vida
+              </p>
+            </div>
           </div>
-          
-          <p style="font-size: 16px; line-height: 1.6;">Hola <strong>${reserva.nombre}</strong>,</p>
-          <p style="font-size: 16px; line-height: 1.6;">Tu reserva en <strong>Garage Studios</strong> ha sido confirmada.</p>
-          
-          <div style="background-color: #1a1a1a; color: #ffffff; padding: 20px; border-radius: 12px; margin: 25px 0;">
-            <p style="margin: 0 0 12px 0; font-size: 14px;">🎵 <strong>Servicio:</strong> ${reserva.servicioNombre}</p>
-            ${precioSection}
-            <p style="margin: 0 0 12px 0; font-size: 14px;">📅 <strong>Fecha:</strong> ${reserva.fecha}</p>
-            <p style="margin: 0; font-size: 14px;">🕐 <strong>Hora:</strong> ${reserva.horaInicio} - ${reserva.horaFin}</p>
-          </div>
-
-          <h3 style="margin-top: 30px;">📍 Dirección</h3>
-          <p style="font-size: 14px; line-height: 1.6;">C. Drago, 35010, Las Palmas de Gran Canaria</p>
-          <p>
-            <a href="https://maps.app.goo.gl/heSYXrycMkAFsBoCA" 
-               style="color: #1a73e8; text-decoration: none; font-weight: bold; font-size: 14px;">
-               Ver en Google Maps →
-            </a>
-          </p>
-
-          ${calendarSection}
-
-          <hr style="border: none; border-top: 1px solid #eaeaea; margin: 30px 0;" />
-          
-          <p style="font-size: 14px; line-height: 1.6; color: #555;">
-            Este es un correo automático, por favor no respondas a este mensaje. Si tienes alguna duda antes de la sesión, contacta con nosotros por WhatsApp.
-          </p>
-          <p style="font-size: 14px;">📱 <strong>WhatsApp:</strong> <a href="https://wa.me/34693489379" style="color: #1a73e8; text-decoration: none;">+34 693 48 93 79</a></p>
-
-          <hr style="border: none; border-top: 1px solid #eaeaea; margin: 30px 0;" />
-          <p style="font-size: 12px; color: #999; text-align: center; line-height: 1.6;">
-            Gracias por confiar en Garage Studios.<br>Nos vemos en el estudio. 🎶
-          </p>
         </div>
       `,
     });
