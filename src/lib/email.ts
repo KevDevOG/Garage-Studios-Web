@@ -43,8 +43,8 @@ export async function sendReservationConfirmationEmail(
     `
     : "";
 
-  const precioSection = reserva.precio 
-    ? `<p style="margin: 0 0 12px 0; font-size: 14px;">💶 <strong>Precio:</strong> ${reserva.precio}€</p>` 
+  const precioSection = reserva.precio
+    ? `<p style="margin: 0 0 12px 0; font-size: 14px;">💶 <strong>Precio:</strong> ${reserva.precio}€</p>`
     : "";
 
   try {
@@ -83,7 +83,7 @@ export async function sendReservationConfirmationEmail(
           <hr style="border: none; border-top: 1px solid #eaeaea; margin: 30px 0;" />
           
           <p style="font-size: 14px; line-height: 1.6; color: #555;">
-            Si necesitas cambiar algo o tienes alguna duda antes de la sesión, puedes responder a este correo o contactar con nosotros por WhatsApp.
+            Este es un correo automático, por favor no respondas a este mensaje. Si tienes alguna duda antes de la sesión, contacta con nosotros por WhatsApp.
           </p>
           <p style="font-size: 14px;">📱 <strong>WhatsApp:</strong> <a href="https://wa.me/34693489379" style="color: #1a73e8; text-decoration: none;">+34 693 48 93 79</a></p>
 
