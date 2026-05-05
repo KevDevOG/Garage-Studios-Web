@@ -17,7 +17,7 @@ export async function updateReservationStatus(id: string, estado: string) {
   // 1. Obtener el estado actual antes de actualizar
   const { data: currentRes } = await supabase
     .from("reserva")
-    .select("estado, email, nombre, fecha_reserva, hora_inicio, hora_fin, confirmacion_email_enviada_at, servicio(nombre), cliente_id")
+    .select("estado, email, nombre, fecha_reserva, hora_inicio, hora_fin, precio, confirmacion_email_enviada_at, calendar_token, servicio(nombre), cliente_id")
     .eq("id", id)
     .single();
 
@@ -46,10 +46,10 @@ export async function updateReservationStatus(id: string, estado: string) {
     !currentRes.confirmacion_email_enviada_at &&
     currentRes.email
   ) {
-    // Evitar bloquear la UI, pero esperar el resultado para guardar en DB
     const emailResult = await sendReservationConfirmationEmail(currentRes.email, {
       nombre: currentRes.nombre,
       servicioNombre: (Array.isArray(currentRes.servicio) ? currentRes.servicio[0]?.nombre : (currentRes.servicio as any)?.nombre) || "Sesión en Garage Studios",
+      precio: currentRes.precio,
       fecha: new Date(currentRes.fecha_reserva + "T00:00:00").toLocaleDateString("es-ES", {
         weekday: "long",
         year: "numeric",
@@ -58,6 +58,7 @@ export async function updateReservationStatus(id: string, estado: string) {
       }),
       horaInicio: currentRes.hora_inicio?.slice(0, 5) || "--:--",
       horaFin: currentRes.hora_fin?.slice(0, 5) || "--:--",
+      calendarToken: currentRes.calendar_token || undefined,
     });
 
     if (emailResult.error) {
@@ -68,7 +69,7 @@ export async function updateReservationStatus(id: string, estado: string) {
     } else {
       await supabase
         .from("reserva")
-        .update({ confirmacion_email_enviada_at: new Date().toISOString() })
+        .update({ confirmacion_email_enviada_at: new Date().toISOString(), confirmacion_error: null })
         .eq("id", id);
     }
   }

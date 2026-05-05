@@ -90,13 +90,12 @@ export default function NuevaReservaForm({
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium">Estado</label>
-          <select
-            name="estado"
-            className="w-full border-card-border bg-card-bg rounded-md p-2"
-          >
-            <option value="pendiente">Pendiente</option>
-            <option value="confirmada">Confirmada</option>
-          </select>
+          <input type="hidden" name="estado" value="pendiente" />
+          <div className="flex items-center gap-2 w-full border border-card-border bg-card-bg rounded-md p-2 text-amber-400 text-sm font-medium">
+            <span className="inline-block h-2 w-2 rounded-full bg-amber-400"></span>
+            Pendiente
+          </div>
+          <p className="mt-1 text-[10px] text-muted">Las reservas siempre se crean como pendientes. Confirma después para enviar el email al cliente.</p>
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import Image from "next/image";
 
 export default function Hero() {
   return (
-    <section className="relative flex min-h-[60vh] flex-col items-center px-4 pt-4 pb-12 text-center sm:pt-6 sm:pb-16">
+    <section className="relative flex min-h-screen flex-col items-center justify-center px-4 pt-4 pb-20 text-center sm:pt-6 sm:pb-32">
       {/* Imagen de fondo */}
       <div className="absolute inset-0 z-[-2]">
         <Image
@@ -19,18 +19,18 @@ export default function Hero() {
       {/* Overlay oscuro para garantizar legibilidad del texto siempre */}
       <div className="absolute inset-0 z-[-1] bg-black/40"></div>
       {/* Overlay de degradado para fusionar suavemente con el fondo de la página */}
-      <div className="absolute inset-0 z-[-1] bg-gradient-to-b from-transparent via-background/50 to-background"></div>
+      <div className="absolute inset-0 z-[-1] bg-gradient-to-b from-transparent via-transparent to-background"></div>
 
       {/* Contenido (con animaciones de entrada) */}
       <div className="relative z-10 max-w-4xl animate-slide-up opacity-0">
         {/* Logo Real */}
         <div className="mb-4 flex justify-center">
-          <Image 
-            src="/images/logo-sin-fondo.png" 
-            alt="Garage Studios Logo" 
-            width={1200} 
-            height={400} 
-            className="h-auto w-full max-w-[200px] object-contain sm:max-w-[350px] md:max-w-[500px]"
+          <Image
+            src="/images/logo-sin-fondo.png"
+            alt="Garage Studios Logo"
+            width={1000}
+            height={400}
+            className="h-auto w-full max-w-[240px] object-contain sm:max-w-[380px] md:max-w-[500px]"
             priority
           />
         </div>
@@ -51,7 +51,7 @@ export default function Hero() {
 
         {/* Descripción */}
         <p className="mx-auto mt-6 max-w-2xl text-lg font-medium text-gray-200 sm:text-xl drop-shadow">
-          Todo empezó en un garage. Un espacio enfocado en apoyar a artistas emergentes. 
+          Todo empezó en un garage. Un espacio enfocado en apoyar a artistas emergentes.
           Creemos que todo el mundo puede hacer música.
         </p>
 

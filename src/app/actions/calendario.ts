@@ -119,7 +119,7 @@ export async function createManualReservation(formData: FormData) {
   const observaciones = formData.get("observaciones") as string;
   const notasAdmin = formData.get("notas_admin") as string;
   const precio = parseFloat(formData.get("precio") as string);
-  const estado = (formData.get("estado") as string) || "pendiente";
+  const estado = "pendiente"; // Siempre se crea como pendiente para que el flujo de email funcione al confirmar
 
   const duracion = parseInt(duracionStr, 10);
   if (isNaN(duracion) || duracion <= 0) {
@@ -207,7 +207,7 @@ export async function updateReservation(id: string, formData: FormData) {
   // 1. Obtener estado previo antes de actualizar
   const { data: currentRes } = await supabase
     .from("reserva")
-    .select("estado, confirmacion_email_enviada_at, servicio(nombre)")
+    .select("estado, precio, confirmacion_email_enviada_at, calendar_token, servicio(nombre)")
     .eq("id", id)
     .single();
 
@@ -258,6 +258,7 @@ export async function updateReservation(id: string, formData: FormData) {
     const emailResult = await sendReservationConfirmationEmail(email, {
       nombre,
       servicioNombre: (Array.isArray(currentRes.servicio) ? currentRes.servicio[0]?.nombre : (currentRes.servicio as any)?.nombre) || "Sesión en Garage Studios",
+      precio: isNaN(precio) ? currentRes.precio : precio, // Usar el nuevo precio o el anterior si no se actualiza
       fecha: new Date(fecha + "T00:00:00").toLocaleDateString("es-ES", {
         weekday: "long",
         year: "numeric",
@@ -266,6 +267,7 @@ export async function updateReservation(id: string, formData: FormData) {
       }),
       horaInicio: horaInicio || "--:--",
       horaFin: horaFin || "--:--",
+      calendarToken: currentRes.calendar_token || undefined,
     });
 
     if (emailResult.error) {
@@ -276,7 +278,7 @@ export async function updateReservation(id: string, formData: FormData) {
     } else {
       await supabase
         .from("reserva")
-        .update({ confirmacion_email_enviada_at: new Date().toISOString() })
+        .update({ confirmacion_email_enviada_at: new Date().toISOString(), confirmacion_error: null })
         .eq("id", id);
     }
   }

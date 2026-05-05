@@ -336,11 +336,11 @@ export default function EditarReservaForm({
                   
                   const text = `Hola ${reservation.nombre},
 
-Tu reserva en Garage Studios está confirmada.
+Tu reserva en Garage Studios ha sido confirmada.
 
-Fecha: ${fechaStr}
-Hora: ${reservation.hora_inicio?.slice(0,5)} - ${reservation.hora_fin?.slice(0,5)}
 Servicio: ${currentService?.nombre || 'Sesión'}
+${reservation.precio ? `Precio: ${reservation.precio}€\n` : ''}Fecha: ${fechaStr}
+Hora: ${reservation.hora_inicio?.slice(0,5)} - ${reservation.hora_fin?.slice(0,5)}
 
 Dirección:
 C. Drago, 35010, Las Palmas de Gran Canaria
