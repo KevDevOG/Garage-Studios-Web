@@ -25,13 +25,14 @@ export default function ContactForm() {
     subject: "",
     message: "",
   });
-  const [errors, setErrors] = useState<FormErrors>({});
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
+  const [errors, setErrors] = useState<FormErrors & { acceptPrivacy?: string }>({});
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   // ── Validación ──
-  function validate(): FormErrors {
-    const newErrors: FormErrors = {};
+  function validate(): FormErrors & { acceptPrivacy?: string } {
+    const newErrors: FormErrors & { acceptPrivacy?: string } = {};
 
     const nameErr = validateRequired(formData.name, "El nombre");
     if (nameErr) newErrors.name = nameErr;
@@ -47,6 +48,10 @@ export default function ContactForm() {
 
     const messageErr = validateRequired(formData.message, "El mensaje");
     if (messageErr) newErrors.message = messageErr;
+
+    if (!acceptPrivacy) {
+      newErrors.acceptPrivacy = "Debes aceptar la política de privacidad";
+    }
 
     return newErrors;
   }
@@ -74,9 +79,10 @@ export default function ContactForm() {
 
     setLoading(true);
     try {
-      await submitContactAction(formData);
+      await submitContactAction({ ...formData, acceptPrivacy });
       setSubmitted(true);
       setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
+      setAcceptPrivacy(false);
     } catch {
       setErrors({ message: "Error al enviar. Inténtalo de nuevo." });
     } finally {
@@ -226,6 +232,53 @@ export default function ContactForm() {
         {errors.message && (
           <p id="contact-message-error" className="mt-1 text-xs text-red-400">
             {errors.message}
+          </p>
+        )}
+      </div>
+
+      {/* Política de Privacidad */}
+      <div className="pt-2">
+        <label className="flex items-start gap-3 cursor-pointer group">
+          <div className="relative flex items-center mt-0.5">
+            <input
+              type="checkbox"
+              checked={acceptPrivacy}
+              onChange={(e) => {
+                setAcceptPrivacy(e.target.checked);
+                if (errors.acceptPrivacy) {
+                  setErrors((prev) => ({ ...prev, acceptPrivacy: undefined }));
+                }
+              }}
+              className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-card-border bg-card-bg transition-all checked:border-accent checked:bg-accent hover:border-accent/50 focus:ring-2 focus:ring-accent/20 focus:outline-none peer-checked:shadow-[0_0_10px_rgba(245,158,11,0.4)]"
+            />
+            <svg
+              className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 text-white transition-all duration-300 scale-0 opacity-0 peer-checked:scale-110 peer-checked:opacity-100"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <span className="text-xs leading-relaxed text-muted group-hover:text-foreground/90 transition-colors">
+            He leído y acepto la{" "}
+            <a
+              href="/privacidad"
+              target="_blank"
+              className="text-accent font-bold hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Política de Privacidad
+            </a>
+          </span>
+        </label>
+        {errors.acceptPrivacy && (
+          <p className="mt-2 text-[10px] font-bold uppercase tracking-tight text-red-400">
+            {errors.acceptPrivacy}
           </p>
         )}
       </div>

@@ -9,22 +9,79 @@ interface SpotifyWork {
 
 const PRODUCTIONS: SpotifyWork[] = [
   {
-    title: "Muestra de Sonido 1",
-    artist: "Artista de Ejemplo",
+    title: "ZIG - ZAG",
+    artist: "LEJII",
     type: "Producción",
-    spotifyUrl: "https://open.spotify.com/embed/track/6T04vQzhtNhmDrklr6UKO8?utm_source=generator&theme=0",
+    spotifyUrl: "https://open.spotify.com/embed/track/3nZfANXtzMDkxowYAyKxzu?utm_source=generator&theme=0",
   },
   {
     title: "Tu pelo",
-    artist: "LEJI",
+    artist: "LEJII",
     type: "Producción",
     spotifyUrl: "https://open.spotify.com/embed/track/3rD3ueejc2auQ5zW5998cd?utm_source=generator&theme=0",
   },
   {
-    title: "Playlist del Estudio",
-    artist: "Varios Artistas",
+    title: "PIN - PUK",
+    artist: "LEJII",
     type: "Producción",
-    spotifyUrl: "https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM3M?utm_source=generator&theme=0",
+    spotifyUrl: "https://open.spotify.com/embed/track/0yI5ojPw3rNIC93eMgBIN5?utm_source=generator&theme=0",
+  },
+  {
+    title: "Horas de mentir",
+    artist: "SOBA",
+    type: "Producción",
+    spotifyUrl: "https://open.spotify.com/embed/track/1345D2MgFbnTWvps6bVPgC?utm_source=generator&theme=0",
+  },
+  {
+    title: "Te luces",
+    artist: "SOBA",
+    type: "Producción",
+    spotifyUrl: "https://open.spotify.com/embed/track/3Dd6dAD3FSHfmWlwzeDqfX?utm_source=generator&theme=0",
+  },
+  {
+    title: "En ella",
+    artist: "SOBA",
+    type: "Producción",
+    spotifyUrl: "https://open.spotify.com/embed/track/0QqeDaLi6goe3McEQIQ7zG?utm_source=generator&theme=0",
+  },
+  {
+    title: "Picante",
+    artist: "TAYL3R",
+    type: "Producción",
+    spotifyUrl: "https://open.spotify.com/embed/track/29DpBBSuJ9oATK4m1sOnOM?utm_source=generator&theme=0",
+  },
+  {
+    title: "Tussi remix",
+    artist: "TAYL3R, KHA LOWY, MANTYZ",
+    type: "Producción",
+    spotifyUrl: "https://open.spotify.com/embed/track/5GG2aYWluwM5LI0FAV4Fgo?utm_source=generator&theme=0",
+  },
+  {
+    title: "Pim piao",
+    artist: "TAYL3R",
+    type: "Producción",
+    spotifyUrl: "https://open.spotify.com/embed/track/5gwz06AFzjkCT95s6OYVfk?utm_source=generator&theme=0",
+  }
+  ,
+  {
+    title: "Rápido y lento",
+    artist: "ALVARODLC, LA JJ",
+    type: "Producción",
+    spotifyUrl: "https://open.spotify.com/embed/track/3rTaBfP6MKlCSXRyxs8eCv?utm_source=generator&theme=0",
+  }
+  ,
+  {
+    title: "Mujercita",
+    artist: "ALVARODLC",
+    type: "Producción",
+    spotifyUrl: "https://open.spotify.com/embed/track/6a64NL9EKfi3tvRItryYk7?utm_source=generator&theme=0",
+  }
+  ,
+  {
+    title: "TUS FOTOS - Garage studios Remix",
+    artist: "ALVARODLC, LA JJ, GARAGE STUDIOS",
+    type: "Producción",
+    spotifyUrl: "https://open.spotify.com/embed/track/4W9Is6tGlUnHhnTF8O54A4?utm_source=generator&theme=0",
   }
 ];
 

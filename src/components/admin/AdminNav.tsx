@@ -6,20 +6,20 @@ export default function AdminNav({ title }: { title: string }) {
     <div className="mb-8 flex items-end justify-between border-b border-card-border pb-4">
       <div>
         <h1 className="text-2xl font-bold">{title}</h1>
-        <nav className="mt-2 flex gap-4 text-sm text-muted">
-          <Link href="/admin/dashboard" className="transition-colors hover:text-accent">
+        <nav className="mt-2 flex gap-6 text-sm text-muted overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible">
+          <Link href="/admin/dashboard" className="transition-colors hover:text-accent whitespace-nowrap py-1">
             Dashboard
           </Link>
-          <Link href="/admin/servicios" className="transition-colors hover:text-accent">
+          <Link href="/admin/servicios" className="transition-colors hover:text-accent whitespace-nowrap py-1">
             Servicios
           </Link>
-          <Link href="/admin/galeria" className="transition-colors hover:text-accent">
+          <Link href="/admin/galeria" className="transition-colors hover:text-accent whitespace-nowrap py-1">
             Galería
           </Link>
-          <Link href="/admin/clientes" className="transition-colors hover:text-accent">
+          <Link href="/admin/clientes" className="transition-colors hover:text-accent whitespace-nowrap py-1">
             Clientes
           </Link>
-          <Link href="/admin/calendario" className="transition-colors hover:text-accent">
+          <Link href="/admin/calendario" className="transition-colors hover:text-accent whitespace-nowrap py-1">
             Calendario
           </Link>
         </nav>

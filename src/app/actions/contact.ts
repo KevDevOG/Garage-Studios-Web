@@ -8,9 +8,14 @@ export interface ContactData {
   phone?: string;
   subject: string;
   message: string;
+  acceptPrivacy: boolean;
 }
 
 export async function submitContactAction(data: ContactData) {
+  if (!data.acceptPrivacy) {
+    throw new Error("Debes aceptar la política de privacidad para enviar el mensaje.");
+  }
+
   const supabase = await createClient();
 
   // Insertar datos en la tabla contacto
@@ -21,6 +26,7 @@ export async function submitContactAction(data: ContactData) {
       telefono: data.phone,
       asunto: data.subject,
       mensaje: data.message,
+      accepted_privacy_at: new Date().toISOString(),
     },
   ]);
 

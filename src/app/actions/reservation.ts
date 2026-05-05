@@ -13,9 +13,14 @@ export interface ReservationData {
   date: string;
   timeSlot: string; // HH:mm
   notes: string;
+  acceptPrivacy: boolean;
 }
 
 export async function submitReservationAction(data: ReservationData) {
+  if (!data.acceptPrivacy) {
+    throw new Error("Debes aceptar la política de privacidad para solicitar la reserva.");
+  }
+
   const supabase = await createClient();
 
   // 1. Obtener duración y precio base del servicio
@@ -71,6 +76,7 @@ export async function submitReservationAction(data: ReservationData) {
       precio: precioBase,
       origen: "web",
       cliente_id: clienteId,
+      accepted_privacy_at: new Date().toISOString(),
     },
   ]);
 
