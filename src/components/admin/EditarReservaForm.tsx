@@ -334,21 +334,21 @@ export default function EditarReservaForm({
                   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
                   const enlaceIcs = reservation.calendar_token ? `${baseUrl}/api/calendar/${reservation.calendar_token}` : '';
                   
-                  const text = `Hola ${reservation.nombre} \u{1F44B},
+                  const text = `Hola ${reservation.nombre} \uD83D\uDC4B,
 
-Tu reserva en Garage Studios ha sido confirmada \u{2705}.
+Tu reserva en Garage Studios ha sido confirmada \u2705.
 
-\u{1F3B5} Servicio: ${currentService?.nombre || 'Sesión'}
-${reservation.precio ? `\u{1F4B6} Precio: ${reservation.precio}€\n` : ''}\u{1F4C5} Fecha: ${fechaStr}
-\u{1F552} Hora: ${reservation.hora_inicio?.slice(0,5)} - ${reservation.hora_fin?.slice(0,5)}
+\uD83C\uDFB5 Servicio: ${currentService?.nombre || 'Sesión'}
+${reservation.precio ? `\uD83D\uDCB6 Precio: ${reservation.precio}€\n` : ''}\uD83D\uDCC5 Fecha: ${fechaStr}
+\uD83D\uDD52 Hora: ${reservation.hora_inicio?.slice(0,5)} - ${reservation.hora_fin?.slice(0,5)}
 
-\u{1F4CD} Dirección:
+\uD83D\uDCCD Dirección:
 C. Drago, 35010, Las Palmas de Gran Canaria
 
-${enlaceIcs ? `\u{1F5D3}\u{FE0F} Añadir al calendario:\n${enlaceIcs}\n\n` : ''}Si necesitas cambiar algo o tienes alguna duda antes de la sesión, puedes responder directamente a este mensaje.
+${enlaceIcs ? `\uD83D\uDDD3\uFE0F Añadir al calendario:\n${enlaceIcs}\n\n` : ''}Si necesitas cambiar algo o tienes alguna duda antes de la sesión, puedes responder directamente a este mensaje.
 
 Gracias por confiar en Garage Studios.
-¡Nos vemos en el estudio! \u{1F3B6}`;
+¡Nos vemos en el estudio! \uD83C\uDFB6`;
                   
                   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
                 }}
