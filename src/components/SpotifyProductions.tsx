@@ -86,6 +86,17 @@ const PRODUCTIONS: SpotifyWork[] = [
 ];
 
 export default function SpotifyProductions() {
+  // Group productions by artist
+  const groupedProductions = PRODUCTIONS.reduce((acc, work) => {
+    // We'll use the first artist for grouping if there are multiple
+    const primaryArtist = work.artist.split(',')[0].trim();
+    if (!acc[primaryArtist]) {
+      acc[primaryArtist] = [];
+    }
+    acc[primaryArtist].push(work);
+    return acc;
+  }, {} as Record<string, SpotifyWork[]>);
+
   return (
     <section className="border-t border-card-border bg-black/20">
       <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
@@ -99,41 +110,54 @@ export default function SpotifyProductions() {
           </p>
         </div>
 
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {PRODUCTIONS.map((work, index) => (
-            <div
-              key={index}
-              className="flex flex-col overflow-hidden rounded-2xl border border-card-border bg-card-bg transition-all hover:-translate-y-2 hover:border-accent/30 hover:shadow-[0_0_40px_rgba(0,0,0,0.8)] group"
-            >
-              <div className="p-6">
-                <div className="mb-4 inline-block rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-accent">
-                  {work.type}
-                </div>
-                <h3 className="text-xl font-black uppercase italic tracking-tight text-white">{work.title}</h3>
-                <p className="text-sm font-medium text-muted">{work.artist}</p>
+        <div className="space-y-20">
+          {Object.entries(groupedProductions).map(([artist, works]) => (
+            <div key={artist} className="animate-slide-up">
+              <div className="mb-8 flex items-center gap-4">
+                <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white">
+                  {artist}
+                </h3>
+                <div className="h-px flex-1 bg-gradient-to-r from-accent/50 to-transparent"></div>
               </div>
 
-              <div className="relative h-[152px] w-full px-4 pb-6">
-                <iframe
-                  src={work.spotifyUrl}
-                  width="100%"
-                  height="152"
-                  frameBorder="0"
-                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                  loading="lazy"
-                  className="rounded-xl shadow-lg"
-                ></iframe>
-              </div>
+              <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                {works.map((work, idx) => (
+                  <div
+                    key={idx}
+                    className="flex flex-col overflow-hidden rounded-2xl border border-card-border bg-card-bg transition-all hover:-translate-y-2 hover:border-accent/30 hover:shadow-[0_0_40px_rgba(0,0,0,0.8)] group"
+                  >
+                    <div className="p-6">
+                      <div className="mb-4 inline-block rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-accent">
+                        {work.type}
+                      </div>
+                      <h4 className="text-xl font-black uppercase italic tracking-tight text-white">{work.title}</h4>
+                      <p className="text-sm font-medium text-muted">{work.artist}</p>
+                    </div>
 
-              <div className="mt-auto border-t border-card-border p-4 text-center">
-                <a
-                  href={work.spotifyUrl.replace('/embed', '')}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-black uppercase tracking-widest text-gray-400 transition-colors hover:text-accent"
-                >
-                  Escuchar en Spotify →
-                </a>
+                    <div className="relative h-[152px] w-full px-4 pb-6">
+                      <iframe
+                        src={work.spotifyUrl}
+                        width="100%"
+                        height="152"
+                        frameBorder="0"
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                        loading="lazy"
+                        className="rounded-xl shadow-lg"
+                      ></iframe>
+                    </div>
+
+                    <div className="mt-auto border-t border-card-border p-4 text-center">
+                      <a
+                        href={work.spotifyUrl.replace('/embed', '')}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-black uppercase tracking-widest text-gray-400 transition-colors hover:text-accent"
+                      >
+                        Escuchar en Spotify →
+                      </a>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
