@@ -22,6 +22,9 @@ export default function AdminNav({ title }: { title: string }) {
           <Link href="/admin/calendario" className="transition-colors hover:text-accent whitespace-nowrap py-1">
             Calendario
           </Link>
+          <Link href="/admin/finanzas" className="transition-colors hover:text-accent whitespace-nowrap py-1">
+            Finanzas
+          </Link>
         </nav>
       </div>
 

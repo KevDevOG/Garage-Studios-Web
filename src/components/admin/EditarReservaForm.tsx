@@ -12,10 +12,12 @@ export default function EditarReservaForm({
   reservation,
   blocks,
   servicesList,
+  hasFinance,
 }: {
   reservation: ReservationRow;
   blocks: ReservationBlock[];
   servicesList: DBService[];
+  hasFinance?: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -334,23 +336,24 @@ export default function EditarReservaForm({
                   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
                   const enlaceIcs = reservation.calendar_token ? `${baseUrl}/api/calendar/${reservation.calendar_token}` : '';
                   
-                  const text = `Hola ${reservation.nombre} \uD83D\uDC4B,
+                  const text = `Hola ${reservation.nombre} 👋,
 
-Tu reserva en Garage Studios ha sido confirmada \u2705.
+Tu reserva en Garage Studios ha sido confirmada ✅.
 
-\uD83C\uDFB5 Servicio: ${currentService?.nombre || 'Sesión'}
-${reservation.precio ? `\uD83D\uDCB6 Precio: ${reservation.precio}€\n` : ''}\uD83D\uDCC5 Fecha: ${fechaStr}
-\uD83D\uDD52 Hora: ${reservation.hora_inicio?.slice(0,5)} - ${reservation.hora_fin?.slice(0,5)}
+🎵 Servicio: ${currentService?.nombre || 'Sesión'}
+${reservation.precio ? `💶 Precio: ${reservation.precio}€\n` : ''}📅 Fecha: ${fechaStr}
+🕒 Hora: ${reservation.hora_inicio?.slice(0,5)} - ${reservation.hora_fin?.slice(0,5)}
 
-\uD83D\uDCCD Dirección:
+📍 Dirección:
 C. Drago, 35010, Las Palmas de Gran Canaria
 
-${enlaceIcs ? `\uD83D\uDDD3\uFE0F Añadir al calendario:\n${enlaceIcs}\n\n` : ''}Si necesitas cambiar algo o tienes alguna duda antes de la sesión, puedes responder directamente a este mensaje.
+${enlaceIcs ? `🗓️ Añadir al calendario:\n${enlaceIcs}\n\n` : ''}Si necesitas cambiar algo o tienes alguna duda antes de la sesión, puedes responder directamente a este mensaje.
 
 Gracias por confiar en Garage Studios.
-¡Nos vemos en el estudio! \uD83C\uDFB6`;
-                  
-                  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
+¡Nos vemos en el estudio! 🎶`;
+
+                  const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+                  window.open(whatsappUrl, "_blank");
                 }}
                 className="rounded-lg bg-[#25D366]/10 px-3 py-1.5 text-xs font-bold text-[#25D366] transition-colors hover:bg-[#25D366] hover:text-black"
               >
@@ -387,6 +390,33 @@ Gracias por confiar en Garage Studios.
           </div>
         </div>
       </div>
+
+      {/* Finanzas */}
+      {(reservation.estado === "confirmada" || reservation.estado === "completada") && (
+        <div className="rounded-xl border border-card-border bg-card-bg p-6 space-y-4">
+          <h3 className="text-sm font-black uppercase tracking-widest text-white border-b border-white/5 pb-2">
+            Finanzas
+          </h3>
+          <div className="flex items-center justify-between">
+            {hasFinance ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-bold text-green-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+                Ingreso Registrado
+              </span>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-muted">Aún no hay ingresos registrados para esta reserva.</p>
+                <Link 
+                  href={`/admin/finanzas/nuevo?reserva_id=${reservation.id}&cliente_id=${reservation.cliente_id || ''}&servicio_id=${reservation.servicio_id || ''}&concepto=${encodeURIComponent(`Reserva - ${reservation.nombre}`)}&importe=${reservation.precio || currentService?.precio || ''}&tipo=ingreso&categoria=${encodeURIComponent(currentService?.nombre || 'Otros')}&fecha=${reservation.fecha_reserva}`}
+                  className="rounded-lg bg-accent/10 px-4 py-2 text-xs font-bold text-accent transition-colors hover:bg-accent/20 w-max"
+                >
+                  + Añadir a Finanzas
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Info de auditoría */}
       <div className="rounded-xl border border-card-border bg-card-bg p-4 text-xs text-muted">
