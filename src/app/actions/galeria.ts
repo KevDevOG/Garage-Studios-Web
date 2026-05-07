@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createAuditLog } from "@/lib/audit";
 
 const BUCKET_NAME = "galeria";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -107,6 +108,13 @@ export async function uploadImageAction(formData: FormData) {
 
   revalidatePath("/admin/galeria");
   revalidatePath("/galeria");
+
+  await createAuditLog({
+    accion: "subida",
+    entidad: "imagen",
+    descripcion: `Imagen subida: ${titulo.trim()}`,
+  });
+
   redirect("/admin/galeria");
 }
 
@@ -192,4 +200,11 @@ export async function deleteImageAction(id: string) {
 
   revalidatePath("/admin/galeria");
   revalidatePath("/galeria");
+
+  await createAuditLog({
+    accion: "eliminación",
+    entidad: "imagen",
+    entidad_id: id,
+    descripcion: `Imagen ${id.slice(0, 8)}… eliminada`,
+  });
 }

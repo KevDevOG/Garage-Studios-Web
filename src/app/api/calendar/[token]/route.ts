@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  // Rate limit: máximo 30 descargas por IP por hora
+  const rateCheck = await checkRateLimit("calendar-ics", 30);
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      { error: `Demasiadas descargas. Inténtalo en ${formatRetryAfter(rateCheck.retryAfterMs)}.` },
+      { status: 429 }
+    );
+  }
+
   const { token } = await params;
 
   if (!token || typeof token !== "string") {

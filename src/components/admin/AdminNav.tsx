@@ -25,6 +25,9 @@ export default function AdminNav({ title }: { title: string }) {
           <Link href="/admin/finanzas" className="transition-colors hover:text-accent whitespace-nowrap py-1">
             Finanzas
           </Link>
+          <Link href="/admin/auditoria" className="transition-colors hover:text-accent whitespace-nowrap py-1">
+            Auditoría
+          </Link>
         </nav>
       </div>
 

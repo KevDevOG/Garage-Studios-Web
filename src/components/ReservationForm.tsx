@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
+import Script from "next/script";
 import { submitReservationAction } from "@/app/actions/reservation";
 import { getAvailableSlots } from "@/app/actions/availability";
 import type { DBService } from "@/app/actions/services";
@@ -50,6 +51,28 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsMessage, setSlotsMessage] = useState<string | undefined>();
   const [serviceDuration, setServiceDuration] = useState<number>(0);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<HTMLDivElement>(null);
+
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
+  const renderTurnstile = useCallback(() => {
+    if (turnstileSiteKey && turnstileRef.current && (window as any).turnstile) {
+      turnstileRef.current.innerHTML = "";
+      (window as any).turnstile.render(turnstileRef.current, {
+        sitekey: turnstileSiteKey,
+        callback: (token: string) => setTurnstileToken(token),
+        "expired-callback": () => setTurnstileToken(null),
+        theme: "dark",
+      });
+    }
+  }, [turnstileSiteKey]);
+
+  useEffect(() => {
+    if ((window as any).turnstile && turnstileSiteKey) {
+      renderTurnstile();
+    }
+  }, [renderTurnstile, turnstileSiteKey]);
 
   // Pre-seleccionar servicio si viene por URL
   useEffect(() => {
@@ -137,7 +160,7 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
 
     setLoading(true);
     try {
-      await submitReservationAction({ ...formData, acceptPrivacy });
+      await submitReservationAction({ ...formData, acceptPrivacy, turnstileToken: turnstileToken || undefined });
       setSubmitted(true);
       setFormData({
         name: "",
@@ -149,10 +172,14 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
         notes: "",
       });
       setAcceptPrivacy(false);
+      setTurnstileToken(null);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Error al enviar. Inténtalo de nuevo.";
       setErrors({ notes: message });
+      if ((window as any).turnstile && turnstileSiteKey) {
+        renderTurnstile();
+      }
     } finally {
       setLoading(false);
     }
@@ -438,6 +465,17 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
         * Esta es una solicitud de reserva. Te contactaremos para confirmar
         disponibilidad y detalles.
       </p>
+
+      {/* Cloudflare Turnstile Anti-Bot */}
+      {turnstileSiteKey && (
+        <>
+          <Script
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+            onLoad={renderTurnstile}
+          />
+          <div ref={turnstileRef} className="flex justify-center" />
+        </>
+      )}
 
       {/* Botón */}
       <button

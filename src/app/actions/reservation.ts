@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { validateSlotAvailable } from "@/app/actions/availability";
 import { minutesToTime, timeToMinutes } from "@/lib/schedule";
 import { findOrCreateClientePublic, updateClienteStats } from "@/app/actions/clientes";
+import { verifyTurnstileToken } from "@/lib/turnstile";
+import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
 
 export interface ReservationData {
   name: string;
@@ -14,11 +16,26 @@ export interface ReservationData {
   timeSlot: string; // HH:mm
   notes: string;
   acceptPrivacy: boolean;
+  turnstileToken?: string;
 }
 
 export async function submitReservationAction(data: ReservationData) {
   if (!data.acceptPrivacy) {
     throw new Error("Debes aceptar la política de privacidad para solicitar la reserva.");
+  }
+
+  // Rate limit: máximo 5 intentos por IP por hora
+  const rateCheck = await checkRateLimit("reservation", 5);
+  if (!rateCheck.allowed) {
+    throw new Error(
+      `Has enviado demasiadas solicitudes. Inténtalo de nuevo en ${formatRetryAfter(rateCheck.retryAfterMs)}.`
+    );
+  }
+
+  // Turnstile: verificar captcha anti-bot
+  const turnstileResult = await verifyTurnstileToken(data.turnstileToken);
+  if (!turnstileResult.success) {
+    throw new Error(turnstileResult.error || "Verificación anti-bot fallida.");
   }
 
   const supabase = await createClient();
@@ -88,4 +105,3 @@ export async function submitReservationAction(data: ReservationData) {
   // 5. Actualizar estadísticas del cliente
   await updateClienteStats(supabase, clienteId);
 }
-

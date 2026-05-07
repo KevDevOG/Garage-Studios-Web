@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { createAuditLog } from "@/lib/audit";
 
 export interface FinanceMovement {
   id: string;
@@ -111,6 +112,13 @@ export async function createFinanceMovement(formData: FormData) {
 
   if (error) return { error: error.message };
 
+  await createAuditLog({
+    accion: "creación",
+    entidad: "finanza",
+    descripcion: `Movimiento ${tipo}: ${concepto} (${importe}€)`,
+    metadata: { tipo, categoria, importe, reserva_id: reserva_id || undefined },
+  });
+
   revalidatePath("/admin/finanzas");
   return { success: true };
 }
@@ -155,6 +163,14 @@ export async function updateFinanceMovement(id: string, formData: FormData) {
 
   if (error) return { error: error.message };
 
+  await createAuditLog({
+    accion: "edición",
+    entidad: "finanza",
+    entidad_id: id,
+    descripcion: `Movimiento editado: ${concepto} (${importe}€)`,
+    metadata: { tipo, categoria, importe },
+  });
+
   revalidatePath("/admin/finanzas");
   return { success: true };
 }
@@ -170,6 +186,13 @@ export async function deleteFinanceMovement(id: string) {
     .eq("id", id);
 
   if (error) return { error: error.message };
+
+  await createAuditLog({
+    accion: "eliminación",
+    entidad: "finanza",
+    entidad_id: id,
+    descripcion: `Movimiento ${id.slice(0, 8)}… eliminado (borrado lógico)`,
+  });
 
   revalidatePath("/admin/finanzas");
   return { success: true };

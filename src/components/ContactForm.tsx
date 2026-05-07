@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useRef, useCallback, useEffect, type FormEvent } from "react";
+import Script from "next/script";
 import { submitContactAction } from "@/app/actions/contact";
 import {
   validateRequired,
@@ -26,9 +27,32 @@ export default function ContactForm() {
     message: "",
   });
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
-  const [errors, setErrors] = useState<FormErrors & { acceptPrivacy?: string }>({});
+  const [errors, setErrors] = useState<FormErrors & { acceptPrivacy?: string; turnstile?: string }>({});
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<HTMLDivElement>(null);
+
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
+  // Render Turnstile widget when script loads
+  const renderTurnstile = useCallback(() => {
+    if (turnstileSiteKey && turnstileRef.current && (window as any).turnstile) {
+      turnstileRef.current.innerHTML = "";
+      (window as any).turnstile.render(turnstileRef.current, {
+        sitekey: turnstileSiteKey,
+        callback: (token: string) => setTurnstileToken(token),
+        "expired-callback": () => setTurnstileToken(null),
+        theme: "dark",
+      });
+    }
+  }, [turnstileSiteKey]);
+
+  useEffect(() => {
+    if ((window as any).turnstile && turnstileSiteKey) {
+      renderTurnstile();
+    }
+  }, [renderTurnstile, turnstileSiteKey]);
 
   // ── Validación ──
   function validate(): FormErrors & { acceptPrivacy?: string } {
@@ -79,12 +103,18 @@ export default function ContactForm() {
 
     setLoading(true);
     try {
-      await submitContactAction({ ...formData, acceptPrivacy });
+      await submitContactAction({ ...formData, acceptPrivacy, turnstileToken: turnstileToken || undefined });
       setSubmitted(true);
       setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
       setAcceptPrivacy(false);
-    } catch {
-      setErrors({ message: "Error al enviar. Inténtalo de nuevo." });
+      setTurnstileToken(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error al enviar. Inténtalo de nuevo.";
+      setErrors({ message });
+      // Reset Turnstile widget para que se pueda volver a completar
+      if ((window as any).turnstile && turnstileSiteKey) {
+        renderTurnstile();
+      }
     } finally {
       setLoading(false);
     }
@@ -282,6 +312,20 @@ export default function ContactForm() {
           </p>
         )}
       </div>
+
+      {/* Cloudflare Turnstile Anti-Bot */}
+      {turnstileSiteKey && (
+        <>
+          <Script
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+            onLoad={renderTurnstile}
+          />
+          <div ref={turnstileRef} className="flex justify-center" />
+          {errors.turnstile && (
+            <p className="text-xs text-red-400 text-center">{errors.turnstile}</p>
+          )}
+        </>
+      )}
 
       {/* Botones */}
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">

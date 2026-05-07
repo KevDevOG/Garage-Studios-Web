@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createAuditLog } from "@/lib/audit";
 
 async function ensureAdminExists(supabase: any, user: any) {
   // Verificamos si existe en la tabla administrador
@@ -37,6 +38,13 @@ export async function toggleServiceActiveAction(id: string, activo: boolean) {
     .eq("id", id);
     
   if (error) throw new Error("Error al actualizar el estado");
+
+  await createAuditLog({
+    accion: activo ? "activación" : "desactivación",
+    entidad: "servicio",
+    entidad_id: id,
+    descripcion: `Servicio ${id.slice(0, 8)}… ${activo ? "activado" : "desactivado"}`,
+  });
 
   revalidatePath("/admin/servicios");
 }
@@ -97,6 +105,13 @@ export async function createServiceAction(formData: FormData) {
     return { error: "Error al crear el servicio en la base de datos." };
   }
 
+  await createAuditLog({
+    accion: "creación",
+    entidad: "servicio",
+    descripcion: `Servicio creado: ${nombre} (${precio}€)`,
+    metadata: { nombre, categoria, precio },
+  });
+
   revalidatePath("/admin/servicios");
   revalidatePath("/reservas"); // Porque el select de reservas se nutre de aquí
   redirect("/admin/servicios");
@@ -155,6 +170,14 @@ export async function updateServiceAction(id: string, formData: FormData) {
     return { error: "Error al actualizar el servicio en la base de datos." };
   }
 
+  await createAuditLog({
+    accion: "edición",
+    entidad: "servicio",
+    entidad_id: id,
+    descripcion: `Servicio editado: ${nombre} (${precio}€)`,
+    metadata: { nombre, categoria, precio },
+  });
+
   revalidatePath("/admin/servicios");
   revalidatePath("/reservas");
   redirect("/admin/servicios");
@@ -194,6 +217,13 @@ export async function deleteServiceAction(id: string) {
     console.error("Delete error:", error);
     return { error: "Error al eliminar el servicio de la base de datos." };
   }
+
+  await createAuditLog({
+    accion: "eliminación",
+    entidad: "servicio",
+    entidad_id: id,
+    descripcion: `Servicio ${id.slice(0, 8)}… eliminado`,
+  });
 
   revalidatePath("/admin/servicios");
   revalidatePath("/reservas");

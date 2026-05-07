@@ -6,6 +6,7 @@ import { validateSlotAvailable } from "@/app/actions/availability";
 import { minutesToTime, timeToMinutes } from "@/lib/schedule";
 import { findOrCreateClientePublic, updateClienteStats } from "@/app/actions/clientes";
 import { sendReservationConfirmationEmail } from "@/lib/email";
+import { createAuditLog } from "@/lib/audit";
 
 // ── Helpers ──
 
@@ -167,6 +168,14 @@ export async function createManualReservation(formData: FormData) {
   }
 
   await updateClienteStats(supabase, clienteId);
+
+  await createAuditLog({
+    accion: "creación",
+    entidad: "reserva",
+    descripcion: `Reserva manual creada para ${nombre} (${fecha} ${horaInicio})`,
+    metadata: { servicio_id: servicioId, cliente_id: clienteId, fecha, hora_inicio: horaInicio, estado },
+  });
+
   revalidateAll();
   return { success: true };
 }
@@ -283,6 +292,16 @@ export async function updateReservation(id: string, formData: FormData) {
     }
   }
 
+  await createAuditLog({
+    accion: currentRes.estado !== estado ? "cambio_estado" : "edición",
+    entidad: "reserva",
+    entidad_id: id,
+    descripcion: currentRes.estado !== estado
+      ? `Reserva ${id.slice(0, 8)}… → ${estado} (antes: ${currentRes.estado})`
+      : `Reserva ${id.slice(0, 8)}… editada`,
+    metadata: { estado_anterior: currentRes.estado, estado_nuevo: estado },
+  });
+
   revalidateAll(id);
   return { success: true };
 }
@@ -313,6 +332,13 @@ export async function deleteReservation(id: string) {
   if (resData?.cliente_id) {
     await updateClienteStats(supabase, resData.cliente_id);
   }
+
+  await createAuditLog({
+    accion: "eliminación",
+    entidad: "reserva",
+    entidad_id: id,
+    descripcion: `Reserva ${id.slice(0, 8)}… eliminada (borrado lógico)`,
+  });
 
   revalidateAll(id);
   return { success: true };

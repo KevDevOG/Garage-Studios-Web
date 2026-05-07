@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAuditLog } from "@/lib/audit";
 
 // ── Helpers ──
 
@@ -60,52 +61,8 @@ export async function findOrCreateClientePublic(
     origen?: string;
   }
 ): Promise<string> {
-  // 1. Buscar por email
-  if (data.email) {
-    const { data: byEmail } = await supabase
-      .from("cliente")
-      .select("id")
-      .eq("email", data.email)
-      .single();
-
-    if (byEmail) {
-      // Actualizar datos del cliente existente
-      await supabase
-        .from("cliente")
-        .update({
-          nombre: data.nombre,
-          telefono: data.telefono || undefined,
-          instagram: data.instagram || undefined,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", byEmail.id);
-      return byEmail.id;
-    }
-  }
-
-  // 2. Buscar por teléfono
-  if (data.telefono) {
-    const { data: byPhone } = await supabase
-      .from("cliente")
-      .select("id")
-      .eq("telefono", data.telefono)
-      .single();
-
-    if (byPhone) {
-      await supabase
-        .from("cliente")
-        .update({
-          nombre: data.nombre,
-          email: data.email || undefined,
-          instagram: data.instagram || undefined,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", byPhone.id);
-      return byPhone.id;
-    }
-  }
-
-  // 3. Crear nuevo
+  // Con RLS activo, el público no puede leer ni actualizar clientes.
+  // Creamos siempre uno nuevo para la reserva y el admin se encargará de gestionar duplicados.
   const { data: newCliente, error } = await supabase
     .from("cliente")
     .insert([
@@ -121,8 +78,8 @@ export async function findOrCreateClientePublic(
     .single();
 
   if (error || !newCliente) {
-    console.error("Error al crear cliente:", error);
-    throw new Error("Error al crear cliente");
+    console.error("Error al crear cliente en flujo público:", error);
+    throw new Error("Error al procesar los datos del cliente");
   }
 
   return newCliente.id;
@@ -275,6 +232,15 @@ export async function updateCliente(id: string, formData: FormData) {
   }
 
   revalidateClientes(id);
+
+  await createAuditLog({
+    accion: "edición",
+    entidad: "cliente",
+    entidad_id: id,
+    descripcion: `Cliente ${nombre} editado (estado: ${estado})`,
+    metadata: { estado, origen },
+  });
+
   return { success: true };
 }
 
