@@ -1,17 +1,33 @@
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import Hero from "@/components/Hero";
 import ServiceCard from "@/components/ServiceCard";
 import GalleryCard from "@/components/GalleryCard";
-import ContactForm from "@/components/ContactForm";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveServices } from "@/app/actions/services";
-import SpotifyProductions from "@/components/SpotifyProductions";
-import FAQ from "@/components/FAQ";
+
+// Importación dinámica de componentes pesados que están "below the fold"
+const SpotifyProductions = dynamic(() => import("@/components/SpotifyProductions"), { ssr: true });
+const FAQ = dynamic(() => import("@/components/FAQ"), { ssr: true });
+const ContactForm = dynamic(() => import("@/components/ContactForm"), { ssr: true });
+
+// Revalidar la página cada hora (Incremental Static Regeneration)
+export const revalidate = 3600;
 
 export default async function HomePage() {
-  // Mostrar los Planes GST como servicios destacados en la home para impulsar ventas, directamente desde Supabase
-  const dbServices = await getActiveServices();
+  const supabase = await createClient();
+
+  // Ejecutamos ambas consultas en paralelo para mejorar el tiempo de respuesta del servidor
+  const [dbServices, { data: previewGallery }] = await Promise.all([
+    getActiveServices(),
+    supabase
+      .from("imagen")
+      .select("id, titulo, descripcion, url_imagen")
+      .order("created_at", { ascending: false })
+      .limit(4)
+  ]);
+
   const featuredServices = dbServices
     .filter((s) => s.subcategoria === "Planes GST")
     .slice(0, 3)
@@ -23,14 +39,6 @@ export default async function HomePage() {
       duration: s.duracion_minutos ? s.duracion_minutos + " min" : undefined,
       icon: s.icono,
     }));
-
-  // Mostrar las últimas 4 imágenes reales de la galería
-  const supabase = await createClient();
-  const { data: previewGallery } = await supabase
-    .from("imagen")
-    .select("id, titulo, descripcion, url_imagen")
-    .order("created_at", { ascending: false })
-    .limit(4);
 
   return (
     <>
