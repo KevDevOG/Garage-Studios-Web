@@ -69,13 +69,19 @@ export async function submitReservationAction(data: ReservationData) {
     );
   }
 
-  // 3. Crear o encontrar cliente
-  const clienteId = await findOrCreateClientePublic(supabase, {
-    nombre: data.name,
-    email: data.email,
-    telefono: data.phone,
-    origen: "web",
-  });
+  // 3. Crear o encontrar cliente (opcional en flujo público por RLS)
+  let clienteId: string | null = null;
+  try {
+    clienteId = await findOrCreateClientePublic(supabase, {
+      nombre: data.name,
+      email: data.email,
+      telefono: data.phone,
+      origen: "web",
+    });
+  } catch (err) {
+    console.warn("No se pudo crear cliente desde reserva pública:", err);
+    clienteId = null;
+  }
 
   // 4. Insertar reserva con cliente_id
   const { error } = await supabase.from("reserva").insert([
@@ -103,5 +109,7 @@ export async function submitReservationAction(data: ReservationData) {
   }
 
   // 5. Actualizar estadísticas del cliente
-  await updateClienteStats(supabase, clienteId);
+  if (clienteId) {
+    await updateClienteStats(supabase, clienteId);
+  }
 }

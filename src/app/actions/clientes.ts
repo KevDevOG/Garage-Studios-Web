@@ -60,37 +60,42 @@ export async function findOrCreateClientePublic(
     instagram?: string;
     origen?: string;
   }
-): Promise<string> {
-  // Con RLS activo, el público no puede leer ni actualizar clientes.
-  // Creamos siempre uno nuevo para la reserva y el admin se encargará de gestionar duplicados.
-  const { data: newCliente, error } = await supabase
-    .from("cliente")
-    .insert([
-      {
-        nombre: data.nombre,
-        email: data.email || null,
-        telefono: data.telefono || null,
-        instagram: data.instagram || null,
-        origen: data.origen || "web",
-      },
-    ])
-    .select("id")
-    .single();
+): Promise<string | null> {
+  try {
+    const { data: newCliente, error } = await supabase
+      .from("cliente")
+      .insert([
+        {
+          nombre: data.nombre,
+          email: data.email || null,
+          telefono: data.telefono || null,
+          instagram: data.instagram || null,
+          origen: data.origen || "web",
+        },
+      ])
+      .select("id")
+      .single();
 
-  if (error || !newCliente) {
-    console.error("Error al crear cliente en flujo público:", error);
-    throw new Error("Error al procesar los datos del cliente");
+    if (error || !newCliente) {
+      console.warn("No se pudo crear cliente desde reserva pública (RLS u otro):", error);
+      return null;
+    }
+
+    return newCliente.id;
+  } catch (err) {
+    console.warn("Excepción al intentar crear cliente público:", err);
+    return null;
   }
-
-  return newCliente.id;
 }
 
 // ── updateClienteStats (público, sin auth) ──
 
 export async function updateClienteStats(
   supabaseOrNull: SupabaseClient | null,
-  clienteId: string
+  clienteId: string | null
 ) {
+  if (!clienteId) return;
+
   const supabase = supabaseOrNull || (await createClient());
 
   // Obtener todas las reservas activas del cliente
