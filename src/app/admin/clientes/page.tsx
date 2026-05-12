@@ -67,116 +67,197 @@ export default async function ClientesPage({
         </form>
       </div>
 
-      {/* Tabla de clientes */}
+      {/* Lista de clientes */}
       {clientes.length === 0 ? (
         <div className="rounded-xl border border-card-border bg-card-bg p-12 text-center">
           <p className="text-muted italic">No se encontraron clientes con los criterios de búsqueda.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-card-border bg-card-bg shadow-2xl">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-white/5 bg-white/[0.02] text-[10px] uppercase tracking-widest text-muted/50">
-                <th className="px-6 py-5 font-bold">Información del Cliente</th>
-                <th className="px-6 py-5 font-bold">Contacto</th>
-                <th className="px-6 py-5 font-bold">Estado</th>
-                <th className="px-6 py-5 font-bold text-center">Reservas Activas</th>
-                <th className="px-6 py-5 font-bold text-right">Importe Total</th>
-                <th className="px-6 py-5 font-bold">Última Actividad</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {clientes.map((c) => (
-                <tr
-                  key={c.id}
-                  className="group transition-colors hover:bg-white/[0.03]"
-                >
-                  <td className="px-6 py-5">
+        <>
+          {/* Vista para MÓVIL (Tarjetas) */}
+          <div className="grid gap-4 md:hidden">
+            {clientes.map((c) => (
+              <div 
+                key={c.id} 
+                className="rounded-xl border border-white/5 bg-card-bg p-4 space-y-4"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
                     <Link
                       href={`/admin/clientes/${c.id}`}
-                      className="text-base font-black text-white hover:text-accent transition-colors flex flex-col"
+                      className="text-lg font-black text-white hover:text-accent transition-colors block truncate"
                     >
                       {c.nombre}
-                      <span className="text-[10px] font-normal text-muted lowercase tracking-normal mt-0.5">ID: {c.id.slice(0, 8)}...</span>
                     </Link>
-                    <div className="flex gap-1.5 mt-2">
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
                       {c.total_reservas > 1 && (
-                        <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-accent border border-accent/20">
+                        <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-accent border border-accent/20">
                           ⟳ RECURRENTE
                         </span>
                       )}
-                      <span className="rounded-full bg-white/5 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-muted border border-white/5">
-                        {c.origen}
+                      <span className={`rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-widest border ${
+                        c.estado === "activo"
+                          ? "bg-green-500/10 text-green-400 border-green-500/20"
+                          : "bg-red-500/10 text-red-400 border-red-500/20"
+                      }`}>
+                        {c.estado}
                       </span>
                     </div>
-                  </td>
-                  <td className="px-6 py-5 text-xs">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2 text-foreground/90 font-medium">
-                        <span className="opacity-40">📧</span> {c.email || "—"}
-                      </div>
-                      <div className="flex items-center gap-2 text-muted font-medium">
-                        <span className="opacity-40">📱</span> {c.telefono || "—"}
-                      </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-xl font-black text-white">{c.total_reservas}</div>
+                    <div className="text-[8px] font-bold uppercase tracking-tighter text-muted">Reservas</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 py-3 border-y border-white/5">
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-tighter text-muted mb-0.5">Importe Total</div>
+                    <div className="text-base font-black text-accent">
+                      {new Intl.NumberFormat("es-ES", {
+                        style: "currency",
+                        currency: "EUR",
+                      }).format(c.importe_total)}
                     </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <span className={`rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest inline-flex items-center gap-1.5 ${
-                      c.estado === "activo"
-                        ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                        : c.estado === "bloqueado"
-                        ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                        : "bg-white/5 text-muted border border-white/10"
-                    }`}>
-                      <span className={`h-1 w-1 rounded-full ${
-                        c.estado === 'activo' ? 'bg-green-400' : c.estado === 'bloqueado' ? 'bg-red-400' : 'bg-muted'
-                      }`} />
-                      {c.estado}
-                    </span>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex flex-col items-center">
-                      <span className="text-xl font-black text-white">{c.total_reservas}</span>
-                      <div className="flex gap-2 text-[9px] font-bold mt-1">
-                        <span className="text-green-400/70" title="Confirmadas">CONF:{c.reservas_confirmadas}</span>
-                        <span className="text-blue-400/70" title="Completadas">DONE:{c.reservas_completadas}</span>
-                      </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] font-bold uppercase tracking-tighter text-muted mb-0.5">Última Cita</div>
+                    <div className="text-sm font-bold text-white/90">
+                      {c.ultima_reserva_fecha
+                        ? new Date(c.ultima_reserva_fecha + "T00:00:00").toLocaleDateString("es-ES", {
+                            day: "2-digit",
+                            month: "short",
+                          })
+                        : "—"}
                     </div>
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <div className="flex flex-col items-end">
-                      <span className="text-lg font-black text-accent">
-                        {new Intl.NumberFormat("es-ES", {
-                          style: "currency",
-                          currency: "EUR",
-                        }).format(c.importe_total)}
-                      </span>
-                      <span className="text-[9px] text-muted font-bold uppercase tracking-tighter mt-1">Acumulado Confirmado</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-white/90">
-                        {c.ultima_reserva_fecha
-                          ? new Date(c.ultima_reserva_fecha + "T00:00:00").toLocaleDateString("es-ES", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })
-                          : "Sin actividad"}
-                      </span>
-                      {c.ultima_reserva_at && (
-                        <span className="text-[10px] text-muted mt-1">
-                          Ref: {new Date(c.ultima_reserva_at).toLocaleTimeString("es-ES", { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      )}
-                    </div>
-                  </td>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-white/80 font-medium truncate">
+                    <span className="text-muted">📧</span> {c.email || "—"}
+                  </div>
+                  <div className="flex items-center gap-2 text-white/80 font-medium truncate">
+                    <span className="text-muted">📱</span> {c.telefono || "—"}
+                  </div>
+                </div>
+
+                <Link
+                  href={`/admin/clientes/${c.id}`}
+                  className="block w-full rounded-lg bg-white/5 py-2 text-center text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-white/10"
+                >
+                  Ver Ficha Completa
+                </Link>
+              </div>
+            ))}
+          </div>
+
+          {/* Vista para ESCRITORIO (Tabla) */}
+          <div className="hidden md:block overflow-x-auto rounded-xl border border-card-border bg-card-bg shadow-2xl">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-white/5 bg-white/[0.02] text-[10px] uppercase tracking-widest text-muted/50">
+                  <th className="px-6 py-5 font-bold">Información del Cliente</th>
+                  <th className="px-6 py-5 font-bold">Contacto</th>
+                  <th className="px-6 py-5 font-bold">Estado</th>
+                  <th className="px-6 py-5 font-bold text-center">Reservas Activas</th>
+                  <th className="px-6 py-5 font-bold text-right">Importe Total</th>
+                  <th className="px-6 py-5 font-bold">Última Actividad</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {clientes.map((c) => (
+                  <tr
+                    key={c.id}
+                    className="group transition-colors hover:bg-white/[0.03]"
+                  >
+                    <td className="px-6 py-5">
+                      <Link
+                        href={`/admin/clientes/${c.id}`}
+                        className="text-base font-black text-white hover:text-accent transition-colors flex flex-col"
+                      >
+                        {c.nombre}
+                        <span className="text-[10px] font-normal text-muted lowercase tracking-normal mt-0.5">ID: {c.id.slice(0, 8)}...</span>
+                      </Link>
+                      <div className="flex gap-1.5 mt-2">
+                        {c.total_reservas > 1 && (
+                          <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-accent border border-accent/20">
+                            ⟳ RECURRENTE
+                          </span>
+                        )}
+                        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-muted border border-white/5">
+                          {c.origen}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-xs">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 text-foreground/90 font-medium">
+                          <span className="opacity-40">📧</span> {c.email || "—"}
+                        </div>
+                        <div className="flex items-center gap-2 text-muted font-medium">
+                          <span className="opacity-40">📱</span> {c.telefono || "—"}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className={`rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest inline-flex items-center gap-1.5 ${
+                        c.estado === "activo"
+                          ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                          : c.estado === "bloqueado"
+                          ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                          : "bg-white/5 text-muted border border-white/10"
+                      }`}>
+                        <span className={`h-1 w-1 rounded-full ${
+                          c.estado === 'activo' ? 'bg-green-400' : c.estado === 'bloqueado' ? 'bg-red-400' : 'bg-muted'
+                        }`} />
+                        {c.estado}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col items-center">
+                        <span className="text-xl font-black text-white">{c.total_reservas}</span>
+                        <div className="flex gap-2 text-[9px] font-bold mt-1">
+                          <span className="text-green-400/70" title="Confirmadas">CONF:{c.reservas_confirmadas}</span>
+                          <span className="text-blue-400/70" title="Completadas">DONE:{c.reservas_completadas}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <div className="flex flex-col items-end">
+                        <span className="text-lg font-black text-accent">
+                          {new Intl.NumberFormat("es-ES", {
+                            style: "currency",
+                            currency: "EUR",
+                          }).format(c.importe_total)}
+                        </span>
+                        <span className="text-[9px] text-muted font-bold uppercase tracking-tighter mt-1">Acumulado Confirmado</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-white/90">
+                          {c.ultima_reserva_fecha
+                            ? new Date(c.ultima_reserva_fecha + "T00:00:00").toLocaleDateString("es-ES", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })
+                            : "Sin actividad"}
+                        </span>
+                        {c.ultima_reserva_at && (
+                          <span className="text-[10px] text-muted mt-1">
+                            Ref: {new Date(c.ultima_reserva_at).toLocaleTimeString("es-ES", { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </section>
   );

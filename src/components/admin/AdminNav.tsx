@@ -1,44 +1,54 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth";
 
 export default function AdminNav({ title }: { title: string }) {
+  const pathname = usePathname();
+
+  const links = [
+    { href: "/admin/dashboard", label: "Dashboard" },
+    { href: "/admin/servicios", label: "Servicios" },
+    { href: "/admin/galeria", label: "Galería" },
+    { href: "/admin/clientes", label: "Clientes" },
+    { href: "/admin/calendario", label: "Calendario" },
+    { href: "/admin/finanzas", label: "Finanzas" },
+    { href: "/admin/auditoria", label: "Auditoría" },
+  ];
+
   return (
-    <div className="mb-8 flex items-end justify-between border-b border-card-border pb-4">
-      <div>
-        <h1 className="text-2xl font-bold">{title}</h1>
-        <nav className="mt-2 flex gap-6 text-sm text-muted overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible">
-          <Link href="/admin/dashboard" className="transition-colors hover:text-accent whitespace-nowrap py-1">
-            Dashboard
-          </Link>
-          <Link href="/admin/servicios" className="transition-colors hover:text-accent whitespace-nowrap py-1">
-            Servicios
-          </Link>
-          <Link href="/admin/galeria" className="transition-colors hover:text-accent whitespace-nowrap py-1">
-            Galería
-          </Link>
-          <Link href="/admin/clientes" className="transition-colors hover:text-accent whitespace-nowrap py-1">
-            Clientes
-          </Link>
-          <Link href="/admin/calendario" className="transition-colors hover:text-accent whitespace-nowrap py-1">
-            Calendario
-          </Link>
-          <Link href="/admin/finanzas" className="transition-colors hover:text-accent whitespace-nowrap py-1">
-            Finanzas
-          </Link>
-          <Link href="/admin/auditoria" className="transition-colors hover:text-accent whitespace-nowrap py-1">
-            Auditoría
-          </Link>
-        </nav>
+    <div className="mb-8 border-b border-card-border pb-4">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl sm:text-2xl font-bold truncate pr-4">{title}</h1>
+        <form action={logoutAction}>
+          <button
+            type="submit"
+            className="text-xs sm:text-sm font-medium text-red-400 transition-colors hover:text-red-300 hover:underline whitespace-nowrap"
+          >
+            Cerrar Sesión
+          </button>
+        </form>
       </div>
 
-      <form action={logoutAction}>
-        <button
-          type="submit"
-          className="text-sm font-medium text-red-400 transition-colors hover:text-red-300 hover:underline"
-        >
-          Cerrar Sesión
-        </button>
-      </form>
+      <nav className="flex gap-4 sm:gap-6 text-sm text-muted overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+        {links.map((link) => {
+          const isActive = pathname ? (pathname === link.href || pathname.startsWith(`${link.href}/`)) : false;
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`transition-colors hover:text-accent whitespace-nowrap py-1 border-b-2 ${
+                isActive 
+                  ? "text-accent border-accent font-bold" 
+                  : "border-transparent"
+              }`}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

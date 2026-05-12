@@ -26,53 +26,96 @@ export default async function AdminServiciosPage() {
         </Link>
       </div>
 
-      <div className="rounded-xl border border-card-border bg-card-bg p-6">
+      <div className="rounded-xl border border-card-border bg-card-bg p-4 sm:p-6">
         {!servicios || servicios.length === 0 ? (
           <p className="text-sm text-muted">No hay servicios configurados.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-card-border text-muted">
-                  <th className="pb-3 font-medium">Nombre</th>
-                  <th className="pb-3 font-medium">Precio</th>
-                  <th className="pb-3 font-medium">Duración</th>
-                  <th className="pb-3 font-medium">Reservas</th>
-                  <th className="pb-3 font-medium">Estado</th>
-                  <th className="pb-3 text-right font-medium">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-card-border">
-                {servicios.map((s) => (
-                  <tr
-                    key={s.id}
-                    className="transition-colors hover:bg-white/[0.02]"
-                  >
-                    <td className="py-3 pr-4 font-medium">{s.nombre}</td>
-                    <td className="py-3 pr-4">{s.precio} €</td>
-                    <td className="py-3 pr-4">{s.duracion_minutos} min</td>
-                    <td className="py-3 pr-4">
-                      <span className="inline-block rounded-full bg-card-border px-2.5 py-0.5 text-xs font-semibold text-white">
-                        {s.reserva?.length || 0}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <ServiceActiveToggle id={s.id} isActivo={s.activo} />
-                    </td>
-                    <td className="py-3 text-right">
-                      <Link
-                        href={`/admin/servicios/${s.id}`}
-                        className="text-accent transition-colors hover:text-accent-hover hover:underline"
-                      >
-                        Editar
-                      </Link>
-                      <DeleteServiceButton id={s.id} />
-                    </td>
+          <>
+            {/* Vista para MÓVIL (Tarjetas) */}
+            <div className="grid gap-4 md:hidden">
+              {servicios.map((s) => (
+                <div 
+                  key={s.id} 
+                  className="rounded-xl border border-white/5 bg-black/20 p-4 space-y-4"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-base font-black text-white">{s.nombre}</h3>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="text-sm font-bold text-accent">{s.precio} €</span>
+                        <span className="text-white/20">•</span>
+                        <span className="text-xs text-muted font-medium">{s.duracion_minutos} min</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-black text-white">{s.reserva?.length || 0}</div>
+                      <div className="text-[8px] font-bold uppercase tracking-tighter text-muted">Citas</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between py-3 border-y border-white/5">
+                    <span className="text-xs font-bold text-muted uppercase tracking-widest">Estado Activo</span>
+                    <ServiceActiveToggle id={s.id} isActivo={s.activo} />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-4 pt-1">
+                    <Link
+                      href={`/admin/servicios/${s.id}`}
+                      className="text-sm font-bold text-accent transition-colors hover:text-accent-hover"
+                    >
+                      Editar
+                    </Link>
+                    <DeleteServiceButton id={s.id} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Vista para ESCRITORIO (Tabla) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-card-border text-muted">
+                    <th className="pb-3 font-medium">Nombre</th>
+                    <th className="pb-3 font-medium">Precio</th>
+                    <th className="pb-3 font-medium">Duración</th>
+                    <th className="pb-3 font-medium">Reservas</th>
+                    <th className="pb-3 font-medium">Estado</th>
+                    <th className="pb-3 text-right font-medium">Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-card-border">
+                  {servicios.map((s) => (
+                    <tr
+                      key={s.id}
+                      className="transition-colors hover:bg-white/[0.02]"
+                    >
+                      <td className="py-3 pr-4 font-medium">{s.nombre}</td>
+                      <td className="py-3 pr-4">{s.precio} €</td>
+                      <td className="py-3 pr-4">{s.duracion_minutos} min</td>
+                      <td className="py-3 pr-4">
+                        <span className="inline-block rounded-full bg-card-border px-2.5 py-0.5 text-xs font-semibold text-white">
+                          {s.reserva?.length || 0}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <ServiceActiveToggle id={s.id} isActivo={s.activo} />
+                      </td>
+                      <td className="py-3 text-right">
+                        <Link
+                          href={`/admin/servicios/${s.id}`}
+                          className="text-accent transition-colors hover:text-accent-hover hover:underline"
+                        >
+                          Editar
+                        </Link>
+                        <DeleteServiceButton id={s.id} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </section>

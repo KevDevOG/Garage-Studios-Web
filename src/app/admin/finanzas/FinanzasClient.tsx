@@ -330,65 +330,65 @@ export default function FinanzasClient({ month, year, summary, movements, yearly
       {/* Listado con Filtros y Exportar */}
       <div className="bg-card-bg rounded-xl border border-card-border overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border-b border-card-border bg-black/20 gap-4">
-          <h3 className="text-sm font-bold uppercase">Movimientos de {monthName}</h3>
-          <div className="flex items-center gap-3">
+          <h3 className="text-sm font-bold uppercase tracking-widest">Movimientos de {monthName}</h3>
+          <div className="flex items-center gap-2 sm:gap-3">
             <select 
               value={filterTipo} 
               onChange={(e) => setFilterTipo(e.target.value as any)}
-              className="text-xs py-1.5 px-3 rounded-lg bg-white/5 border border-white/10 w-auto"
+              className="text-[10px] sm:text-xs py-1.5 px-2 sm:px-3 rounded-lg bg-white/5 border border-white/10 w-full sm:w-auto"
             >
-              <option value="todos">Todos los tipos</option>
+              <option value="todos">Todos</option>
               <option value="ingreso">Ingresos</option>
               <option value="gasto">Gastos</option>
             </select>
             <button 
               onClick={exportExcel} 
-              className="text-xs bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg font-medium flex items-center gap-2"
+              className="text-[10px] sm:text-xs bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg font-medium flex items-center gap-2 whitespace-nowrap"
               title="Exportar a Excel"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
               Excel
             </button>
           </div>
         </div>
         
         {filteredMovements.length === 0 ? (
-          <p className="p-8 text-center text-muted text-sm">No hay movimientos registrados en este mes con los filtros actuales.</p>
+          <p className="p-8 text-center text-muted text-sm">No hay movimientos registrados.</p>
         ) : (
           <div className="divide-y divide-card-border">
             {filteredMovements.map((mov) => (
               <div key={mov.id} className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${mov.tipo === 'ingreso' ? 'hover:bg-green-900/10' : 'hover:bg-red-900/10'}`}>
-                <div className="flex gap-4 items-start">
+                <div className="flex gap-3 sm:gap-4 items-start">
                   <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${mov.tipo === 'ingreso' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`}></div>
-                  <div>
-                    <p className="font-bold text-sm text-white/90">{mov.concepto}</p>
-                    <p className="text-xs text-muted flex gap-2 items-center mt-1.5 flex-wrap">
-                      <span className="font-medium">{new Date(mov.fecha).toLocaleDateString('es-ES')}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-sm text-white/90 truncate">{mov.concepto}</p>
+                    <div className="text-[10px] sm:text-xs text-muted flex gap-x-2 gap-y-1 items-center mt-1.5 flex-wrap font-medium">
+                      <span>{new Date(mov.fecha).toLocaleDateString('es-ES')}</span>
                       <span className="text-white/20">•</span>
-                      <span className="bg-white/10 px-2 py-0.5 rounded text-[10px] uppercase font-semibold text-white/80">{mov.categoria}</span>
+                      <span className="bg-white/10 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold text-white/70">{mov.categoria}</span>
                       {mov.metodo_pago && (
                         <>
                           <span className="text-white/20">•</span>
                           <span className="capitalize">{mov.metodo_pago}</span>
                         </>
                       )}
-                    </p>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between sm:justify-end gap-6 sm:w-1/3">
-                  <p className={`font-black text-lg ${mov.tipo === 'ingreso' ? 'text-green-400' : 'text-red-400'}`}>
+                <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 sm:w-auto">
+                  <p className={`font-black text-base sm:text-lg ${mov.tipo === 'ingreso' ? 'text-green-400' : 'text-red-400'}`}>
                     {mov.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(mov.importe)}
                   </p>
-                  <div className="flex gap-3">
-                    <Link href={`/admin/finanzas/${mov.id}`} className="text-xs font-medium text-muted hover:text-white transition-colors underline">
-                      Editar
+                  <div className="flex gap-3 shrink-0">
+                    <Link href={`/admin/finanzas/${mov.id}`} className="text-[10px] sm:text-xs font-bold text-muted hover:text-white transition-colors uppercase tracking-widest bg-white/5 px-2 py-1 rounded">
+                      Edit
                     </Link>
                     <button 
                       onClick={() => handleDelete(mov.id)} 
                       disabled={isPending}
-                      className="text-xs font-medium text-red-400/80 hover:text-red-400 transition-colors underline disabled:opacity-50"
+                      className="text-[10px] sm:text-xs font-bold text-red-400/80 hover:text-red-400 transition-colors uppercase tracking-widest bg-red-400/10 px-2 py-1 rounded disabled:opacity-50"
                     >
-                      Eliminar
+                      Del
                     </button>
                   </div>
                 </div>

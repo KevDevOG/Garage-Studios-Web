@@ -69,73 +69,123 @@ export default async function AuditoriaPage() {
             <p className="text-xs text-muted mt-1">Los cambios que hagas en el panel aparecerán aquí automáticamente.</p>
           </div>
         ) : (
-          <div className="rounded-xl border border-card-border bg-card-bg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-card-border bg-black/20 text-left text-xs uppercase tracking-wider text-muted">
-                    <th className="px-4 py-3 font-medium">Fecha</th>
-                    <th className="px-4 py-3 font-medium">Acción</th>
-                    <th className="px-4 py-3 font-medium">Entidad</th>
-                    <th className="px-4 py-3 font-medium">Descripción</th>
-                    <th className="px-4 py-3 font-medium">Detalles</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-card-border">
-                  {auditLogs.map((log) => {
-                    const colorClass = ACCION_COLORS[log.accion] || "bg-white/10 text-white/70";
-                    const date = new Date(log.created_at);
-                    const formattedDate = date.toLocaleDateString("es-ES", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    });
-                    const formattedTime = date.toLocaleTimeString("es-ES", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    });
+          <>
+            {/* Vista para MÓVIL (Tarjetas) */}
+            <div className="grid gap-4 md:hidden">
+              {auditLogs.map((log) => {
+                const colorClass = ACCION_COLORS[log.accion] || "bg-white/10 text-white/70";
+                const date = new Date(log.created_at);
+                
+                return (
+                  <div 
+                    key={log.id} 
+                    className="rounded-xl border border-white/5 bg-card-bg p-4 space-y-3"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted">
+                          {date.toLocaleDateString("es-ES", { day: '2-digit', month: 'short' })} — {date.toLocaleTimeString("es-ES", { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <span className="text-sm font-black text-white mt-0.5 capitalize">
+                          {log.entidad}
+                        </span>
+                      </div>
+                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${colorClass}`}>
+                        {log.accion}
+                      </span>
+                    </div>
 
-                    return (
-                      <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-xs font-medium">{formattedDate}</div>
-                          <div className="text-[10px] text-muted">{formattedTime}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${colorClass}`}>
-                            {log.accion}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-medium capitalize">{log.entidad}</span>
-                          {log.entidad_id && (
-                            <div className="text-[10px] text-muted font-mono">{log.entidad_id.slice(0, 8)}…</div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-xs text-white/80 max-w-xs truncate" title={log.descripcion || ""}>
-                            {log.descripcion || "—"}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          {log.metadata ? (
-                            <details className="cursor-pointer">
-                              <summary className="text-[10px] text-accent hover:underline">Ver</summary>
-                              <pre className="mt-1 text-[10px] text-muted bg-black/30 p-2 rounded max-w-xs overflow-x-auto">
-                                {JSON.stringify(log.metadata, null, 2)}
-                              </pre>
-                            </details>
-                          ) : (
-                            <span className="text-[10px] text-muted">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    <div className="bg-black/20 rounded-lg p-3 border border-white/5">
+                      <p className="text-xs text-white/80 leading-relaxed italic">
+                        &ldquo;{log.descripcion || "Sin descripción"}&rdquo;
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-muted font-mono">{log.entidad_id?.slice(0, 12)}…</span>
+                      {log.metadata && (
+                        <details className="cursor-pointer">
+                          <summary className="text-accent font-bold hover:underline">Ver Metadatos</summary>
+                          <pre className="mt-2 text-[9px] text-muted bg-black/40 p-2 rounded-lg overflow-x-auto w-full max-w-[calc(100vw-4rem)]">
+                            {JSON.stringify(log.metadata, null, 2)}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
+
+            {/* Vista para ESCRITORIO (Tabla) */}
+            <div className="hidden md:block rounded-xl border border-card-border bg-card-bg overflow-hidden shadow-2xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-card-border bg-black/20 text-left text-xs uppercase tracking-wider text-muted">
+                      <th className="px-4 py-3 font-medium">Fecha</th>
+                      <th className="px-4 py-3 font-medium">Acción</th>
+                      <th className="px-4 py-3 font-medium">Entidad</th>
+                      <th className="px-4 py-3 font-medium">Descripción</th>
+                      <th className="px-4 py-3 font-medium">Detalles</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-card-border">
+                    {auditLogs.map((log) => {
+                      const colorClass = ACCION_COLORS[log.accion] || "bg-white/10 text-white/70";
+                      const date = new Date(log.created_at);
+                      const formattedDate = date.toLocaleDateString("es-ES", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      });
+                      const formattedTime = date.toLocaleTimeString("es-ES", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+
+                      return (
+                        <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="text-xs font-medium">{formattedDate}</div>
+                            <div className="text-[10px] text-muted">{formattedTime}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${colorClass}`}>
+                              {log.accion}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs font-medium capitalize">{log.entidad}</span>
+                            {log.entidad_id && (
+                              <div className="text-[10px] text-muted font-mono">{log.entidad_id.slice(0, 8)}…</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="text-xs text-white/80 max-w-xs truncate" title={log.descripcion || ""}>
+                              {log.descripcion || "—"}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3">
+                            {log.metadata ? (
+                              <details className="cursor-pointer">
+                                <summary className="text-[10px] text-accent hover:underline">Ver</summary>
+                                <pre className="mt-1 text-[10px] text-muted bg-black/30 p-2 rounded max-w-xs overflow-x-auto">
+                                  {JSON.stringify(log.metadata, null, 2)}
+                                </pre>
+                              </details>
+                            ) : (
+                              <span className="text-[10px] text-muted">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

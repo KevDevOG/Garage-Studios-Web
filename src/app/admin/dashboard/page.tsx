@@ -49,22 +49,22 @@ export default async function AdminDashboardPage() {
       <AdminNav title="Dashboard" />
 
       {/* Info del usuario logueado - Resumen en tarjetas */}
-      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-xl border border-card-border bg-card-bg p-4 flex flex-col justify-between">
-          <div className="text-[10px] uppercase tracking-tighter text-muted font-bold">Sesión Activa</div>
-          <div className="mt-1 text-xs text-white truncate">{user?.email?.split('@')[0]}</div>
+      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <div className="rounded-xl border border-card-border bg-card-bg p-3 sm:p-4 flex flex-col justify-between hover:border-white/20 transition-colors">
+          <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-muted font-black">Sesión</div>
+          <div className="mt-1 text-xs sm:text-sm text-white font-bold truncate">{user?.email?.split('@')[0]}</div>
         </div>
-        <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 p-4 flex flex-col justify-between">
-          <div className="text-[10px] uppercase tracking-tighter text-amber-400 font-bold">Pendientes</div>
-          <div className="text-2xl font-black text-white leading-none">{groups.pendiente.length}</div>
+        <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 p-3 sm:p-4 flex flex-col justify-between hover:bg-amber-400/10 transition-all">
+          <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-amber-400 font-black">Pendientes</div>
+          <div className="text-xl sm:text-2xl font-black text-white leading-none">{groups.pendiente.length}</div>
         </div>
-        <div className="rounded-xl border border-green-400/20 bg-green-400/5 p-4 flex flex-col justify-between">
-          <div className="text-[10px] uppercase tracking-tighter text-green-400 font-bold">Confirmadas</div>
-          <div className="text-2xl font-black text-white leading-none">{groups.confirmada.length}</div>
+        <div className="rounded-xl border border-green-400/20 bg-green-400/5 p-3 sm:p-4 flex flex-col justify-between hover:bg-green-400/10 transition-all">
+          <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-green-400 font-black">Confirmadas</div>
+          <div className="text-xl sm:text-2xl font-black text-white leading-none">{groups.confirmada.length}</div>
         </div>
-        <div className="rounded-xl border border-card-border bg-card-bg p-4 flex flex-col justify-between">
-          <div className="text-[10px] uppercase tracking-tighter text-muted font-bold">Total (50)</div>
-          <div className="text-2xl font-black text-white leading-none">{reservas?.length || 0}</div>
+        <div className="rounded-xl border border-card-border bg-card-bg p-3 sm:p-4 flex flex-col justify-between hover:border-white/20 transition-colors">
+          <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-muted font-black">Total (50)</div>
+          <div className="text-xl sm:text-2xl font-black text-white leading-none">{reservas?.length || 0}</div>
         </div>
       </div>
 
