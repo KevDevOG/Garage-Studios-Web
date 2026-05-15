@@ -29,17 +29,30 @@ export default async function HomePage() {
       .limit(4)
   ]);
 
-  const featuredServices = dbServices
-    .filter((s) => s.subcategoria === "Planes GST")
-    .slice(0, 3)
-    .map((s) => ({
-      id: s.id,
-      name: s.nombre,
-      description: s.descripcion,
-      price: s.precio + " €",
-      duration: s.duracion_minutos ? s.duracion_minutos + " min" : undefined,
-      icon: s.icono,
-    }));
+  // Seleccionamos servicios destacados para la Home
+  // Intentamos mostrar una mezcla representativa o simplemente los primeros activos
+  const featuredIds = [
+    "1 canción + producción",
+    "2 canciones + producción",
+    "Licencia básica",
+    "Pack grabación + edición de videoclip 1h"
+  ];
+
+  let selectedServices = dbServices.filter(s => featuredIds.includes(s.nombre));
+  
+  // Si por algún motivo no hay coincidencias por nombre, tomamos los 4 primeros
+  if (selectedServices.length === 0) {
+    selectedServices = dbServices.slice(0, 4);
+  }
+
+  const featuredServices = selectedServices.map((s) => ({
+    id: s.id,
+    name: s.nombre,
+    description: s.descripcion,
+    price: s.precio + " €",
+    duration: s.duracion_minutos ? s.duracion_minutos + " min" : undefined,
+    icon: s.icono,
+  }));
 
   return (
     <>
@@ -57,7 +70,7 @@ export default async function HomePage() {
             Todo lo que necesitas para llevar tu música al siguiente nivel.
           </p>
         </ScrollReveal>
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={`grid gap-8 sm:grid-cols-2 ${featuredServices.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
           {featuredServices.map((service, index) => (
             <ScrollReveal key={service.id} delay={index * 0.1}>
               <ServiceCard service={service} featured={true} />
