@@ -271,11 +271,11 @@ export default function EditarReservaForm({
         <h3 className="text-sm font-black uppercase tracking-widest text-white border-b border-white/5 pb-2">
           Comunicaciones
         </h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {/* Email Status */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
+          {/* Email Confirmación */}
           <div className="space-y-1">
             <span className="text-[10px] uppercase tracking-widest text-muted font-bold block">
-              Email Automático
+              Email Confirmación
             </span>
             {reservation.confirmacion_email_enviada_at ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-bold text-green-400">
@@ -298,8 +298,60 @@ export default function EditarReservaForm({
             )}
           </div>
 
+          {/* Email Cancelación */}
+          <div className="space-y-1">
+            <span className="text-[10px] uppercase tracking-widest text-muted font-bold block">
+              Email Cancelación
+            </span>
+            {reservation.cancelacion_email_enviada_at ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-bold text-green-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+                Enviado
+              </span>
+            ) : reservation.estado === 'cancelada' && reservation.email_estado_error ? (
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-xs font-bold text-red-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                  Error
+                </span>
+                <p className="text-[10px] text-red-400/80">{reservation.email_estado_error}</p>
+              </div>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs font-bold text-muted">
+                <span className="h-1.5 w-1.5 rounded-full bg-muted"></span>
+                No enviado
+              </span>
+            )}
+          </div>
+
+          {/* Email Completada */}
+          <div className="space-y-1">
+            <span className="text-[10px] uppercase tracking-widest text-muted font-bold block">
+              Email Completada
+            </span>
+            {reservation.completada_email_enviada_at ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-bold text-green-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+                Enviado
+              </span>
+            ) : reservation.estado === 'completada' && reservation.email_estado_error ? (
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-xs font-bold text-red-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                  Error
+                </span>
+                <p className="text-[10px] text-red-400/80">{reservation.email_estado_error}</p>
+              </div>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs font-bold text-muted">
+                <span className="h-1.5 w-1.5 rounded-full bg-muted"></span>
+                No enviado
+              </span>
+            )}
+          </div>
+
           {/* WhatsApp Status & Actions */}
-          <div className="space-y-3">
+          <div className="space-y-3 sm:col-span-2 md:col-span-3 pt-2 border-t border-white/5">
             <div className="space-y-1">
               <span className="text-[10px] uppercase tracking-widest text-muted font-bold block">
                 WhatsApp Manual

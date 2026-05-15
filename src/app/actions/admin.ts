@@ -3,7 +3,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { updateClienteStats } from "@/app/actions/clientes";
-import { sendReservationConfirmationEmail } from "@/lib/email";
+import { 
+  sendReservationConfirmationEmail, 
+  sendReservationCancelledEmail, 
+  sendReservationCompletedEmail 
+} from "@/lib/email";
 
 export async function updateReservationStatus(id: string, estado: string) {
   const supabase = await createClient();
@@ -17,7 +21,7 @@ export async function updateReservationStatus(id: string, estado: string) {
   // 1. Obtener el estado actual antes de actualizar
   const { data: currentRes } = await supabase
     .from("reserva")
-    .select("estado, email, nombre, fecha_reserva, hora_inicio, hora_fin, precio, confirmacion_email_enviada_at, calendar_token, servicio(nombre), cliente_id")
+    .select("estado, email, nombre, fecha_reserva, hora_inicio, hora_fin, precio, confirmacion_email_enviada_at, cancelacion_email_enviada_at, completada_email_enviada_at, calendar_token, servicio(nombre), cliente_id")
     .eq("id", id)
     .single();
 
@@ -39,38 +43,56 @@ export async function updateReservationStatus(id: string, estado: string) {
     await updateClienteStats(supabase, currentRes.cliente_id);
   }
 
-  // 4. Lógica de email: Solo si pasa a "confirmada" por primera vez y tiene email
-  if (
-    estado === "confirmada" &&
-    currentRes.estado !== "confirmada" &&
-    !currentRes.confirmacion_email_enviada_at &&
-    currentRes.email
-  ) {
-    const emailResult = await sendReservationConfirmationEmail(currentRes.email, {
-      nombre: currentRes.nombre,
-      servicioNombre: (Array.isArray(currentRes.servicio) ? currentRes.servicio[0]?.nombre : (currentRes.servicio as any)?.nombre) || "Sesión en Garage Studios",
-      precio: currentRes.precio,
-      fecha: new Date(currentRes.fecha_reserva + "T00:00:00").toLocaleDateString("es-ES", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
-      horaInicio: currentRes.hora_inicio?.slice(0, 5) || "--:--",
-      horaFin: currentRes.hora_fin?.slice(0, 5) || "--:--",
-      calendarToken: currentRes.calendar_token || undefined,
-    });
+  const commonEmailData = {
+    nombre: currentRes.nombre,
+    servicioNombre: (Array.isArray(currentRes.servicio) ? (currentRes.servicio as any)[0]?.nombre : (currentRes.servicio as any)?.nombre) || "Sesión en Garage Studios",
+    precio: currentRes.precio,
+    fecha: new Date(currentRes.fecha_reserva + "T00:00:00").toLocaleDateString("es-ES", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }),
+    horaInicio: currentRes.hora_inicio?.slice(0, 5) || "--:--",
+    horaFin: currentRes.hora_fin?.slice(0, 5) || "--:--",
+  };
 
-    if (emailResult.error) {
-      await supabase
-        .from("reserva")
-        .update({ confirmacion_error: emailResult.error })
-        .eq("id", id);
-    } else {
-      await supabase
-        .from("reserva")
-        .update({ confirmacion_email_enviada_at: new Date().toISOString(), confirmacion_error: null })
-        .eq("id", id);
+  // 4. Lógica de emails
+  if (currentRes.email) {
+    // A. Confirmación
+    if (estado === "confirmada" && currentRes.estado !== "confirmada" && !currentRes.confirmacion_email_enviada_at) {
+      const result = await sendReservationConfirmationEmail(currentRes.email, {
+        ...commonEmailData,
+        calendarToken: currentRes.calendar_token || undefined,
+      });
+
+      if (result.error) {
+        await supabase.from("reserva").update({ confirmacion_error: result.error }).eq("id", id);
+      } else {
+        await supabase.from("reserva").update({ confirmacion_email_enviada_at: new Date().toISOString(), confirmacion_error: null }).eq("id", id);
+      }
+    }
+
+    // B. Cancelación
+    if (estado === "cancelada" && currentRes.estado !== "cancelada" && !currentRes.cancelacion_email_enviada_at) {
+      const result = await sendReservationCancelledEmail(currentRes.email, commonEmailData);
+
+      if (result.error) {
+        await supabase.from("reserva").update({ email_estado_error: result.error }).eq("id", id);
+      } else {
+        await supabase.from("reserva").update({ cancelacion_email_enviada_at: new Date().toISOString(), email_estado_error: null }).eq("id", id);
+      }
+    }
+
+    // C. Completada
+    if (estado === "completada" && currentRes.estado !== "completada" && !currentRes.completada_email_enviada_at) {
+      const result = await sendReservationCompletedEmail(currentRes.email, commonEmailData);
+
+      if (result.error) {
+        await supabase.from("reserva").update({ email_estado_error: result.error }).eq("id", id);
+      } else {
+        await supabase.from("reserva").update({ completada_email_enviada_at: new Date().toISOString(), email_estado_error: null }).eq("id", id);
+      }
     }
   }
 

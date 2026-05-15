@@ -5,7 +5,11 @@ import { revalidatePath } from "next/cache";
 import { validateSlotAvailable } from "@/app/actions/availability";
 import { minutesToTime, timeToMinutes } from "@/lib/schedule";
 import { findOrCreateClientePublic, updateClienteStats } from "@/app/actions/clientes";
-import { sendReservationConfirmationEmail } from "@/lib/email";
+import { 
+  sendReservationConfirmationEmail, 
+  sendReservationCancelledEmail, 
+  sendReservationCompletedEmail 
+} from "@/lib/email";
 import { createAuditLog } from "@/lib/audit";
 
 // ── Helpers ──
@@ -61,6 +65,9 @@ export interface ReservationRow {
   confirmacion_email_enviada_at?: string | null;
   confirmacion_whatsapp_enviada_at?: string | null;
   confirmacion_error?: string | null;
+  cancelacion_email_enviada_at?: string | null;
+  completada_email_enviada_at?: string | null;
+  email_estado_error?: string | null;
   calendar_token?: string | null;
 }
 
@@ -216,7 +223,7 @@ export async function updateReservation(id: string, formData: FormData) {
   // 1. Obtener estado previo antes de actualizar
   const { data: currentRes } = await supabase
     .from("reserva")
-    .select("estado, precio, confirmacion_email_enviada_at, calendar_token, servicio(nombre)")
+    .select("estado, precio, confirmacion_email_enviada_at, cancelacion_email_enviada_at, completada_email_enviada_at, calendar_token, servicio(nombre)")
     .eq("id", id)
     .single();
 
@@ -257,38 +264,56 @@ export async function updateReservation(id: string, formData: FormData) {
     await updateClienteStats(supabase, resData.cliente_id);
   }
 
-  // 4. Lógica de email: Solo si pasa a "confirmada" por primera vez y tiene email
-  if (
-    estado === "confirmada" &&
-    currentRes.estado !== "confirmada" &&
-    !currentRes.confirmacion_email_enviada_at &&
-    email
-  ) {
-    const emailResult = await sendReservationConfirmationEmail(email, {
-      nombre,
-      servicioNombre: (Array.isArray(currentRes.servicio) ? currentRes.servicio[0]?.nombre : (currentRes.servicio as any)?.nombre) || "Sesión en Garage Studios",
-      precio: isNaN(precio) ? currentRes.precio : precio, // Usar el nuevo precio o el anterior si no se actualiza
-      fecha: new Date(fecha + "T00:00:00").toLocaleDateString("es-ES", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
-      horaInicio: horaInicio || "--:--",
-      horaFin: horaFin || "--:--",
-      calendarToken: currentRes.calendar_token || undefined,
-    });
+  const commonEmailData = {
+    nombre,
+    servicioNombre: (Array.isArray(currentRes.servicio) ? (currentRes.servicio as any)[0]?.nombre : (currentRes.servicio as any)?.nombre) || "Sesión en Garage Studios",
+    precio: isNaN(precio) ? currentRes.precio : precio,
+    fecha: new Date(fecha + "T00:00:00").toLocaleDateString("es-ES", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }),
+    horaInicio: horaInicio || "--:--",
+    horaFin: horaFin || "--:--",
+  };
 
-    if (emailResult.error) {
-      await supabase
-        .from("reserva")
-        .update({ confirmacion_error: emailResult.error })
-        .eq("id", id);
-    } else {
-      await supabase
-        .from("reserva")
-        .update({ confirmacion_email_enviada_at: new Date().toISOString(), confirmacion_error: null })
-        .eq("id", id);
+  // 4. Lógica de emails
+  if (email) {
+    // A. Confirmación
+    if (estado === "confirmada" && currentRes.estado !== "confirmada" && !currentRes.confirmacion_email_enviada_at) {
+      const result = await sendReservationConfirmationEmail(email, {
+        ...commonEmailData,
+        calendarToken: currentRes.calendar_token || undefined,
+      });
+
+      if (result.error) {
+        await supabase.from("reserva").update({ confirmacion_error: result.error }).eq("id", id);
+      } else {
+        await supabase.from("reserva").update({ confirmacion_email_enviada_at: new Date().toISOString(), confirmacion_error: null }).eq("id", id);
+      }
+    }
+
+    // B. Cancelación
+    if (estado === "cancelada" && currentRes.estado !== "cancelada" && !currentRes.cancelacion_email_enviada_at) {
+      const result = await sendReservationCancelledEmail(email, commonEmailData);
+
+      if (result.error) {
+        await supabase.from("reserva").update({ email_estado_error: result.error }).eq("id", id);
+      } else {
+        await supabase.from("reserva").update({ cancelacion_email_enviada_at: new Date().toISOString(), email_estado_error: null }).eq("id", id);
+      }
+    }
+
+    // C. Completada
+    if (estado === "completada" && currentRes.estado !== "completada" && !currentRes.completada_email_enviada_at) {
+      const result = await sendReservationCompletedEmail(email, commonEmailData);
+
+      if (result.error) {
+        await supabase.from("reserva").update({ email_estado_error: result.error }).eq("id", id);
+      } else {
+        await supabase.from("reserva").update({ completada_email_enviada_at: new Date().toISOString(), email_estado_error: null }).eq("id", id);
+      }
     }
   }
 
