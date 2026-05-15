@@ -114,7 +114,7 @@ function buildReservationEmailTemplate({
                  style="display: inline-block; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; background-color: #25D366; padding: 10px 20px; border-radius: 8px; margin: 5px;">
                  📱 WhatsApp
               </a>
-              <a href="mailto:hola@garagestudios.es" 
+              <a href="mailto:garagestudioslp@gmail.com" 
                  style="display: inline-block; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; background-color: #333333; padding: 10px 20px; border-radius: 8px; margin: 5px;">
                  📧 Email
               </a>
@@ -147,7 +147,7 @@ export async function sendReservationConfirmationEmail(
     const data = await resend.emails.send({
       from,
       to,
-      replyTo: "hola@garagestudios.es",
+      replyTo: "garagestudioslp@gmail.com",
       subject: "Reserva confirmada en Garage Studios",
       html: buildReservationEmailTemplate({
         title: "Reserva Confirmada ✅",
@@ -180,7 +180,7 @@ export async function sendReservationCancelledEmail(
     const data = await resend.emails.send({
       from,
       to,
-      replyTo: "hola@garagestudios.es",
+      replyTo: "garagestudioslp@gmail.com",
       subject: "Reserva cancelada en Garage Studios",
       html: buildReservationEmailTemplate({
         title: "Reserva Cancelada",
@@ -212,7 +212,7 @@ export async function sendReservationCompletedEmail(
     const data = await resend.emails.send({
       from,
       to,
-      replyTo: "hola@garagestudios.es",
+      replyTo: "garagestudioslp@gmail.com",
       subject: "Gracias por venir a Garage Studios",
       html: buildReservationEmailTemplate({
         title: "Sesión Completada",
