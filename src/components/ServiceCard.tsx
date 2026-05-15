@@ -7,6 +7,9 @@ export interface ServiceDisplay {
   price: string;
   duration?: string;
   icon: string;
+  category?: string;
+  subcategory?: string | null;
+  isPack?: boolean;
 }
 
 interface ServiceCardProps {

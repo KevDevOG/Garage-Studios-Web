@@ -14,6 +14,14 @@ export interface DBService {
   es_pack: boolean;
 }
 
+// Orden canónico de categorías para la web pública
+const CATEGORY_ORDER: Record<string, number> = {
+  "Grabación":  1,
+  "Beats":      2,
+  "Fotografía": 3,
+  "Videoclips": 4,
+};
+
 export async function getActiveServices(): Promise<DBService[]> {
   const supabase = await createClient();
 
@@ -22,12 +30,21 @@ export async function getActiveServices(): Promise<DBService[]> {
     .from("servicio")
     .select("id, nombre, descripcion, precio, duracion_minutos, categoria, subcategoria, icono, es_pack")
     .eq("activo", true)
-    .order("precio", { ascending: true });
+    .order("categoria", { ascending: true })
+    .order("precio",    { ascending: true });
 
   if (error) {
     console.error("Error al obtener servicios:", error);
     return [];
   }
 
-  return data || [];
+  // Re-ordenar en memoria según el orden canónico de categorías
+  const sorted = (data || []).sort((a, b) => {
+    const orderA = CATEGORY_ORDER[a.categoria] ?? 99;
+    const orderB = CATEGORY_ORDER[b.categoria] ?? 99;
+    if (orderA !== orderB) return orderA - orderB;
+    return Number(a.precio) - Number(b.precio);
+  });
+
+  return sorted;
 }
