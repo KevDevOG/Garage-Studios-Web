@@ -12,6 +12,7 @@ import { getActiveServices } from "@/app/actions/services";
 const SpotifyProductions = dynamic(() => import("@/components/SpotifyProductions"), { ssr: true });
 const FAQ = dynamic(() => import("@/components/FAQ"), { ssr: true });
 const ContactForm = dynamic(() => import("@/components/ContactForm"), { ssr: true });
+import { MapPin, Clock, Mail, Video, Camera, ChevronRight } from "lucide-react";
 
 // Revalidar la página cada hora (Incremental Static Regeneration)
 export const revalidate = 3600;
@@ -29,21 +30,8 @@ export default async function HomePage() {
       .limit(4)
   ]);
 
-  // Seleccionamos servicios destacados para la Home
-  // Intentamos mostrar una mezcla representativa o simplemente los primeros activos
-  const featuredIds = [
-    "1 canción + producción",
-    "2 canciones + producción",
-    "Licencia básica",
-    "Pack grabación + edición de videoclip 1h"
-  ];
-
-  let selectedServices = dbServices.filter(s => featuredIds.includes(s.nombre));
-  
-  // Si por algún motivo no hay coincidencias por nombre, tomamos los 4 primeros
-  if (selectedServices.length === 0) {
-    selectedServices = dbServices.slice(0, 4);
-  }
+  // Seleccionamos los 4 primeros servicios (orden comercial definido en la DB) para la Home
+  const selectedServices = dbServices.slice(0, 4);
 
   const featuredServices = selectedServices.map((s) => ({
     id: s.id,
@@ -52,6 +40,7 @@ export default async function HomePage() {
     price: s.precio + " €",
     duration: s.duracion_minutos ? s.duracion_minutos + " min" : undefined,
     icon: s.icono,
+    iconUrl: s.icono_url,
   }));
 
   return (
@@ -82,7 +71,7 @@ export default async function HomePage() {
             href="/servicios"
             className="inline-block rounded-full border border-accent/30 bg-accent/5 px-8 py-3 text-sm font-black uppercase tracking-widest text-accent transition-all hover:bg-accent hover:text-black"
           >
-            Ver todos los servicios →
+            Ver todos los servicios <ChevronRight className="inline-block w-4 h-4 ml-1" />
           </Link>
         </ScrollReveal>
       </section>
@@ -203,7 +192,7 @@ export default async function HomePage() {
               href="/galeria"
               className="text-sm font-black uppercase tracking-widest text-accent hover:underline"
             >
-              Ver galería completa →
+              Ver galería completa <ChevronRight className="inline-block w-4 h-4 ml-1" />
             </Link>
           </ScrollReveal>
         </div>
@@ -231,8 +220,8 @@ export default async function HomePage() {
             </div>
           </ScrollReveal>
           <ScrollReveal className="grid grid-cols-2 gap-4 text-accent/20 select-none pointer-events-none" direction="left" delay={0.2}>
-            <span className="text-8xl">🎥</span>
-            <span className="text-8xl mt-8">📸</span>
+            <Video className="w-20 h-20 sm:w-24 sm:h-24" />
+            <Camera className="w-20 h-20 sm:w-24 sm:h-24 mt-8" />
           </ScrollReveal>
         </div>
       </section>
@@ -262,7 +251,9 @@ export default async function HomePage() {
 
               <div className="space-y-6">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-xl text-accent">📍</div>
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                    <MapPin className="w-6 h-6" />
+                  </div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-white">Ubicación</h3>
                     <p className="mt-1 text-muted">C. Drago, 35010<br />Las Palmas de Gran Canaria, Las Palmas</p>
@@ -287,7 +278,7 @@ export default async function HomePage() {
                           rel="noopener noreferrer"
                           className="flex-1 flex items-center justify-center gap-2 px-4 py-4 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-accent hover:text-black"
                         >
-                          Cómo llegar <span aria-hidden="true">→</span>
+                          Cómo llegar <ChevronRight className="inline-block w-4 h-4 ml-1" aria-hidden="true" />
                         </a>
                         <a
                           href="https://maps.app.goo.gl/heSYXrycMkAFsBoCA"
@@ -303,7 +294,9 @@ export default async function HomePage() {
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-xl text-accent">🕒</div>
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                    <Clock className="w-6 h-6" />
+                  </div>
                   <div>
                     <h3 className="font-semibold text-white">Horarios</h3>
                     <p className="mt-1 text-sm text-muted">L-V: 16:00 - 22:00<br />Sáb: 10:00 - 00:00<br />Dom: 15:00 - 22:00</p>
@@ -311,7 +304,9 @@ export default async function HomePage() {
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-xl text-accent">✉️</div>
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                    <Mail className="w-6 h-6" />
+                  </div>
                   <div>
                     <h3 className="font-semibold text-white">Email directo</h3>
                     <p className="mt-1 text-muted hover:text-white transition-colors"><a href="mailto:garagestudioslp@gmail.com">garagestudioslp@gmail.com</a></p>

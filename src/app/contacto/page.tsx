@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import ContactForm from "@/components/ContactForm";
+import { Camera, Music, MapPin, ChevronRight } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Contacto — Garage Studios",
@@ -59,11 +60,11 @@ export default function ContactoPage() {
               Redes Sociales
             </h3>
             <div className="mt-2 flex flex-col gap-2 text-sm">
-              <a href="https://www.instagram.com/gstudios_lp/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 transition-colors hover:text-accent">
-                <span className="text-xl">📸</span> @gstudios_lp
+              <a href="https://www.instagram.com/gstudios_lp/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 transition-colors hover:text-accent group">
+                <Camera className="w-5 h-5 text-accent group-hover:scale-110 transition-transform" /> @gstudios_lp
               </a>
-              <a href="https://www.tiktok.com/@garage_studios" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 transition-colors hover:text-accent">
-                <span className="text-xl">🎵</span> @garage_studios
+              <a href="https://www.tiktok.com/@garage_studios" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 transition-colors hover:text-accent group">
+                <Music className="w-5 h-5 text-accent group-hover:scale-110 transition-transform" /> @garage_studios
               </a>
             </div>
           </div>
@@ -86,7 +87,7 @@ export default function ContactoPage() {
         <div className="p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-8 border-b border-card-border">
           <div>
             <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white flex items-center gap-3">
-              <span className="text-accent text-3xl">📍</span> Ubicación
+              <MapPin className="w-8 h-8 text-accent" /> Ubicación
             </h2>
             <p className="mt-2 text-sm font-medium text-muted">C. Drago, 35010 Las Palmas de Gran Canaria, Las Palmas</p>
           </div>
@@ -106,7 +107,7 @@ export default function ContactoPage() {
               className="shrink-0 flex justify-center items-center gap-2 rounded-full bg-accent px-8 py-4 text-xs font-black uppercase tracking-widest text-black transition-all hover:scale-105 hover:bg-accent-hover hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]"
             >
               Cómo llegar
-              <span aria-hidden="true">→</span>
+              <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </a>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { MapPin, Phone, Mail } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -55,9 +56,18 @@ export default function Footer() {
             Contacto
           </h4>
           <ul className="space-y-2 text-sm text-muted">
-            <li>📍 C. Drago, 35010 Las Palmas de Gran Canaria</li>
-            <li>📞 +34 693 48 93 79</li>
-            <li>✉️ garagestudioslp@gmail.com</li>
+            <li className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-accent" />
+              C. Drago, 35010 Las Palmas de Gran Canaria
+            </li>
+            <li className="flex items-center gap-2">
+              <Phone className="w-4 h-4 text-accent" />
+              +34 693 48 93 79
+            </li>
+            <li className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-accent" />
+              garagestudioslp@gmail.com
+            </li>
           </ul>
           <div className="mt-4 flex gap-4 text-muted">
             <a href="https://www.instagram.com/gstudios_lp/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="hover:text-accent transition-colors">

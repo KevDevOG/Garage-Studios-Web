@@ -69,6 +69,11 @@ export interface ReservationRow {
   completada_email_enviada_at?: string | null;
   email_estado_error?: string | null;
   calendar_token?: string | null;
+
+  // Campos de pago (Phase 2)
+  estado_pago?: "pendiente" | "parcial" | "pagado";
+  importe_pagado?: number;
+  pagado_at?: string | null;
 }
 
 // ── Obtener reservas en rango ──
@@ -203,6 +208,8 @@ export async function updateReservation(id: string, formData: FormData) {
   const estado = formData.get("estado") as string;
   const servicioId = formData.get("servicio_id") as string;
   const precio = parseFloat(formData.get("precio") as string);
+  const estadoPago = formData.get("estado_pago") as "pendiente" | "parcial" | "pagado";
+  const importePagado = parseFloat(formData.get("importe_pagado") as string);
 
   const duracion = parseInt(duracionStr, 10);
   const horaFin = minutesToTime(timeToMinutes(horaInicio) + duracion);
@@ -245,6 +252,8 @@ export async function updateReservation(id: string, formData: FormData) {
       notas_admin: notasAdmin || null,
       estado,
       precio: isNaN(precio) ? null : precio,
+      estado_pago: estadoPago,
+      importe_pagado: isNaN(importePagado) ? 0 : importePagado,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);

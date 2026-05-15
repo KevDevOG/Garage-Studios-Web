@@ -8,12 +8,16 @@ export const metadata: Metadata = {
     "Grabación, beats, fotografía y videoclips profesionales. Descubre todos los servicios y precios de Garage Studios.",
 };
 
+import { Mic, Music, Camera, Clapperboard, Hammer, Diamond } from "lucide-react";
+
 // Definición de categorías: orden, título visual e icono decorativo
-const CATEGORIES: { key: string; label: string; emoji: string }[] = [
-  { key: "Grabación",  label: "Grabación & Producción", emoji: "🎙️" },
-  { key: "Beats",      label: "Beats / Instrumentales",  emoji: "🎵" },
-  { key: "Fotografía", label: "Fotografía",               emoji: "📷" },
-  { key: "Videoclips", label: "Videoclips",               emoji: "🎬" },
+const CATEGORIES = [
+  { key: "Grabación",    label: "Grabación & Producción", icon: Mic },
+  { key: "Beats",        label: "Beats / Instrumentales",  icon: Music },
+  { key: "Packs Sonido", label: "Packs de Sonido",         icon: Diamond },
+  { key: "Fotografía",   label: "Fotografía",               icon: Camera },
+  { key: "Videoclips",   label: "Videoclips",               icon: Clapperboard },
+  { key: "Packs",        label: "Packs Especiales",        icon: Diamond },
 ];
 
 export default async function ServiciosPage() {
@@ -27,6 +31,7 @@ export default async function ServiciosPage() {
     price: s.precio + " €",
     duration: s.duracion_minutos ? s.duracion_minutos + " min" : undefined,
     icon: s.icono,
+    iconUrl: s.icono_url,
     category: s.categoria,
     subcategory: s.subcategoria,
     isPack: s.es_pack,
@@ -37,7 +42,7 @@ export default async function ServiciosPage() {
       <section className="mx-auto max-w-6xl px-4 py-32 sm:px-6 text-center">
         <h1 className="text-3xl font-bold sm:text-4xl mb-4">Nuestros Servicios</h1>
         <div className="inline-block rounded-2xl border border-card-border bg-card-bg p-8 shadow-lg">
-          <span className="text-5xl">🚧</span>
+          <Hammer className="w-16 h-16 text-accent mx-auto mb-4" />
           <h2 className="mt-4 text-xl font-semibold text-white">Estamos actualizando nuestro catálogo</h2>
           <p className="mt-2 text-muted max-w-md mx-auto">
             Vuelve pronto para descubrir todos los servicios, packs y promociones que estamos preparando para tu música.
@@ -64,7 +69,7 @@ export default async function ServiciosPage() {
       </div>
 
       {/* Una sección por cada categoría oficial */}
-      {CATEGORIES.map(({ key, label, emoji }) => {
+      {CATEGORIES.map(({ key, label, icon: Icon }) => {
         const items = getByCategory(key);
         if (items.length === 0) return null;
 
@@ -76,32 +81,36 @@ export default async function ServiciosPage() {
           <div key={key} className="mb-20">
             {/* Título de categoría */}
             <h2 className="mb-10 text-3xl font-black uppercase italic tracking-tighter flex items-center gap-4">
-              <span className="h-8 w-2 bg-accent shrink-0"></span>
-              <span>{emoji} {label}</span>
+              <span className="flex items-center gap-2">
+                <Icon className="w-8 h-8 text-accent" />
+                {label}
+              </span>
             </h2>
 
-            {/* Servicios individuales */}
-            {singles.length > 0 && (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {singles.map(service => (
-                  <ServiceCard key={service.id} service={service} />
-                ))}
-              </div>
-            )}
-
-            {/* Packs destacados dentro de la misma categoría */}
+            {/* Packs destacados al principio de la categoría */}
             {packs.length > 0 && (
-              <div className={singles.length > 0 ? "mt-8" : ""}>
-                {singles.length > 0 && (
-                  <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-accent">
-                    💎 Packs especiales
-                  </p>
+              <div className="mb-10">
+                {!label.toLowerCase().includes("pack") && singles.length > 0 && (
+                  <div className="mb-8 flex items-center gap-3">
+                    <Diamond className="w-4 h-4 text-accent" />
+                    <span className="text-xs font-black uppercase tracking-[0.2em] text-accent">Packs especiales</span>
+                    <div className="h-px flex-1 bg-gradient-to-r from-accent/50 to-transparent"></div>
+                  </div>
                 )}
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {packs.map(service => (
                     <ServiceCard key={service.id} service={service} featured={true} />
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Servicios individuales después de los packs */}
+            {singles.length > 0 && (
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {singles.map(service => (
+                  <ServiceCard key={service.id} service={service} />
+                ))}
               </div>
             )}
           </div>

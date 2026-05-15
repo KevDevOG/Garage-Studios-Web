@@ -68,7 +68,14 @@ export async function getAvailableSlots(
     .eq("fecha", fecha)
     .in("estado", ["pendiente", "confirmada"]);
 
-  // 6. Construir array de intervalos ocupados (en minutos)
+  // 6. Consultar bloqueos manuales (bloqueo_horario)
+  const { data: bloqueosManuales } = await supabase
+    .from("bloqueo_horario")
+    .select("hora_inicio, hora_fin")
+    .eq("fecha", fecha)
+    .is("deleted_at", null);
+
+  // 7. Construir array de intervalos ocupados (en minutos)
   const occupied: { start: number; end: number }[] = [];
 
   if (reservas) {
@@ -91,7 +98,16 @@ export async function getAvailableSlots(
     }
   }
 
-  // 7. Filtrar slots disponibles
+  if (bloqueosManuales) {
+    for (const bm of bloqueosManuales) {
+      occupied.push({
+        start: timeToMinutes(bm.hora_inicio),
+        end: timeToMinutes(bm.hora_fin),
+      });
+    }
+  }
+
+  // 8. Filtrar slots disponibles
   const available = allSlots.filter((slot) =>
     isSlotAvailable(timeToMinutes(slot), duracion, occupied)
   );
@@ -142,6 +158,13 @@ export async function validateSlotAvailable(
     .eq("fecha", fecha)
     .in("estado", ["pendiente", "confirmada"]);
 
+  // Consultar bloqueos manuales
+  const { data: bloqueosManuales } = await supabase
+    .from("bloqueo_horario")
+    .select("hora_inicio, hora_fin")
+    .eq("fecha", fecha)
+    .is("deleted_at", null);
+
   const occupied: { start: number; end: number }[] = [];
 
   if (reservas) {
@@ -160,6 +183,15 @@ export async function validateSlotAvailable(
       occupied.push({
         start: timeToMinutes(b.hora_inicio),
         end: timeToMinutes(b.hora_fin),
+      });
+    }
+  }
+
+  if (bloqueosManuales) {
+    for (const bm of bloqueosManuales) {
+      occupied.push({
+        start: timeToMinutes(bm.hora_inicio),
+        end: timeToMinutes(bm.hora_fin),
       });
     }
   }

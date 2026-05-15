@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import ServiceCard from "@/components/ServiceCard";
 import { getActiveServices } from "@/app/actions/services";
+import { Clapperboard } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Garage Visuals — Garage Studios",
@@ -40,7 +41,7 @@ export default async function VisualsPage() {
       <section className="mx-auto max-w-6xl px-4 py-32 sm:px-6 text-center">
         <h1 className="text-3xl font-bold sm:text-4xl mb-4 text-primary">Garage Visuals</h1>
         <div className="inline-block rounded-2xl border border-card-border bg-card-bg p-8 shadow-lg">
-          <span className="text-5xl">🎬</span>
+          <Clapperboard className="w-16 h-16 text-accent mx-auto mb-4" />
           <h2 className="mt-4 text-xl font-semibold text-white">Actualizando Catálogo</h2>
           <p className="mt-2 text-muted max-w-md mx-auto">
             Estamos subiendo los nuevos servicios y promociones de nuestra división audiovisual.
@@ -100,7 +101,10 @@ export default async function VisualsPage() {
       {packsVisuals.length > 0 && (
         <div className="mb-24 rounded-[2rem] bg-gradient-to-br from-card-bg via-card-bg to-accent/5 p-8 sm:p-16 border border-accent/20 shadow-[0_0_60px_rgba(0,0,0,0.8)]">
           <div className="mb-16 text-center">
-            <h2 className="text-4xl font-black uppercase italic tracking-tighter text-white">🎬 Packs Garage Visuals</h2>
+            <h2 className="text-4xl font-black uppercase italic tracking-tighter text-white flex items-center justify-center gap-4">
+              <Clapperboard className="w-10 h-10 text-accent" />
+              Packs Garage Visuals
+            </h2>
             <p className="mt-4 text-gray-400 font-medium">Soluciones integrales diseñadas para que no tengas que preocuparte de nada.</p>
           </div>
           

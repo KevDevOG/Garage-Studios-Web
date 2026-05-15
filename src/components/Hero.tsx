@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { ChevronRight } from "lucide-react";
 
 export default function Hero() {
   return (
@@ -62,7 +63,7 @@ export default function Hero() {
             className="group relative flex items-center justify-center gap-2 overflow-hidden rounded-full bg-accent px-10 py-5 text-lg font-bold text-black transition-all hover:scale-105 hover:bg-accent-hover hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]"
           >
             <span>RESERVAR AHORA</span>
-            <span className="transition-transform group-hover:translate-x-1">→</span>
+            <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
           </Link>
           <Link
             href="/servicios"

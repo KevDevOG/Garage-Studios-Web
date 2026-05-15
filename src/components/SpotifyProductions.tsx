@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 interface SpotifyWork {
   title: string;
@@ -153,7 +154,7 @@ export default function SpotifyProductions() {
                         rel="noopener noreferrer"
                         className="text-xs font-black uppercase tracking-widest text-gray-400 transition-colors hover:text-accent"
                       >
-                        Escuchar en Spotify →
+                        Escuchar en Spotify <ChevronRight className="inline-block w-3 h-3 ml-1" />
                       </a>
                     </div>
                   </div>

@@ -13,6 +13,7 @@ import {
   validateSelect,
   validateDate,
 } from "@/lib/validation";
+import { Send } from "lucide-react";
 
 interface FormErrors {
   name?: string;
@@ -192,7 +193,7 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
   if (submitted) {
     return (
       <div className="rounded-xl border border-card-border bg-card-bg p-8 text-center">
-        <span className="text-4xl">📩</span>
+        <Send className="w-12 h-12 text-accent mx-auto mb-4" />
         <h3 className="mt-4 text-lg font-semibold">
           ¡Solicitud de reserva enviada!
         </h3>

@@ -22,6 +22,9 @@ export default function EditarReservaForm({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [precioFinal, setPrecioFinal] = useState(reservation.precio || 0);
+  const [estadoPago, setEstadoPago] = useState(reservation.estado_pago || "pendiente");
+  const [importePagado, setImportePagado] = useState(reservation.importe_pagado || 0);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -141,10 +144,59 @@ export default function EditarReservaForm({
               type="number"
               step="0.01"
               required
-              defaultValue={reservation.precio || 0}
+              value={precioFinal}
+              onChange={(e) => setPrecioFinal(Number(e.target.value))}
               className="w-full border-accent/30 focus:border-accent"
             />
             <p className="mt-1 text-[10px] text-muted italic">Precio base del servicio: {currentService?.precio || "--"}€</p>
+          </div>
+        </div>
+
+        {/* Pagos (Phase 2) */}
+        <div className="p-4 rounded-xl border border-white/5 bg-white/5 space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-2 h-2 rounded-full bg-accent animate-pulse"></div>
+            <h3 className="text-xs font-black uppercase tracking-widest text-white/90">Gestión de Cobro</h3>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Estado del Pago</label>
+              <select
+                name="estado_pago"
+                value={estadoPago}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setEstadoPago(val as "parcial" | "pagado" | "pendiente");
+                  if (val === "pagado") {
+                    setImportePagado(precioFinal);
+                  }
+                }}
+                className={`w-full font-bold ${
+                  estadoPago === 'pagado' ? 'text-green-400' : 
+                  estadoPago === 'parcial' ? 'text-blue-400' : 'text-amber-400'
+                }`}
+              >
+                <option value="pendiente">🟠 Pendiente</option>
+                <option value="parcial">🔵 Pago Parcial (Señal)</option>
+                <option value="pagado">🟢 Pagado Total</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Importe Pagado (€)</label>
+              <input
+                name="importe_pagado"
+                type="number"
+                step="0.01"
+                value={importePagado}
+                onChange={(e) => setImportePagado(Number(e.target.value))}
+                className="w-full font-mono font-bold text-green-400"
+              />
+              {precioFinal > 0 && (
+                <p className="mt-1 text-[10px] text-muted font-bold uppercase tracking-tighter">
+                  Restante: <span className="text-white">{(precioFinal - (importePagado || 0)).toFixed(2)}€</span>
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -442,33 +494,6 @@ Gracias por confiar en Garage Studios.
           </div>
         </div>
       </div>
-
-      {/* Finanzas */}
-      {(reservation.estado === "confirmada" || reservation.estado === "completada") && (
-        <div className="rounded-xl border border-card-border bg-card-bg p-6 space-y-4">
-          <h3 className="text-sm font-black uppercase tracking-widest text-white border-b border-white/5 pb-2">
-            Finanzas
-          </h3>
-          <div className="flex items-center justify-between">
-            {hasFinance ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-bold text-green-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
-                Ingreso Registrado
-              </span>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs text-muted">Aún no hay ingresos registrados para esta reserva.</p>
-                <Link 
-                  href={`/admin/finanzas/nuevo?reserva_id=${reservation.id}&cliente_id=${reservation.cliente_id || ''}&servicio_id=${reservation.servicio_id || ''}&concepto=${encodeURIComponent(`Reserva - ${reservation.nombre}`)}&importe=${reservation.precio || currentService?.precio || ''}&tipo=ingreso&categoria=${encodeURIComponent(currentService?.nombre || 'Otros')}&fecha=${reservation.fecha_reserva}`}
-                  className="rounded-lg bg-accent/10 px-4 py-2 text-xs font-bold text-accent transition-colors hover:bg-accent/20 w-max"
-                >
-                  + Añadir a Finanzas
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Info de auditoría */}
       <div className="rounded-xl border border-card-border bg-card-bg p-4 text-xs text-muted">

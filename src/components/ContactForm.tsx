@@ -8,6 +8,7 @@ import {
   validateEmail,
   validatePhone,
 } from "@/lib/validation";
+import { CheckCircle, MessageCircle } from "lucide-react";
 
 interface FormErrors {
   name?: string;
@@ -124,7 +125,7 @@ export default function ContactForm() {
   if (submitted) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-card-border bg-card-bg p-8 text-center">
-        <div className="animate-bounce text-6xl">✅</div>
+        <CheckCircle className="w-16 h-16 text-accent mb-6 animate-bounce" />
         <h3 className="mt-6 text-xl font-bold">¡Mensaje enviado!</h3>
         <p className="mt-2 max-w-sm text-sm text-muted">
           Te responderemos lo antes posible o puedes escribirnos directamente por WhatsApp.
@@ -136,7 +137,7 @@ export default function ContactForm() {
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 rounded-lg bg-[#25D366] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/20 transition-all hover:bg-[#128C7E] hover:-translate-y-0.5"
           >
-            <span className="text-lg">💬</span> WhatsApp Directo
+            <MessageCircle className="w-5 h-5" /> WhatsApp Directo
           </a>
           <button
             onClick={() => setSubmitted(false)}
@@ -342,7 +343,7 @@ export default function ContactForm() {
           rel="noopener noreferrer"
           className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#25D366] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/20 transition-all hover:bg-[#128C7E] hover:-translate-y-0.5"
         >
-          <span className="text-lg">💬</span> Escribir por WhatsApp
+          <MessageCircle className="w-5 h-5" /> Escribir por WhatsApp
         </a>
       </div>
     </form>

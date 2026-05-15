@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const inter = Inter({
@@ -77,6 +78,7 @@ export default function RootLayout({
         />
       </head>
       <body className="flex min-h-full flex-col font-[var(--font-inter)]">
+        <Toaster position="top-right" richColors theme="dark" />
         <Navbar />
         <main className="flex-1">{children}</main>
         <Footer />

@@ -89,6 +89,18 @@ export default function CalendarReservationCard({
               SESIÓN PACK
             </span>
           )}
+          {res.estado_pago && (
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest border ${
+                res.estado_pago === 'pagado' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                res.estado_pago === 'parcial' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
+                'bg-amber-500/10 text-amber-400 border-amber-500/20'
+              }`}
+            >
+              {res.estado_pago}
+              {res.estado_pago === 'parcial' && res.importe_pagado ? ` (${res.importe_pagado}€)` : ''}
+            </span>
+          )}
         </div>
         
         <div className="flex flex-wrap items-baseline gap-2">

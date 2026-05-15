@@ -139,3 +139,93 @@ export async function updateContactStatus(id: string, leido: boolean) {
 
   revalidatePath("/admin/dashboard");
 }
+export async function rescheduleReservation(
+  id: string,
+  newDate: string,
+  newStartTime: string
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("No autorizado");
+
+  // 1. Obtener datos actuales para duración
+  const { data: res } = await supabase
+    .from("reserva")
+    .select("duracion_minutos, estado")
+    .eq("id", id)
+    .single();
+
+  if (!res) throw new Error("Reserva no encontrada");
+
+  // 2. Calcular nueva hora fin
+  const { minutesToTime, timeToMinutes } = await import("@/lib/schedule");
+  const newEndTime = minutesToTime(timeToMinutes(newStartTime) + res.duracion_minutos);
+
+  // 3. Validar disponibilidad
+  const { validateSlotAvailable } = await import("@/app/actions/availability");
+  const isAvailable = await validateSlotAvailable(newDate, newStartTime, res.duracion_minutos, id);
+
+  if (!isAvailable) {
+    throw new Error("El nuevo horario seleccionado no está disponible.");
+  }
+
+  // 4. Actualizar
+  const { error } = await supabase
+    .from("reserva")
+    .update({
+      fecha_reserva: newDate,
+      hora_inicio: newStartTime,
+      hora_fin: newEndTime,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error rescheduling:", error);
+    throw new Error("No se pudo reprogramar la reserva.");
+  }
+
+  // 5. Revalidar
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/calendario");
+}
+
+export async function updateReservationPayment(
+  id: string,
+  data: {
+    estado_pago: "pendiente" | "parcial" | "pagado";
+    importe_pagado: number;
+  }
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("No autorizado");
+
+  const { error } = await supabase
+    .from("reserva")
+    .update({
+      estado_pago: data.estado_pago,
+      importe_pagado: data.importe_pagado,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error updating payment status:", error);
+    throw new Error("No se pudo actualizar el pago.");
+  }
+
+  // Auditoría
+  const { createAuditLog } = await import("@/lib/audit");
+  await createAuditLog({
+    accion: "edición",
+    entidad: "reserva",
+    entidad_id: id,
+    descripcion: `Actualizado pago: ${data.estado_pago} (${data.importe_pagado}€)`,
+    metadata: { estado_pago: data.estado_pago, importe_pagado: data.importe_pagado },
+  });
+
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/calendario");
+  revalidatePath("/admin/finanzas");
+}
