@@ -9,6 +9,7 @@ import ClienteStatsCards from "@/components/admin/ClienteStatsCards";
 import ClienteQuickActions from "@/components/admin/ClienteQuickActions";
 import Link from "next/link";
 import { ChevronLeft, History, User, CreditCard } from "lucide-react";
+import VincularReservasBtn from "@/components/admin/VincularReservasBtn";
 
 export default async function ClienteDetallePage({
   params,
@@ -65,6 +66,9 @@ export default async function ClienteDetallePage({
               telefono={cliente.telefono}
               instagram={cliente.instagram}
             />
+            <div className="mt-4 pt-4 border-t border-white/5">
+              <VincularReservasBtn clienteId={cliente.id} />
+            </div>
           </div>
 
           {/* Historial de Reservas */}

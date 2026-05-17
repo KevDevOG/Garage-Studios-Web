@@ -30,18 +30,44 @@ export default async function HomePage() {
       .limit(4)
   ]);
 
-  // Seleccionamos los 4 primeros servicios (orden comercial definido en la DB) para la Home
-  const selectedServices = dbServices.slice(0, 4);
+  // Filtramos explícitamente los 3 planes principales y la hora extra
+  const planNames = [
+    "1 canción + producción",
+    "2 canciones + producción",
+    "3 canciones + producción"
+  ];
+  
+  const mainPlansRaw = dbServices.filter(s => planNames.includes(s.nombre));
+  // Ordenar para garantizar 1, 2, 3
+  const mainPlans = mainPlansRaw.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const extraHour = dbServices.find(s => s.nombre === "Hora extra en pack canción + producción");
 
-  const featuredServices = selectedServices.map((s) => ({
-    id: s.id,
-    name: s.nombre,
-    description: s.descripcion,
-    price: s.precio + " €",
-    duration: s.duracion_minutos ? s.duracion_minutos + " min" : undefined,
-    icon: s.icono,
-    iconUrl: s.icono_url,
-  }));
+  const planStyles: Record<string, { border: string, shadow: string, iconBg: string, iconText: string, button: string, ring: string }> = {
+    "1 canción + producción": {
+      border: "border-[#CD7F32]/50 hover:border-[#CD7F32]",
+      shadow: "shadow-[0_0_25px_rgba(205,127,50,0.15)] hover:shadow-[0_0_40px_rgba(205,127,50,0.4)]",
+      iconBg: "bg-[#CD7F32]/10",
+      iconText: "text-[#CD7F32]",
+      button: "bg-[#CD7F32] hover:bg-[#b06a26] hover:shadow-[0_0_20px_rgba(205,127,50,0.4)]",
+      ring: "ring-1 ring-[#CD7F32]/30"
+    },
+    "2 canciones + producción": {
+      border: "border-[#C0C0C0]/50 hover:border-[#C0C0C0]",
+      shadow: "shadow-[0_0_25px_rgba(192,192,192,0.15)] hover:shadow-[0_0_40px_rgba(192,192,192,0.4)]",
+      iconBg: "bg-[#C0C0C0]/10",
+      iconText: "text-[#C0C0C0]",
+      button: "bg-[#C0C0C0] text-black hover:bg-[#a0a0a0] hover:shadow-[0_0_20px_rgba(192,192,192,0.4)]",
+      ring: "ring-1 ring-[#C0C0C0]/30"
+    },
+    "3 canciones + producción": {
+      border: "border-[#F59E0B]/50 hover:border-[#F59E0B]",
+      shadow: "shadow-[0_0_25px_rgba(245,158,11,0.15)] hover:shadow-[0_0_40px_rgba(245,158,11,0.4)]",
+      iconBg: "bg-[#F59E0B]/10",
+      iconText: "text-[#F59E0B]",
+      button: "bg-[#F59E0B] text-black hover:bg-[#d97706] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)]",
+      ring: "ring-1 ring-[#F59E0B]/30"
+    }
+  };
 
   return (
     <>
@@ -59,19 +85,81 @@ export default async function HomePage() {
             Todo lo que necesitas para llevar tu música al siguiente nivel.
           </p>
         </ScrollReveal>
-        <div className={`grid gap-8 sm:grid-cols-2 ${featuredServices.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
-          {featuredServices.map((service, index) => (
-            <ScrollReveal key={service.id} delay={index * 0.1}>
-              <ServiceCard service={service} featured={true} />
-            </ScrollReveal>
-          ))}
+
+        {/* Grid de 3 columnas para los planes principales */}
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          {mainPlans.map((s, index) => {
+            const style = planStyles[s.nombre] || planStyles["1 canción + producción"]; // fallback just in case
+            return (
+              <ScrollReveal key={s.id} delay={index * 0.1}>
+                <div className={`group flex flex-col h-full justify-between rounded-xl border bg-card-bg p-6 transition-all duration-300 hover:-translate-y-1 ${style.border} ${style.shadow} ${style.ring}`}>
+                  <div className="flex flex-col flex-1">
+                    <div className={`mb-6 flex h-24 w-24 items-center justify-center rounded-2xl border transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 border-white/5 ${style.iconBg} ${style.iconText}`}>
+                      {s.icono_url ? (
+                        <img 
+                          src={s.icono_url} 
+                          alt={s.nombre} 
+                          loading="lazy"
+                          className="w-16 h-16 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+                        />
+                      ) : (
+                        <span className="text-5xl filter drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">{s.icono}</span>
+                      )}
+                    </div>
+                    <h3 className="text-xl font-black uppercase tracking-tight text-white min-h-[56px] flex items-center">{s.nombre}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-gray-400 font-medium min-h-[80px]">{s.descripcion}</p>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-card-border/50 flex flex-col justify-end mt-auto">
+                    <div className="flex items-center justify-between text-sm mb-4">
+                      <span className="text-2xl font-black text-white">{s.precio} €</span>
+                      {s.duracion_minutos && <span className="text-xs font-bold uppercase tracking-widest text-muted">{s.duracion_minutos} min</span>}
+                    </div>
+                    <Link
+                      href={`/reservas?servicio=${s.id}`}
+                      className={`block rounded-lg px-4 py-3 text-center text-sm font-black text-black transition-all uppercase tracking-widest ${style.button}`}
+                    >
+                      Reservar
+                    </Link>
+                  </div>
+                </div>
+              </ScrollReveal>
+            );
+          })}
         </div>
-        <ScrollReveal className="mt-12 text-center" delay={0.3}>
+
+        {/* Bloque informativo secundario de Hora Extra */}
+        {extraHour && (
+          <ScrollReveal delay={0.4} className="mt-12 max-w-2xl mx-auto">
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors hover:bg-white/[0.04]">
+              <div className="flex items-center gap-4 text-center sm:text-left">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/5 text-2xl filter drop-shadow-md border border-white/5">
+                  {extraHour.icono_url ? (
+                    <img src={extraHour.icono_url} alt={extraHour.nombre} className="w-6 h-6 object-contain" />
+                  ) : (
+                    <span>{extraHour.icono}</span>
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-accent mb-1">Extra disponible</h4>
+                  <p className="text-sm font-bold text-white">{extraHour.nombre}</p>
+                  <p className="text-xs text-muted mt-0.5">{extraHour.descripcion || "Añade tiempo adicional a tu pack de grabación y producción."}</p>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-lg font-black text-white">{extraHour.precio} €</p>
+                {extraHour.duracion_minutos && <p className="text-[10px] font-bold uppercase tracking-widest text-muted">{extraHour.duracion_minutos} min</p>}
+              </div>
+            </div>
+          </ScrollReveal>
+        )}
+
+        <ScrollReveal className="mt-16 text-center" delay={0.5}>
           <Link
             href="/servicios"
-            className="inline-block rounded-full border border-accent/30 bg-accent/5 px-8 py-3 text-sm font-black uppercase tracking-widest text-accent transition-all hover:bg-accent hover:text-black"
+            className="inline-flex items-center justify-center rounded-full border border-accent/30 bg-accent/5 px-8 py-3 text-sm font-black uppercase tracking-widest text-accent transition-all hover:bg-accent hover:text-black hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]"
           >
-            Ver todos los servicios <ChevronRight className="inline-block w-4 h-4 ml-1" />
+            Ver todos los servicios <ChevronRight className="w-4 h-4 ml-2" />
           </Link>
         </ScrollReveal>
       </section>

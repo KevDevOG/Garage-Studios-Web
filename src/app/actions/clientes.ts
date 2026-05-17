@@ -146,10 +146,9 @@ export async function updateClienteStats(
     )
     .reduce((sum, r) => sum + (Number(r.importe_pagado) || 0), 0);
 
-  // Última reserva (por created_at)
+  // Última reserva (por fecha_reserva)
   const sorted = [...reservas].sort(
-    (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    (a, b) => b.fecha_reserva.localeCompare(a.fecha_reserva)
   );
   const ultima = sorted[0] || null;
 
@@ -307,63 +306,86 @@ export async function searchClientes(
 export async function getClientesMetrics(month: number | null, year: number): Promise<ClientesMetrics> {
   const supabase = await requireAuth();
 
-  let startDate: string;
-  let endDate: string;
   let startDateStr: string;
   let endDateStr: string;
 
   if (month !== null) {
-    startDate = new Date(year, month - 1, 1).toISOString();
-    endDate = new Date(year, month, 0, 23, 59, 59).toISOString();
-    startDateStr = startDate.split('T')[0];
-    endDateStr = endDate.split('T')[0];
+    // Pad month to ensure valid YYYY-MM-DD
+    const m = month.toString().padStart(2, "0");
+    const lastDay = new Date(year, month, 0).getDate();
+    startDateStr = `${year}-${m}-01`;
+    endDateStr = `${year}-${m}-${lastDay}`;
   } else {
-    startDate = new Date(year, 0, 1).toISOString();
-    endDate = new Date(year, 11, 31, 23, 59, 59).toISOString();
     startDateStr = `${year}-01-01`;
     endDateStr = `${year}-12-31`;
   }
 
-  // 1. Clientes nuevos del periodo
-  const { count: nuevos } = await supabase
-    .from("cliente")
-    .select("*", { count: "exact", head: true })
-    .gte("created_at", startDate)
-    .lte("created_at", endDate);
-
-  // 2. Total reservas del periodo (no eliminadas, estados confirmada/completada para ingresos)
-  const { data: reservas } = await supabase
+  // 1. Obtener todas las reservas (mínimo de datos)
+  const { data: allReservas } = await supabase
     .from("reserva")
-    .select("cliente_id, importe_pagado, estado, estado_pago")
+    .select("cliente_id, fecha_reserva, importe_pagado, estado, estado_pago")
     .is("deleted_at", null)
-    .gte("fecha_reserva", startDateStr)
-    .lte("fecha_reserva", endDateStr)
-    .in("estado_pago", ["parcial", "pagado"])
     .not("estado", "in", '("cancelada","rechazada")');
 
-  const totalReservas = reservas?.length || 0;
-  
-  // 3. Ingresos asociados (cobros reales)
-  const ingresos = reservas?.reduce((sum, r) => sum + (Number(r.importe_pagado) || 0), 0) || 0;
-
-  // 4. Clientes con ingresos (para ticket medio)
-  const clienteIdsWithRevenue = new Set(reservas?.filter(r => r.cliente_id).map(r => r.cliente_id));
-  const ticketMedio = clienteIdsWithRevenue.size > 0 ? ingresos / clienteIdsWithRevenue.size : 0;
-
-  // 5. Clientes recurrentes (con más de 1 reserva TOTAL hasta la fecha)
-  const activeClienteIds = Array.from(clienteIdsWithRevenue);
-  let recurrentes = 0;
-  if (activeClienteIds.length > 0) {
-    const { count } = await supabase
-      .from("cliente")
-      .select("*", { count: "exact", head: true })
-      .in("id", activeClienteIds)
-      .gt("total_reservas", 1);
-    recurrentes = count || 0;
+  if (!allReservas) {
+    return { nuevos: 0, recurrentes: 0, reservas: 0, ingresos: 0, ticketMedio: 0 };
   }
 
+  // Calcular fechas de primera reserva y conteos por cliente
+  const clientFirstDates = new Map<string, string>();
+  const clientReservaCount = new Map<string, number>();
+
+  allReservas.forEach((r) => {
+    if (!r.cliente_id) return;
+    
+    // Conteo para recurrentes
+    clientReservaCount.set(r.cliente_id, (clientReservaCount.get(r.cliente_id) || 0) + 1);
+
+    // Fecha de primera reserva para nuevos
+    if (!clientFirstDates.has(r.cliente_id) || r.fecha_reserva < clientFirstDates.get(r.cliente_id)!) {
+      clientFirstDates.set(r.cliente_id, r.fecha_reserva);
+    }
+  });
+
+  // Filtrar reservas del periodo
+  const reservasPeriodo = allReservas.filter(
+    (r) => r.fecha_reserva >= startDateStr && r.fecha_reserva <= endDateStr
+  );
+
+  const totalReservas = reservasPeriodo.length;
+
+  // Ingresos del periodo
+  const ingresos = reservasPeriodo
+    .filter((r) => ["parcial", "pagado"].includes(r.estado_pago))
+    .reduce((sum, r) => sum + (Number(r.importe_pagado) || 0), 0);
+
+  // Clientes nuevos en el periodo (cuya primera reserva cae en el periodo)
+  let nuevos = 0;
+  clientFirstDates.forEach((firstDate) => {
+    if (firstDate >= startDateStr && firstDate <= endDateStr) {
+      nuevos++;
+    }
+  });
+
+  // Clientes con ingresos en el periodo (para ticket medio y recurrentes)
+  const clientesConIngresosPeriodo = new Set(
+    reservasPeriodo
+      .filter((r) => r.cliente_id && ["parcial", "pagado"].includes(r.estado_pago) && (Number(r.importe_pagado) || 0) > 0)
+      .map((r) => r.cliente_id)
+  );
+
+  const ticketMedio = clientesConIngresosPeriodo.size > 0 ? ingresos / clientesConIngresosPeriodo.size : 0;
+
+  // Clientes recurrentes: de los que tuvieron ingresos en este periodo, ¿cuántos tienen >1 reserva en TOTAL histórico?
+  let recurrentes = 0;
+  clientesConIngresosPeriodo.forEach((cid) => {
+    if ((clientReservaCount.get(cid!) || 0) > 1) {
+      recurrentes++;
+    }
+  });
+
   return {
-    nuevos: nuevos || 0,
+    nuevos,
     recurrentes,
     reservas: totalReservas,
     ingresos,
@@ -482,36 +504,41 @@ export async function getTopClientesByReservations(month: number | null, year: n
 export async function getClientesYearEvolution(year: number): Promise<ClienteEvolution[]> {
   const supabase = await requireAuth();
 
-  const startDate = new Date(year, 0, 1).toISOString();
-  const endDate = new Date(year, 11, 31, 23, 59, 59).toISOString();
-
-  // 1. Obtener todos los clientes nuevos del año
-  const { data: nuevos } = await supabase
-    .from("cliente")
-    .select("created_at")
-    .gte("created_at", startDate)
-    .lte("created_at", endDate);
-
-  // 2. Obtener todas las reservas del año
-  const { data: reservas } = await supabase
+  // 1. Obtener todas las reservas (mínimo de datos)
+  const { data: allReservas } = await supabase
     .from("reserva")
-    .select("fecha_reserva, importe_pagado, estado, estado_pago")
+    .select("cliente_id, fecha_reserva, importe_pagado, estado, estado_pago")
     .is("deleted_at", null)
-    .gte("fecha_reserva", `${year}-01-01`)
-    .lte("fecha_reserva", `${year}-12-31`)
-    .in("estado_pago", ["parcial", "pagado"])
     .not("estado", "in", '("cancelada","rechazada")');
+
+  const clientFirstDates = new Map<string, string>();
+  allReservas?.forEach((r) => {
+    if (!r.cliente_id) return;
+    if (!clientFirstDates.has(r.cliente_id) || r.fecha_reserva < clientFirstDates.get(r.cliente_id)!) {
+      clientFirstDates.set(r.cliente_id, r.fecha_reserva);
+    }
+  });
+
+  const yearStr = `${year}-`;
 
   const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
   const evolution: ClienteEvolution[] = months.map((m, idx) => {
-    const monthNuevos = nuevos?.filter(n => new Date(n.created_at).getMonth() === idx).length || 0;
-    
-    const monthReservas = reservas?.filter(r => {
-      const d = new Date(r.fecha_reserva);
-      return d.getMonth() === idx;
-    }) || [];
+    // Para YYYY-MM, mes va de 01 a 12
+    const monthStr = (idx + 1).toString().padStart(2, '0');
+    const prefix = `${yearStr}${monthStr}-`;
 
-    const ingresos = monthReservas.reduce((sum, r) => sum + (Number(r.importe_pagado) || 0), 0);
+    let monthNuevos = 0;
+    clientFirstDates.forEach((firstDate) => {
+      if (firstDate.startsWith(prefix)) {
+        monthNuevos++;
+      }
+    });
+
+    const monthReservas = allReservas?.filter(r => r.fecha_reserva.startsWith(prefix)) || [];
+
+    const ingresos = monthReservas
+      .filter((r) => ["parcial", "pagado"].includes(r.estado_pago))
+      .reduce((sum, r) => sum + (Number(r.importe_pagado) || 0), 0);
 
     return {
       month: m,
@@ -841,4 +868,90 @@ export async function getClienteCommercialStats(clienteId: string): Promise<Comm
     ultimaReserva: ultima,
     servicioFavorito
   };
+}
+
+// ── CRM: Vincular Reservas Antiguas ──
+
+export async function linkReservasToCliente(clienteId: string) {
+  const supabase = await requireAuth();
+
+  // 1. Obtener cliente
+  const { data: cliente, error: errCliente } = await supabase
+    .from("cliente")
+    .select("email, telefono")
+    .eq("id", clienteId)
+    .single();
+
+  if (errCliente || !cliente) {
+    throw new Error("Cliente no encontrado");
+  }
+
+  const { email, telefono } = cliente;
+
+  if (!email && !telefono) {
+    throw new Error("El cliente no tiene email ni teléfono para buscar coincidencias.");
+  }
+
+  // 2. Buscar reservas sin cliente_id que coincidan
+  let query = supabase
+    .from("reserva")
+    .select("id")
+    .is("cliente_id", null)
+    .is("deleted_at", null);
+
+  // Construir la condición OR para email o telefono
+  const orConditions: string[] = [];
+  if (email) orConditions.push(`email.ilike.${email}`);
+  if (telefono) orConditions.push(`telefono.ilike.${telefono}`);
+
+  query = query.or(orConditions.join(","));
+
+  const { data: reservasMatch, error: errMatch } = await query;
+
+  if (errMatch) {
+    console.error("Error buscando reservas para vincular:", errMatch);
+    throw new Error("Error al buscar reservas coincidentes.");
+  }
+
+  if (!reservasMatch || reservasMatch.length === 0) {
+    return { count: 0 };
+  }
+
+  // 3. Actualizar reservas encontradas
+  const idsToUpdate = reservasMatch.map(r => r.id);
+
+  const { error: errUpdate } = await supabase
+    .from("reserva")
+    .update({ 
+      cliente_id: clienteId,
+      updated_at: new Date().toISOString()
+    })
+    .in("id", idsToUpdate);
+
+  if (errUpdate) {
+    console.error("Error al actualizar cliente_id en reservas:", errUpdate);
+    throw new Error("Error al vincular las reservas.");
+  }
+
+  // 4. Recalcular stats
+  await updateClienteStats(supabase, clienteId);
+
+  // 5. Crear log de auditoría
+  await createAuditLog({
+    accion: "vinculación",
+    entidad: "cliente",
+    entidad_id: clienteId,
+    descripcion: `Se vincularon ${idsToUpdate.length} reservas antiguas al cliente`,
+    metadata: { 
+      reservas_vinculadas: idsToUpdate,
+      criterios: { email, telefono }
+    }
+  });
+
+  // 6. Revalidar rutas
+  revalidatePath("/admin/clientes");
+  revalidatePath(`/admin/clientes/${clienteId}`);
+  revalidatePath("/admin/dashboard");
+
+  return { count: idsToUpdate.length };
 }

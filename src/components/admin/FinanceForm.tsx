@@ -4,22 +4,16 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createFinanceMovement, updateFinanceMovement, deleteFinanceMovement, FinanceMovement } from "@/app/actions/finanzas";
 
-const CAT_INGRESOS = [
-  "Grabación", 
-  "Producción", 
-  "Mezcla y mastering", 
-  "Videoclip", 
-  "Fotografía", 
-  "Diseño", 
-  "Beatmaking", 
-  "Distribución", 
-  "Pack", 
-  "Otros"
-];
 const CAT_GASTOS = ["Alquiler", "Luz", "Internet", "Material", "Equipos", "Software", "Publicidad", "Transporte", "Mantenimiento", "Otros gastos"];
 const METODOS = ["efectivo", "transferencia", "tarjeta", "bizum", "otro"];
 
-export default function FinanceForm({ initialData }: { initialData?: FinanceMovement & { searchParams?: any } }) {
+export default function FinanceForm({ 
+  initialData,
+  services = []
+}: { 
+  initialData?: FinanceMovement & { searchParams?: any };
+  services?: any[];
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +23,6 @@ export default function FinanceForm({ initialData }: { initialData?: FinanceMove
   
   // If no initialData.id, but we have searchParams mixed in (we can pass it as a trick), use them.
   const presetTipo = initialData?.tipo || "ingreso";
-  const presetCat = initialData?.categoria || CAT_INGRESOS[0];
   const presetConcepto = initialData?.concepto || "";
   const presetImporte = initialData?.importe || "";
   const presetReservaId = initialData?.reserva_id || "";
@@ -38,6 +31,9 @@ export default function FinanceForm({ initialData }: { initialData?: FinanceMove
   const presetFecha = initialData?.fecha || new Date().toISOString().split('T')[0];
 
   const [tipo, setTipo] = useState<"ingreso" | "gasto">(presetTipo as "ingreso" | "gasto");
+  
+  const initialCat = initialData?.categoria || (presetTipo === "ingreso" && services.length > 0 ? services[0].nombre : "Otros");
+  const [catInput, setCatInput] = useState(initialCat);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -66,8 +62,6 @@ export default function FinanceForm({ initialData }: { initialData?: FinanceMove
     });
   };
 
-  const currentCategories = tipo === "ingreso" ? CAT_INGRESOS : CAT_GASTOS;
-
   return (
     <div className="max-w-2xl">
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -75,7 +69,8 @@ export default function FinanceForm({ initialData }: { initialData?: FinanceMove
         {/* Hidden relations */}
         <input type="hidden" name="reserva_id" value={presetReservaId} />
         <input type="hidden" name="cliente_id" value={presetClienteId} />
-        <input type="hidden" name="servicio_id" value={presetServicioId} />
+        {tipo !== "ingreso" && <input type="hidden" name="servicio_id" value={presetServicioId} />}
+        {tipo === "ingreso" && <input type="hidden" name="categoria" value={catInput} />}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -97,26 +92,37 @@ export default function FinanceForm({ initialData }: { initialData?: FinanceMove
             <input type="number" step="0.01" min="0.01" name="importe" required defaultValue={presetImporte} className="w-full" placeholder="0.00" />
           </div>
           <div className="col-span-2 md:col-span-2">
-            <label className="block text-xs font-medium mb-1">Categoría *</label>
+            <label className="block text-xs font-medium mb-1">Categoría / Servicio *</label>
             {tipo === "ingreso" ? (
-              <>
-                <input 
-                  type="text" 
-                  name="categoria" 
-                  required 
-                  defaultValue={presetCat} 
+              services && services.length > 0 ? (
+                <select 
+                  name="servicio_id" 
                   className="w-full" 
-                  placeholder="Nombre del servicio"
-                  list="income-categories"
-                />
-                <datalist id="income-categories">
-                  {CAT_INGRESOS.map(c => <option key={c} value={c} />)}
-                </datalist>
-              </>
+                  defaultValue={presetServicioId}
+                  onChange={(e) => {
+                    const svc = services.find(s => s.id === e.target.value);
+                    if (svc) {
+                      setCatInput(svc.nombre);
+                    } else {
+                      setCatInput("Otros");
+                    }
+                  }}
+                >
+                  <option value="">Otro (Sin servicio asociado)</option>
+                  {services.map((s: any) => (
+                    <option key={s.id} value={s.id}>{s.nombre}</option>
+                  ))}
+                </select>
+              ) : (
+                <>
+                  <p className="text-sm text-muted mb-2">No hay servicios activos.</p>
+                  <input type="hidden" name="servicio_id" value="" />
+                </>
+              )
             ) : (
-              <select name="categoria" required defaultValue={presetCat} className="w-full">
-                {presetCat && !CAT_GASTOS.includes(presetCat) && (
-                  <option value={presetCat}>{presetCat}</option>
+              <select name="categoria" required defaultValue={initialCat} className="w-full">
+                {initialCat && !CAT_GASTOS.includes(initialCat) && (
+                  <option value={initialCat}>{initialCat}</option>
                 )}
                 {CAT_GASTOS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
