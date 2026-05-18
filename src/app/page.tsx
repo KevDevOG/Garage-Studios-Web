@@ -2,14 +2,16 @@ import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import Hero from "@/components/Hero";
+import PlansLightningBackground from "@/components/PlansLightningBackground";
 import ServiceCard from "@/components/ServiceCard";
 import GalleryCard from "@/components/GalleryCard";
 import ScrollReveal from "@/components/ScrollReveal";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveServices } from "@/app/actions/services";
+import IntroLoader from "@/components/IntroLoader";
 
 // Importación dinámica de componentes pesados que están "below the fold"
-const SpotifyProductions = dynamic(() => import("@/components/SpotifyProductions"), { ssr: true });
+const SpotifyShowcase = dynamic(() => import("@/components/SpotifyShowcase"), { ssr: true });
 const FAQ = dynamic(() => import("@/components/FAQ"), { ssr: true });
 const ContactForm = dynamic(() => import("@/components/ContactForm"), { ssr: true });
 import { MapPin, Clock, Mail, Video, Camera, ChevronRight } from "lucide-react";
@@ -71,11 +73,17 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* ── 1. Hero ──────────────────────────────────────────── */}
-      <Hero />
+      <IntroLoader />
+      <main className="relative min-h-screen bg-black">
+        {/* ── 1. Hero ──────────────────────────────────────────── */}
+        <Hero />
+
+      {/* ── Secciones Centrales ──────────────────────────────── */}
 
       {/* ── 2. Servicios Destacados ──────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <section className="relative overflow-hidden bg-black border-t border-white/5 w-full">
+        <PlansLightningBackground />
+        <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 sm:px-6">
         <ScrollReveal className="mb-12 text-center">
           <h2 className="text-3xl font-black uppercase italic tracking-tighter sm:text-4xl">
             Nuestros <span className="text-accent">Planes</span>
@@ -162,7 +170,13 @@ export default async function HomePage() {
             Ver todos los servicios <ChevronRight className="w-4 h-4 ml-2" />
           </Link>
         </ScrollReveal>
+        </div>
       </section>
+
+      {/* ── Spotify Showcase ─────────────────────────────────── */}
+      <ScrollReveal>
+        <SpotifyShowcase />
+      </ScrollReveal>
 
       {/* ── 3. El Estudio (Por qué elegirnos) ─────────────────── */}
       <section className="border-t border-card-border bg-gradient-to-b from-card-bg/20 to-transparent">
@@ -286,46 +300,13 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── 6. Garage Visuals (Teaser) ───────────────────────── */}
-      <section className="relative border-t border-card-border overflow-hidden">
-        <div className="absolute inset-0 bg-accent/5 z-0"></div>
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-12 px-4 py-24 sm:px-6 md:flex-row relative z-10">
-          <ScrollReveal className="max-w-2xl text-center md:text-left" direction="right">
-            <div className="mb-6 inline-block rounded-full border border-accent/30 bg-accent/10 px-4 py-1 text-xs font-bold uppercase tracking-widest text-accent">
-              Audiovisual Division
-            </div>
-            <h2 className="text-4xl font-black uppercase italic tracking-tighter sm:text-5xl">Garage <span className="text-accent">Visuals</span></h2>
-            <p className="mt-6 text-lg font-medium leading-relaxed text-gray-300">
-              Elevamos tu imagen al mismo nivel que tu sonido. Videoclips en 4K nativo, sesiones fotográficas de alta gama y contenido estratégico para redes sociales.
-            </p>
-            <div className="mt-10 flex flex-col sm:flex-row gap-6 justify-center md:justify-start">
-              <Link
-                href="/visuals"
-                className="rounded-full bg-white px-8 py-4 text-sm font-black uppercase tracking-widest text-black transition-all hover:scale-105 hover:bg-accent hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]"
-              >
-                Ver Portafolio Visual
-              </Link>
-            </div>
-          </ScrollReveal>
-          <ScrollReveal className="grid grid-cols-2 gap-4 text-accent/20 select-none pointer-events-none" direction="left" delay={0.2}>
-            <Video className="w-20 h-20 sm:w-24 sm:h-24" />
-            <Camera className="w-20 h-20 sm:w-24 sm:h-24 mt-8" />
-          </ScrollReveal>
-        </div>
-      </section>
-
-      {/* ── 7. Spotify Productions ──────────────────────────── */}
-      <ScrollReveal>
-        <SpotifyProductions />
-      </ScrollReveal>
-
       {/* ── 8. FAQ ──────────────────────────────────────────── */}
       <ScrollReveal>
         <FAQ />
       </ScrollReveal>
 
-      {/* ── 9. Contacto Rápido ───────────────────────────────── */}
-      <section id="contacto" className="border-t border-card-border bg-black/40">
+    {/* ── 9. Contacto Rápido ───────────────────────────────── */}
+    <section id="contacto" className="border-t border-card-border bg-black/40">
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
           <div className="grid gap-12 lg:grid-cols-2 lg:items-start">
             <ScrollReveal className="space-y-10" direction="right">
@@ -416,6 +397,7 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+    </main>
     </>
   );
 }

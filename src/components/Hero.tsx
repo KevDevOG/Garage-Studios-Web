@@ -4,7 +4,7 @@ import { ChevronRight } from "lucide-react";
 
 export default function Hero() {
   return (
-    <section className="relative flex min-h-screen flex-col items-center justify-center px-4 pt-4 pb-20 text-center sm:pt-6 sm:pb-32">
+    <section className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 pt-4 pb-20 text-center sm:pt-6 sm:pb-32">
       {/* Imagen de fondo */}
       <div className="absolute inset-0 z-[-2]">
         <Image
@@ -47,13 +47,12 @@ export default function Hero() {
 
         {/* Título */}
         <h1 className="text-4xl font-black tracking-tighter sm:text-5xl lg:text-7xl drop-shadow-2xl uppercase italic">
-          Donde el <span className="text-accent drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">sonido</span> cobra vida
+          Calidad, creatividad y <span className="text-accent drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">visión</span>.
         </h1>
 
         {/* Descripción */}
         <p className="mx-auto mt-6 max-w-2xl text-lg font-medium text-gray-200 sm:text-xl drop-shadow">
-          Todo empezó en un garage. Un espacio enfocado en apoyar a artistas emergentes.
-          Creemos que todo el mundo puede hacer música.
+          Para artistas en crecimiento que buscan un sonido profesional y una imagen con identidad propia.
         </p>
 
         {/* Botones CTA */}

@@ -14,6 +14,7 @@ function AdminNavContent({ title }: { title: string }) {
     { href: "/admin/dashboard", label: "Dashboard" },
     { href: "/admin/servicios", label: "Servicios" },
     { href: "/admin/galeria", label: "Galería" },
+    { href: "/admin/visuals", label: "Visuals" },
     { href: "/admin/clientes", label: "Clientes" },
     { href: "/admin/calendario", label: "Calendario" },
     { href: "/admin/finanzas", label: "Finanzas" },

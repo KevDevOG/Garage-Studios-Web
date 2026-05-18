@@ -8,7 +8,6 @@ import Image from "next/image";
 const links = [
   { href: "/", label: "Inicio" },
   { href: "/servicios", label: "Servicios" },
-  { href: "/visuals", label: "Garage Visuals" },
   { href: "/galeria", label: "El Estudio" },
   { href: "/contacto", label: "Contacto" },
 ];
@@ -17,20 +16,52 @@ export default function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (pathname === "/") {
+      e.preventDefault();
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const handleVisualsClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (pathname === "/visuals") {
+      e.preventDefault();
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
+  };
+
   return (
     <nav className="sticky top-0 z-50 border-b border-card-border bg-background/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-        {/* Logo */}
-        <Link href="/" className="flex items-center">
-          <Image 
-            src="/images/logo-sin-fondo.png" 
-            alt="Garage Studios Logo" 
-            width={200} 
-            height={60} 
-            className="h-10 w-auto object-contain md:h-14"
-            priority
-          />
-        </Link>
+        {/* Logos */}
+        <div className="flex items-center gap-3 sm:gap-4 md:gap-6">
+          <Link href="/" className="flex items-center" onClick={handleLogoClick}>
+            <Image 
+              src="/images/logo-sin-fondo.png" 
+              alt="Garage Studios Logo" 
+              width={200} 
+              height={60} 
+              className="h-8 w-auto object-contain sm:h-10 md:h-14"
+              priority
+            />
+          </Link>
+          
+          <div className="h-6 sm:h-8 w-px bg-card-border/60"></div>
+          
+          <Link href="/visuals" className="flex items-center" onClick={handleVisualsClick}>
+            {/* TODO: Reemplazar el <span> GARAGE VISUALS por <Image> cuando el logo real exista: */}
+            {/* <Image src="/images/logo-garage-visuals.png" alt="Garage Visuals Logo" width={200} height={60} className="h-6 sm:h-8 w-auto object-contain md:h-12" priority /> */}
+            <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-foreground hover:text-accent transition-colors md:text-base">
+              GARAGE VISUALS
+            </span>
+          </Link>
+        </div>
 
         {/* Desktop links */}
         <div className="hidden items-center gap-6 md:flex">
@@ -38,6 +69,15 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
+              onClick={(e) => {
+                if (link.href === "/" && pathname === "/") {
+                  e.preventDefault();
+                  window.scrollTo({
+                    top: 0,
+                    behavior: "smooth",
+                  });
+                }
+              }}
               className={`text-sm font-black uppercase tracking-widest transition-colors hover:text-accent ${pathname === link.href ? "text-accent" : "text-muted"
                 }`}
             >
@@ -71,7 +111,16 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              onClick={() => setMenuOpen(false)}
+              onClick={(e) => {
+                setMenuOpen(false);
+                if (link.href === "/" && pathname === "/") {
+                  e.preventDefault();
+                  window.scrollTo({
+                    top: 0,
+                    behavior: "smooth",
+                  });
+                }
+              }}
               className={`block py-3 text-sm font-black uppercase tracking-widest transition-colors hover:text-accent ${pathname === link.href ? "text-accent" : "text-muted"
                 }`}
             >
