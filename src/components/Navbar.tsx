@@ -60,7 +60,7 @@ export default function Navbar() {
               alt="Garage Visuals" 
               width={220} 
               height={166} 
-              className="h-6 sm:h-7 w-auto object-contain md:h-8 transition-transform duration-300 hover:scale-105" 
+              className="h-10 sm:h-11 w-auto object-contain md:h-14 -my-1 sm:-my-2 md:-my-3 transition-transform duration-300 hover:scale-105" 
               priority 
             />
           </Link>
