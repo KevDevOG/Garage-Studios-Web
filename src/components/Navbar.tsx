@@ -54,15 +54,23 @@ export default function Navbar() {
           
           <div className="h-6 sm:h-8 w-px bg-card-border/60"></div>
           
-          <Link href="/visuals" className="flex items-center" onClick={handleVisualsClick} aria-label="Garage Visuals">
+          <Link 
+            href="/visuals" 
+            className="group flex items-center gap-2 sm:gap-3 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 transition-all duration-300 hover:border-accent/50 hover:bg-accent/10 hover:shadow-[0_0_20px_rgba(245,158,11,0.15)]" 
+            onClick={handleVisualsClick} 
+            aria-label="Garage Visuals"
+          >
             <Image 
               src="/images/visuals_logo.png" 
               alt="Garage Visuals" 
               width={220} 
               height={166} 
-              className="h-10 sm:h-11 w-auto object-contain md:h-14 -my-1 sm:-my-2 md:-my-3 transition-transform duration-300 hover:scale-105" 
+              className="h-7 sm:h-8 w-auto object-contain md:h-10 -my-1 transition-transform duration-300 group-hover:scale-105" 
               priority 
             />
+            <span className="hidden md:block border-l border-white/10 pl-3 text-[9px] font-black uppercase tracking-[0.22em] text-accent/80 transition-colors group-hover:text-accent">
+              Visual Division
+            </span>
           </Link>
         </div>
 
