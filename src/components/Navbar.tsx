@@ -52,24 +52,25 @@ export default function Navbar() {
             />
           </Link>
           
-          <div className="h-6 sm:h-8 w-px bg-card-border/60"></div>
+          <div className="mx-2 sm:mx-4 h-6 sm:h-8 w-px bg-white/10"></div>
           
           <Link 
             href="/visuals" 
-            className="group flex items-center gap-2 sm:gap-3 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 transition-all duration-300 hover:border-accent/50 hover:bg-accent/10 hover:shadow-[0_0_20px_rgba(245,158,11,0.15)]" 
+            className="group flex h-11 sm:h-12 md:h-14 items-center justify-center gap-2 sm:gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 sm:px-4.5 transition-all duration-300 ease-out hover:border-amber-400/40 hover:bg-white/[0.07] hover:shadow-[0_0_18px_rgba(245,158,11,0.12)] overflow-visible" 
             onClick={handleVisualsClick} 
             aria-label="Garage Visuals"
+            title="Ir a Garage Visuals"
           >
             <Image 
               src="/images/visuals_logo.png" 
               alt="Garage Visuals" 
-              width={220} 
-              height={166} 
-              className="h-7 sm:h-8 w-auto object-contain md:h-10 -my-1 transition-transform duration-300 group-hover:scale-105" 
+              width={180} 
+              height={60} 
+              className="relative z-10 h-7 sm:h-9 md:h-10 w-auto origin-center object-contain opacity-85 transition-all duration-300 ease-out group-hover:scale-105 group-hover:opacity-100" 
               priority 
             />
-            <span className="hidden md:block border-l border-white/10 pl-3 text-[9px] font-black uppercase tracking-[0.22em] text-accent/80 transition-colors group-hover:text-accent">
-              Visual Division
+            <span className="relative z-10 text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-widest text-white transition-colors duration-300 group-hover:text-amber-400">
+              Visuals
             </span>
           </Link>
         </div>
