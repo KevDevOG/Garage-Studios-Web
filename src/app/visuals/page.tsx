@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { getActiveServices } from "@/app/actions/services";
 import { Clapperboard, Camera, ChevronRight } from "lucide-react";
 import BrandTransition from "@/components/BrandTransition";
@@ -155,41 +156,70 @@ export default async function VisualsPage() {
         <main className="min-h-screen bg-[#FAFAFA] text-[#111111]">
           
           {/* ── 1. HERO VISUALS ───────────────────────────────────────── */}
-          <section className="relative overflow-hidden pt-24 pb-24 sm:pt-32 sm:pb-32 border-b border-gray-200/80">
-            <div className="absolute inset-0 z-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#111 1px, transparent 1px)', backgroundSize: '32px 32px' }}></div>
-            <div className="mx-auto max-w-6xl px-4 sm:px-6 relative z-10 text-center">
-              <ScrollReveal delay={0.1} distance={20}>
-                <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-accent shadow-sm">
+          <section className="relative flex min-h-[calc(100vh-80px)] flex-col items-center justify-center overflow-hidden bg-black px-4 pt-4 pb-20 text-center sm:pt-6 sm:pb-32 border-b border-white/10">
+            {/* Fondo de Video */}
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full object-cover z-0"
+            >
+              <source src="/videos/video_hero_visuals.webm" type="video/webm" />
+            </video>
+
+            {/* Overlay de degradado oscuro ultra-premium */}
+            <div className="absolute inset-0 z-[1] bg-gradient-to-b from-black/70 via-black/45 to-black/70" />
+            
+            <div className="mx-auto max-w-4xl relative z-10 text-center flex flex-col items-center justify-center">
+              {/* 1. Logo Garage Visuals */}
+              <ScrollReveal delay={0.1} distance={15}>
+                <div className="relative mx-auto -mt-2 sm:-mt-4 md:-mt-6 mb-8 sm:mb-12 md:mb-16 flex justify-center items-center">
+                  <Image
+                    src="/images/visuals_logo.png"
+                    alt="Garage Visuals"
+                    width={1000}
+                    height={400}
+                    priority
+                    className="h-auto w-full max-w-[280px] sm:max-w-[400px] md:max-w-[520px] object-contain"
+                  />
+                </div>
+              </ScrollReveal>
+
+              {/* 2. Badge “AUDIOVISUAL DIVISION” */}
+              <ScrollReveal delay={0.2} distance={15}>
+                <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1 text-xs font-black uppercase tracking-widest text-accent shadow-sm mt-0">
                   <Camera className="w-3 h-3" /> Audiovisual Division
                 </span>
               </ScrollReveal>
-              <ScrollReveal delay={0.2} distance={30}>
-                <h1 className="text-5xl font-black tracking-tighter sm:text-6xl lg:text-8xl text-gray-950 uppercase italic drop-shadow-sm leading-none">
-                  GARAGE <span className="text-accent drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]">VISUALS</span>
+              
+              {/* 3. Título/claim */}
+              <ScrollReveal delay={0.3} distance={15}>
+                <h1 className="mt-0 mb-3 text-3xl font-black tracking-tighter sm:text-4xl lg:text-5xl drop-shadow-sm text-white uppercase italic max-w-3xl mx-auto leading-none">
+                  Contenido visual para artistas, marcas y <span className="text-accent drop-shadow-[0_0_10px_rgba(245,158,11,0.3)]">creadores</span>.
                 </h1>
               </ScrollReveal>
-              <ScrollReveal delay={0.3} distance={20}>
-                <p className="mt-8 text-lg sm:text-xl font-bold leading-relaxed text-gray-700 max-w-3xl mx-auto uppercase tracking-wide">
-                  Contenido visual para artistas, marcas y creadores.
-                </p>
-              </ScrollReveal>
-              <ScrollReveal delay={0.4} distance={20}>
-                <p className="mt-4 text-base sm:text-lg text-gray-500 font-medium max-w-2xl mx-auto leading-relaxed">
+              
+              {/* 4. Subtítulo */}
+              <ScrollReveal delay={0.4} distance={15}>
+                <p className="mx-auto mb-5 max-w-2xl text-base sm:text-lg font-medium text-gray-300 leading-relaxed">
                   Fotografía, videoclips y piezas audiovisuales con una estética cuidada para destacar tu proyecto.
                 </p>
               </ScrollReveal>
               
-              <ScrollReveal delay={0.5} distance={20}>
-                <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
+              {/* 5. Botones */}
+              <ScrollReveal delay={0.5} distance={15}>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full">
                   <a
                     href="#trabajos"
-                    className="w-full sm:w-auto text-center rounded-full bg-gray-950 px-10 py-5 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-gray-800 hover:scale-105 hover:shadow-[0_0_30px_rgba(0,0,0,0.15)]"
+                    className="w-full sm:w-auto text-center rounded-full bg-white px-8 py-4 text-base font-bold uppercase tracking-wider text-black transition-all hover:bg-white/90 hover:scale-105 hover:shadow-[0_0_20px_rgba(255,255,255,0.15)]"
                   >
                     Ver trabajos
                   </a>
                   <Link
-                    href="/reservas"
-                    className="w-full sm:w-auto text-center rounded-full border-2 border-gray-950/10 bg-gray-950/5 px-10 py-5 text-sm font-black uppercase tracking-widest text-gray-950 transition-all hover:border-gray-950/20 hover:bg-gray-950/10 hover:scale-105"
+                    href="/reservas?categoria=visuals"
+                    className="w-full sm:w-auto text-center rounded-full border-2 border-white/20 bg-white/5 px-8 py-4 text-base font-bold uppercase tracking-wider text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10 hover:scale-105"
                   >
                     Reservar proyecto
                   </Link>

@@ -15,6 +15,22 @@ interface VideoItem {
 
 const youtubeWorks: VideoItem[] = [
   {
+    title: "Patryx PMA - Par De Horas",
+    artist: "Patryx PMA",
+    youtubeUrl: "https://www.youtube.com/watch?v=sMbCTKG4fjU",
+    embedUrl: "https://www.youtube.com/embed/sMbCTKG4fjU",
+    thumbnail: "https://img.youtube.com/vi/sMbCTKG4fjU/maxresdefault.jpg",
+    description: "Videoclip realizado por Garage Visuals.",
+  },
+  {
+    title: "TAYL3R - PIM PIAO",
+    artist: "TAYL3R",
+    youtubeUrl: "https://www.youtube.com/watch?v=1Gx1-VzdxkU",
+    embedUrl: "https://www.youtube.com/embed/1Gx1-VzdxkU",
+    thumbnail: "https://img.youtube.com/vi/1Gx1-VzdxkU/maxresdefault.jpg",
+    description: "Videoclip realizado por Garage Visuals.",
+  },
+  {
     title: "TAYL3R - NO LES SALE ASÍ",
     artist: "TAYL3R",
     youtubeUrl: "https://www.youtube.com/watch?v=DbbvHYQbl04",

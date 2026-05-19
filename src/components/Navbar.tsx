@@ -54,12 +54,15 @@ export default function Navbar() {
           
           <div className="h-6 sm:h-8 w-px bg-card-border/60"></div>
           
-          <Link href="/visuals" className="flex items-center" onClick={handleVisualsClick}>
-            {/* TODO: Reemplazar el <span> GARAGE VISUALS por <Image> cuando el logo real exista: */}
-            {/* <Image src="/images/logo-garage-visuals.png" alt="Garage Visuals Logo" width={200} height={60} className="h-6 sm:h-8 w-auto object-contain md:h-12" priority /> */}
-            <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-foreground hover:text-accent transition-colors md:text-base">
-              GARAGE VISUALS
-            </span>
+          <Link href="/visuals" className="flex items-center" onClick={handleVisualsClick} aria-label="Garage Visuals">
+            <Image 
+              src="/images/visuals_logo.png" 
+              alt="Garage Visuals" 
+              width={220} 
+              height={166} 
+              className="h-22 sm:h-26 w-auto object-contain md:h-30 -my-5 sm:-my-6 md:-my-8 transition-transform duration-300 hover:scale-105" 
+              priority 
+            />
           </Link>
         </div>
 
