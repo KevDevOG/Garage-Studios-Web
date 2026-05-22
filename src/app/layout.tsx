@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "https://garagestudios.es/og-image.jpg",
+        url: "/og-garage-studios.png",
         width: 1200,
         height: 630,
         alt: "Garage Studios",
@@ -48,11 +48,17 @@ export const metadata: Metadata = {
     title: "Garage Studios | Producción Musical y Audiovisual en Las Palmas",
     description:
       "Estudio de grabación, producción musical, mezcla, masterización y videoclips en Las Palmas de Gran Canaria.",
-    images: ["https://garagestudios.es/og-image.jpg"],
+    images: ["/og-garage-studios.png"],
   },
   icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-icon.png",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 
@@ -65,6 +71,8 @@ export default function RootLayout({
     "@context": "https://schema.org",
     "@type": "MusicStudio",
     name: "Garage Studios",
+    logo: "https://garagestudios.es/icon-512.png",
+    image: "https://garagestudios.es/og-garage-studios.png",
     address: {
       "@type": "PostalAddress",
       addressLocality: "Las Palmas de Gran Canaria",
