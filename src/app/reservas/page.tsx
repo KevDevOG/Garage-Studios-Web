@@ -4,9 +4,9 @@ import ReservationForm from "@/components/ReservationForm";
 import { getActiveServices } from "@/app/actions/services";
 
 export const metadata: Metadata = {
-  title: "Reservas — Garage Studios",
+  title: "Reservas y Sesiones en el Estudio de Grabación | Garage Studios",
   description:
-    "Solicita tu reserva en Garage Studios. Elige servicio, fecha y te confirmaremos disponibilidad.",
+    "Reserva tu sesión de grabación, producción musical o mezcla en Garage Studios, Las Palmas. Elige tu fecha y hora online.",
 };
 
 export default async function ReservasPage() {
@@ -19,7 +19,7 @@ export default async function ReservasPage() {
         <h1 className="text-4xl font-black uppercase italic tracking-tighter sm:text-6xl">Tu Próxima <span className="text-accent">Sesión</span></h1>
         <div className="mx-auto mt-6 h-1.5 w-24 bg-accent"></div>
         <p className="mx-auto mt-8 max-w-2xl text-lg font-medium text-muted">
-          Reserva tu espacio en el estudio. Elige tu servicio y nos pondremos en contacto contigo para coordinar los detalles.
+          Reserva tu sesión en nuestro estudio musical de Las Palmas. Elige tu servicio y nos pondremos en contacto contigo para coordinar y planificar tu grabación.
         </p>
       </div>
 

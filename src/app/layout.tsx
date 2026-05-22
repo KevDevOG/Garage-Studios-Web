@@ -15,21 +15,22 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://garagestudios.es"),
-  title: "Garage Studios | Producción Musical y Audiovisual en Las Palmas",
+  title: "Estudio de Grabación y Producción Musical en Las Palmas | Garage Studios",
   description:
-    "Estudio de grabación, producción musical, mezcla, masterización y videoclips en Las Palmas de Gran Canaria.",
+    "Garage Studios: tu estudio musical en Las Palmas de Gran Canaria. Grabación profesional, producción musical, mezcla, masterización y videoclips de alta calidad.",
   keywords: [
-    "estudio grabación",
-    "producción musical",
-    "estudio Las Palmas",
-    "grabación música",
-    "videoclips",
-    "mezcla y mastering",
+    "estudio grabacion las palmas",
+    "estudio de grabacion las palmas",
+    "estudio musical las palmas",
+    "produccion musical las palmas",
+    "mezcla y masterizacion las palmas",
+    "videoclips las palmas",
+    "estudio de grabacion gran canaria",
   ],
   openGraph: {
-    title: "Garage Studios | Producción Musical y Audiovisual en Las Palmas",
+    title: "Estudio de Grabación y Producción Musical en Las Palmas | Garage Studios",
     description:
-      "Estudio de grabación, producción musical, mezcla, masterización y videoclips en Las Palmas de Gran Canaria.",
+      "Garage Studios: tu estudio musical en Las Palmas de Gran Canaria. Grabación profesional, producción musical, mezcla, masterización y videoclips de alta calidad.",
     url: "https://garagestudios.es",
     siteName: "Garage Studios",
     locale: "es_ES",
@@ -39,15 +40,15 @@ export const metadata: Metadata = {
         url: "/og-garage-studios.png",
         width: 1200,
         height: 630,
-        alt: "Garage Studios",
+        alt: "Garage Studios - Estudio de Grabación en Las Palmas",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Garage Studios | Producción Musical y Audiovisual en Las Palmas",
+    title: "Estudio de Grabación y Producción Musical en Las Palmas | Garage Studios",
     description:
-      "Estudio de grabación, producción musical, mezcla, masterización y videoclips en Las Palmas de Gran Canaria.",
+      "Garage Studios: tu estudio musical en Las Palmas de Gran Canaria. Grabación profesional, producción musical, mezcla, masterización y videoclips de alta calidad.",
     images: ["/og-garage-studios.png"],
   },
   icons: {
@@ -73,12 +74,55 @@ export default function RootLayout({
     name: "Garage Studios",
     logo: "https://garagestudios.es/icon-512.png",
     image: "https://garagestudios.es/og-garage-studios.png",
+    description: "Estudio de grabación, producción musical, mezcla, masterización y videoclips profesionales en Las Palmas de Gran Canaria.",
     address: {
       "@type": "PostalAddress",
+      streetAddress: "C. Drago",
+      postalCode: "35010",
       addressLocality: "Las Palmas de Gran Canaria",
+      addressRegion: "Las Palmas",
       addressCountry: "ES",
     },
+    geo: {
+      "@type": "GeoCoordinates",
+      latitude: 28.1097266,
+      longitude: -15.4543178
+    },
+    hasMap: "https://maps.app.goo.gl/heSYXrycMkAFsBoCA",
+    telephone: "+34 693 48 93 79",
+    email: "garagestudioslp@gmail.com",
     url: "https://garagestudios.es",
+    priceRange: "$$",
+    openingHoursSpecification: [
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday"
+        ],
+        opens: "16:00",
+        closes: "22:00"
+      },
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: "Saturday",
+        opens: "10:00",
+        closes: "00:00"
+      },
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: "Sunday",
+        opens: "15:00",
+        closes: "22:00"
+      }
+    ],
+    sameAs: [
+      "https://www.instagram.com/gstudios_lp/",
+      "https://www.tiktok.com/@garage_studios"
+    ]
   };
 
   return (

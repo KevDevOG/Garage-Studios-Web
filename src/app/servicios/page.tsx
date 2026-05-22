@@ -3,9 +3,9 @@ import ServiceCard, { type ServiceDisplay } from "@/components/ServiceCard";
 import { getActiveServices } from "@/app/actions/services";
 
 export const metadata: Metadata = {
-  title: "Servicios — Garage Studios",
+  title: "Servicios de Grabación y Producción Musical en Las Palmas | Garage Studios",
   description:
-    "Grabación, beats, fotografía y videoclips profesionales. Descubre todos los servicios y precios de Garage Studios.",
+    "Explora nuestros servicios de grabación de voz, producción musical completa, creación de beats, mezcla, masterización y videoclips profesionales en Las Palmas.",
 };
 
 import { Mic, Music, Camera, Clapperboard, Hammer, Diamond } from "lucide-react";
@@ -64,7 +64,7 @@ export default async function ServiciosPage() {
         </h1>
         <div className="mx-auto mt-6 h-1.5 w-24 bg-accent"></div>
         <p className="mx-auto mt-8 max-w-2xl text-lg font-medium text-muted">
-          Grabación, producción, fotografía y videoclips profesionales. Elige el servicio que mejor se adapte a tu proyecto.
+          Servicios profesionales de grabación de voz e instrumentos, producción musical, creación de beats, mezcla, masterización y videoclips en Las Palmas. Todo lo que tu música necesita.
         </p>
       </div>
 

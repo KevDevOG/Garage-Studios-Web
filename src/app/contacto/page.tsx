@@ -3,9 +3,9 @@ import ContactForm from "@/components/ContactForm";
 import { Camera, Music, MapPin, ChevronRight } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Contacto — Garage Studios",
+  title: "Contacto con tu Estudio de Grabación en Las Palmas | Garage Studios",
   description:
-    "Contacta con Garage Studios. Estamos en Las Palmas de Gran Canaria y listos para ayudarte con tu proyecto musical.",
+    "¿Listo para grabar o producir tus canciones? Contacta con Garage Studios, tu estudio musical en Las Palmas de Gran Canaria. Escríbenos o visítanos.",
 };
 
 export default function ContactoPage() {
@@ -16,7 +16,7 @@ export default function ContactoPage() {
         <h1 className="text-4xl font-black uppercase italic tracking-tighter sm:text-6xl">Hablemos de tu <span className="text-accent">Sonido</span></h1>
         <div className="mx-auto mt-6 h-1.5 w-24 bg-accent"></div>
         <p className="mx-auto mt-8 max-w-2xl text-lg font-medium text-muted">
-          ¿Listo para subir de nivel? Cuéntanos tu proyecto y encontraremos la mejor solución para ti.
+          ¿Listo para trabajar en tus canciones? Cuéntanos tu proyecto y dale a tu música la calidad de un estudio de grabación profesional en Las Palmas de Gran Canaria.
         </p>
       </div>
 
