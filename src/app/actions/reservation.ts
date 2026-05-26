@@ -140,6 +140,9 @@ export async function submitReservationAction(data: ReservationData) {
 
   if (error) {
     console.error("Error al insertar reserva en Supabase:", error);
+    if (error.code === "23P01" || error.message?.includes("reserva_no_overlap")) {
+      throw new Error("Ese horario ya no está disponible. Elige otra hora.");
+    }
     throw new Error("No se pudo enviar la solicitud. Inténtalo más tarde.");
   }
 
