@@ -59,3 +59,23 @@ CREATE TABLE public.contacto (
     leido BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Habilitar RLS explícitamente en tablas públicas para seguridad
+ALTER TABLE public.cliente ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reserva ENABLE ROW LEVEL SECURITY;
+
+-- Políticas públicas para inserción de reservas y clientes anónimos
+CREATE POLICY "reserva_public_insert" ON public.reserva
+  FOR INSERT
+  TO anon
+  WITH CHECK (true);
+
+CREATE POLICY "cliente_public_insert" ON public.cliente
+  FOR INSERT
+  TO anon
+  WITH CHECK (true);
+
+CREATE POLICY "cliente_anon_select_on_insert" ON public.cliente
+  FOR SELECT
+  TO anon
+  USING (current_setting('request.method', true) = 'POST');
