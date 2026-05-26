@@ -386,7 +386,7 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
             </>
           ) : (
             <p className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400">
-              {slotsMessage || "No hay horarios disponibles para este día."}
+              {slotsMessage || "No hay horarios disponibles para esta fecha."}
             </p>
           )}
           {errors.timeSlot && (
