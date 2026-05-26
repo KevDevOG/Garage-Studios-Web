@@ -42,10 +42,10 @@ export async function submitReservationAction(data: ReservationData) {
 
   const supabase = await createClient();
 
-  // 1. Obtener duración y precio base del servicio
+  // 1. Obtener nombre, duración y precio base del servicio
   const { data: servicio, error: srvErr } = await supabase
     .from("servicio")
-    .select("duracion_minutos, precio")
+    .select("nombre, duracion_minutos, precio")
     .eq("id", data.service)
     .single();
 
@@ -55,6 +55,7 @@ export async function submitReservationAction(data: ReservationData) {
 
   const duracion = servicio.duracion_minutos;
   const precioBase = servicio.precio;
+  const nombreServicio = servicio.nombre;
   const horaInicio = data.timeSlot;
   const horaFin = minutesToTime(timeToMinutes(horaInicio) + duracion);
 
@@ -69,6 +70,31 @@ export async function submitReservationAction(data: ReservationData) {
     throw new Error(
       "El horario seleccionado ya no está disponible. Por favor, elige otro."
     );
+  }
+
+  // 2.5. Validar explícitamente solapamiento de reservas en la base de datos
+  const newStart = timeToMinutes(horaInicio);
+  const newEnd = newStart + duracion;
+
+  const { data: existingReservations, error: overlapErr } = await supabase
+    .from("reserva")
+    .select("hora_inicio, hora_fin, estado")
+    .eq("fecha_reserva", data.date);
+
+  if (!overlapErr && existingReservations) {
+    for (const res of existingReservations) {
+      if (res.estado === "cancelada") continue;
+      
+      if (res.estado === "pendiente" || res.estado === "confirmada") {
+        if (!res.hora_inicio || !res.hora_fin) continue;
+        const existingStart = timeToMinutes(res.hora_inicio);
+        const existingEnd = timeToMinutes(res.hora_fin);
+
+        if (newStart < existingEnd && newEnd > existingStart) {
+          throw new Error("Ese horario ya no está disponible. Elige otra hora.");
+        }
+      }
+    }
   }
 
   // 3. Crear o encontrar cliente (opcional en flujo público por RLS)
@@ -117,14 +143,45 @@ export async function submitReservationAction(data: ReservationData) {
 
   try {
     const htmlBody = `
-      <h2>Nueva solicitud de reserva</h2>
-      <p><strong>Nombre:</strong> ${data.name}</p>
-      <p><strong>Email:</strong> ${data.email}</p>
-      <p><strong>Teléfono:</strong> ${data.phone}</p>
-      <p><strong>Servicio (ID):</strong> ${data.service}</p>
-      <p><strong>Fecha:</strong> ${data.date}</p>
-      <p><strong>Hora:</strong> ${horaInicio} - ${horaFin} (${duracion} min)</p>
-      <p><strong>Notas:</strong><br/>${data.notes ? data.notes.replace(/\n/g, '<br/>') : 'Ninguna'}</p>
+      <div style="background-color: #000000; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #ffffff;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #111111; border-radius: 16px; overflow: hidden; border: 1px solid #333333; padding: 40px;">
+          <!-- Header -->
+          <div style="text-align: center; margin-bottom: 30px;">
+            <img src="https://garagestudios.es/images/logo-sin-fondo.png" alt="Garage Studios" style="width: 150px; height: auto; margin-bottom: 20px;" />
+            <h2 style="color: #fbbf24; font-size: 22px; margin: 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Nueva Solicitud de Reserva</h2>
+            <p style="color: #a0a0a0; font-size: 14px; margin-top: 5px;">Se ha recibido una nueva reserva a través de la web</p>
+          </div>
+
+          <!-- Customer Info -->
+          <div style="background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="color: #fbbf24; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #333333; padding-bottom: 8px;">Datos del Cliente</h3>
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #e0e0e0;"><strong style="color: #ffffff;">Nombre:</strong> ${data.name}</p>
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #e0e0e0;"><strong style="color: #ffffff;">Email:</strong> ${data.email}</p>
+            <p style="margin: 0; font-size: 14px; color: #e0e0e0;"><strong style="color: #ffffff;">Teléfono:</strong> ${data.phone}</p>
+          </div>
+
+          <!-- Reservation Details -->
+          <div style="background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="color: #fbbf24; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #333333; padding-bottom: 8px;">Detalles del Servicio</h3>
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #e0e0e0;"><strong style="color: #ffffff;">Servicio:</strong> ${nombreServicio}</p>
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #e0e0e0;"><strong style="color: #ffffff;">Fecha:</strong> ${data.date}</p>
+            <p style="margin: 0; font-size: 14px; color: #e0e0e0;"><strong style="color: #ffffff;">Hora:</strong> ${horaInicio} - ${horaFin} (${duracion} min)</p>
+          </div>
+
+          <!-- Notes -->
+          <div style="background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 20px;">
+            <h3 style="color: #fbbf24; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #333333; padding-bottom: 8px;">Notas o Mensaje</h3>
+            <p style="margin: 0; font-size: 14px; color: #e0e0e0; line-height: 1.5;">${data.notes ? data.notes.replace(/\n/g, '<br/>') : 'Ninguna'}</p>
+          </div>
+
+          <!-- Footer -->
+          <div style="text-align: center; margin-top: 30px; border-top: 1px solid #333333; padding-top: 20px;">
+            <p style="font-size: 11px; color: #666666; margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">
+              Garage Studios &copy; ${new Date().getFullYear()} · Gestión de reservas
+            </p>
+          </div>
+        </div>
+      </div>
     `;
     await sendAdminNotification("Nueva reserva desde la web de Garage Studios", htmlBody);
   } catch (err) {
