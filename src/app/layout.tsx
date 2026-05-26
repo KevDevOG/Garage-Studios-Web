@@ -70,7 +70,7 @@ export default function RootLayout({
 }>) {
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "MusicStudio",
+    "@type": "MusicRecordingStudio",
     name: "Garage Studios",
     logo: "https://garagestudios.es/icon-512.png",
     image: "https://garagestudios.es/og-garage-studios.png",

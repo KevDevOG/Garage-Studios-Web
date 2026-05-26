@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -8,6 +9,37 @@ import ScrollReveal from "@/components/ScrollReveal";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveServices } from "@/app/actions/services";
 import IntroLoader from "@/components/IntroLoader";
+
+export const metadata: Metadata = {
+  title: "Estudio de Grabación y Producción Musical en Las Palmas | Garage Studios",
+  description:
+    "Garage Studios: tu estudio musical en Las Palmas de Gran Canaria. Grabación profesional, producción musical, mezcla y masterización, y videoclips de alta calidad.",
+  openGraph: {
+    title: "Estudio de Grabación y Producción Musical en Las Palmas | Garage Studios",
+    description:
+      "Garage Studios: tu estudio musical en Las Palmas de Gran Canaria. Grabación profesional, producción musical, mezcla y masterización, y videoclips de alta calidad.",
+    url: "https://garagestudios.es",
+    siteName: "Garage Studios",
+    locale: "es_ES",
+    type: "website",
+    images: [
+      {
+        url: "/og-garage-studios.png",
+        width: 1200,
+        height: 630,
+        alt: "Garage Studios - Estudio de Grabación en Las Palmas",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Estudio de Grabación y Producción Musical en Las Palmas | Garage Studios",
+    description:
+      "Garage Studios: tu estudio musical en Las Palmas de Gran Canaria. Grabación profesional, producción musical, mezcla y masterización, y videoclips de alta calidad.",
+    images: ["/og-garage-studios.png"],
+  },
+};
+
 
 // Importación dinámica de componentes pesados que están "below the fold"
 const SpotifyShowcase = dynamic(() => import("@/components/SpotifyShowcase"), { ssr: true });

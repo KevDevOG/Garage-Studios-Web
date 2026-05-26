@@ -5,8 +5,33 @@ import { getActiveServices } from "@/app/actions/services";
 export const metadata: Metadata = {
   title: "Servicios de Grabación y Producción Musical en Las Palmas | Garage Studios",
   description:
-    "Explora nuestros servicios de grabación de voz, producción musical completa, creación de beats, mezcla, masterización y videoclips profesionales en Las Palmas.",
+    "Descubre nuestros servicios profesionales de estudio de grabación en Las Palmas: grabación de voz, producción musical, mezcla y masterización, y videoclips de calidad.",
+  openGraph: {
+    title: "Servicios de Grabación y Producción Musical en Las Palmas | Garage Studios",
+    description:
+      "Descubre nuestros servicios profesionales de estudio de grabación en Las Palmas: grabación de voz, producción musical, mezcla y masterización, y videoclips de calidad.",
+    url: "https://garagestudios.es/servicios",
+    siteName: "Garage Studios",
+    locale: "es_ES",
+    type: "website",
+    images: [
+      {
+        url: "/og-garage-studios.png",
+        width: 1200,
+        height: 630,
+        alt: "Servicios de Grabación y Producción Musical en Las Palmas - Garage Studios",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Servicios de Grabación y Producción Musical en Las Palmas | Garage Studios",
+    description:
+      "Descubre nuestros servicios profesionales de estudio de grabación en Las Palmas: grabación de voz, producción musical, mezcla y masterización, y videoclips de calidad.",
+    images: ["/og-garage-studios.png"],
+  },
 };
+
 
 import { Mic, Music, Camera, Clapperboard, Hammer, Diamond } from "lucide-react";
 

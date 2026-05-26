@@ -5,8 +5,33 @@ import { Camera, Music, MapPin, ChevronRight } from "lucide-react";
 export const metadata: Metadata = {
   title: "Contacto con tu Estudio de Grabación en Las Palmas | Garage Studios",
   description:
-    "¿Listo para grabar o producir tus canciones? Contacta con Garage Studios, tu estudio musical en Las Palmas de Gran Canaria. Escríbenos o visítanos.",
+    "¿Listo para grabar o producir tus canciones? Contacta con Garage Studios, tu estudio musical en Las Palmas de Gran Canaria. Escríbenos o visítanos hoy mismo.",
+  openGraph: {
+    title: "Contacto con tu Estudio de Grabación en Las Palmas | Garage Studios",
+    description:
+      "¿Listo para grabar o producir tus canciones? Contacta con Garage Studios, tu estudio musical en Las Palmas de Gran Canaria. Escríbenos o visítanos hoy mismo.",
+    url: "https://garagestudios.es/contacto",
+    siteName: "Garage Studios",
+    locale: "es_ES",
+    type: "website",
+    images: [
+      {
+        url: "/og-garage-studios.png",
+        width: 1200,
+        height: 630,
+        alt: "Contacto con Garage Studios - Estudio de Grabación en Las Palmas",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Contacto con tu Estudio de Grabación en Las Palmas | Garage Studios",
+    description:
+      "¿Listo para grabar o producir tus canciones? Contacta con Garage Studios, tu estudio musical en Las Palmas de Gran Canaria. Escríbenos o visítanos hoy mismo.",
+    images: ["/og-garage-studios.png"],
+  },
 };
+
 
 export default function ContactoPage() {
   return (

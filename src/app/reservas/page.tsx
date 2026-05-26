@@ -6,8 +6,33 @@ import { getActiveServices } from "@/app/actions/services";
 export const metadata: Metadata = {
   title: "Reservas y Sesiones en el Estudio de Grabación | Garage Studios",
   description:
-    "Reserva tu sesión de grabación, producción musical o mezcla en Garage Studios, Las Palmas. Elige tu fecha y hora online.",
+    "Reserva tu sesión de grabación, producción musical, o mezcla y masterización en Las Palmas online. Elige tu fecha y hora en Garage Studios.",
+  openGraph: {
+    title: "Reservas y Sesiones en el Estudio de Grabación | Garage Studios",
+    description:
+      "Reserva tu sesión de grabación, producción musical, o mezcla y masterización en Las Palmas online. Elige tu fecha y hora en Garage Studios.",
+    url: "https://garagestudios.es/reservas",
+    siteName: "Garage Studios",
+    locale: "es_ES",
+    type: "website",
+    images: [
+      {
+        url: "/og-garage-studios.png",
+        width: 1200,
+        height: 630,
+        alt: "Reservas y Sesiones en Garage Studios - Estudio de Grabación en Las Palmas",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Reservas y Sesiones en el Estudio de Grabación | Garage Studios",
+    description:
+      "Reserva tu sesión de grabación, producción musical, o mezcla y masterización en Las Palmas online. Elige tu fecha y hora en Garage Studios.",
+    images: ["/og-garage-studios.png"],
+  },
 };
+
 
 export default async function ReservasPage() {
   const servicesList = await getActiveServices();
