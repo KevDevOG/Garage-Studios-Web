@@ -76,7 +76,14 @@ export async function submitReservationAction(data: ReservationData) {
   const newStart = timeToMinutes(horaInicio);
   const newEnd = newStart + duracion;
 
-  const { data: existingReservations, error: overlapErr } = await supabase
+  // Create admin client to bypass RLS for reading reservations
+  const { createClient: createSupabaseClient } = await import("@supabase/supabase-js");
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const { data: existingReservations, error: overlapErr } = await supabaseAdmin
     .from("reserva")
     .select("hora_inicio, hora_fin, estado")
     .eq("fecha_reserva", data.date);

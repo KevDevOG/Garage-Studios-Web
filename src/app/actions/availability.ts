@@ -51,8 +51,15 @@ export async function getAvailableSlots(
     };
   }
 
+  // Create admin client to bypass RLS for reading reservations and blocks
+  const { createClient: createSupabaseClient } = await import("@supabase/supabase-js");
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   // 4. Consultar reservas existentes para esa fecha (activas, no eliminadas)
-  const { data: reservas } = await supabase
+  const { data: reservas } = await supabaseAdmin
     .from("reserva")
     .select("hora_inicio, hora_fin")
     .eq("fecha_reserva", fecha)
@@ -62,14 +69,14 @@ export async function getAvailableSlots(
     .not("hora_fin", "is", null);
 
   // 5. Consultar bloques existentes para esa fecha (activos)
-  const { data: bloques } = await supabase
+  const { data: bloques } = await supabaseAdmin
     .from("reserva_bloque")
     .select("hora_inicio, hora_fin, reserva_id")
     .eq("fecha", fecha)
     .in("estado", ["pendiente", "confirmada"]);
 
   // 6. Consultar bloqueos manuales (bloqueo_horario)
-  const { data: bloqueosManuales } = await supabase
+  const { data: bloqueosManuales } = await supabaseAdmin
     .from("bloqueo_horario")
     .select("hora_inicio, hora_fin")
     .eq("fecha", fecha)
@@ -135,8 +142,15 @@ export async function validateSlotAvailable(
 ): Promise<boolean> {
   const supabase = await createClient();
 
+  // Create admin client to bypass RLS for reading reservations and blocks
+  const { createClient: createSupabaseClient } = await import("@supabase/supabase-js");
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   // Consultar reservas para la fecha
-  let query = supabase
+  let query = supabaseAdmin
     .from("reserva")
     .select("id, hora_inicio, hora_fin")
     .eq("fecha_reserva", fecha)
@@ -152,14 +166,14 @@ export async function validateSlotAvailable(
   const { data: reservas } = await query;
 
   // Consultar bloques
-  const { data: bloques } = await supabase
+  const { data: bloques } = await supabaseAdmin
     .from("reserva_bloque")
     .select("hora_inicio, hora_fin")
     .eq("fecha", fecha)
     .in("estado", ["pendiente", "confirmada"]);
 
   // Consultar bloqueos manuales
-  const { data: bloqueosManuales } = await supabase
+  const { data: bloqueosManuales } = await supabaseAdmin
     .from("bloqueo_horario")
     .select("hora_inicio, hora_fin")
     .eq("fecha", fecha)
