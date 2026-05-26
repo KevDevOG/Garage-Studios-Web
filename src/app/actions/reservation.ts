@@ -6,6 +6,8 @@ import { minutesToTime, timeToMinutes } from "@/lib/schedule";
 import { findOrCreateClientePublic, updateClienteStats } from "@/app/actions/clientes";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
+import { sendAdminNotification } from "@/lib/email";
+
 
 export interface ReservationData {
   name: string;
@@ -111,5 +113,21 @@ export async function submitReservationAction(data: ReservationData) {
   // 5. Actualizar estadísticas del cliente
   if (clienteId) {
     await updateClienteStats(supabase, clienteId);
+  }
+
+  try {
+    const htmlBody = `
+      <h2>Nueva solicitud de reserva</h2>
+      <p><strong>Nombre:</strong> ${data.name}</p>
+      <p><strong>Email:</strong> ${data.email}</p>
+      <p><strong>Teléfono:</strong> ${data.phone}</p>
+      <p><strong>Servicio (ID):</strong> ${data.service}</p>
+      <p><strong>Fecha:</strong> ${data.date}</p>
+      <p><strong>Hora:</strong> ${horaInicio} - ${horaFin} (${duracion} min)</p>
+      <p><strong>Notas:</strong><br/>${data.notes ? data.notes.replace(/\n/g, '<br/>') : 'Ninguna'}</p>
+    `;
+    await sendAdminNotification("Nueva reserva desde la web de Garage Studios", htmlBody);
+  } catch (err) {
+    console.error("Error enviando email de notificación de reserva:", err);
   }
 }

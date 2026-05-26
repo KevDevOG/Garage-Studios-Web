@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
+import { sendAdminNotification } from "@/lib/email";
+
 
 export interface ContactData {
   name: string;
@@ -50,5 +52,19 @@ export async function submitContactAction(data: ContactData) {
   if (error) {
     console.error("Error al insertar contacto en Supabase:", error);
     throw new Error("No se pudo enviar el mensaje. Inténtalo más tarde.");
+  }
+
+  try {
+    const htmlBody = `
+      <h2>Nuevo mensaje de contacto</h2>
+      <p><strong>Nombre:</strong> ${data.name}</p>
+      <p><strong>Email:</strong> ${data.email}</p>
+      <p><strong>Teléfono:</strong> ${data.phone || 'No especificado'}</p>
+      <p><strong>Asunto:</strong> ${data.subject}</p>
+      <p><strong>Mensaje:</strong><br/>${data.message.replace(/\n/g, '<br/>')}</p>
+    `;
+    await sendAdminNotification("Nuevo mensaje desde la web de Garage Studios", htmlBody);
+  } catch (err) {
+    console.error("Error enviando email de notificación de contacto:", err);
   }
 }

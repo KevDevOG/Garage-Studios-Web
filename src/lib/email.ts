@@ -232,3 +232,39 @@ export async function sendReservationCompletedEmail(
   }
 }
 
+export async function sendAdminNotification(subject: string, htmlBody: string) {
+  if (!resend) {
+    console.error("[Email] Missing env vars: RESEND_API_KEY");
+    return { error: "RESEND_API_KEY no configurado" };
+  }
+
+  const toEmail = process.env.GARAGE_STUDIOS_NOTIFY_EMAIL;
+  const fromEmail = process.env.GARAGE_STUDIOS_FROM_EMAIL;
+
+  if (!toEmail || !fromEmail) {
+    console.error("[Email] Missing env vars: GARAGE_STUDIOS_NOTIFY_EMAIL and/or GARAGE_STUDIOS_FROM_EMAIL");
+    return { error: "Faltan variables de entorno" };
+  }
+
+  try {
+    console.log("[Email] Sending notification...");
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: [toEmail],
+      subject,
+      html: htmlBody,
+    });
+    
+    if (error) {
+      console.error("[Email] Notification failed", error);
+    } else {
+      console.log("[Email] Notification sent");
+    }
+
+    return { data };
+  } catch (error) {
+    console.error("[Email] Notification failed", error instanceof Error ? error.message : error);
+    return { error: error instanceof Error ? error.message : "Error desconocido" };
+  }
+}
+
