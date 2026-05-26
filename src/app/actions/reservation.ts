@@ -77,10 +77,17 @@ export async function submitReservationAction(data: ReservationData) {
   const newEnd = newStart + duracion;
 
   // Create admin client to bypass RLS for reading reservations
+  // Crucial: We must disable Next.js fetch caching for these GET requests
   const { createClient: createSupabaseClient } = await import("@supabase/supabase-js");
   const supabaseAdmin = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: { persistSession: false },
+      global: {
+        fetch: (url, options) => fetch(url, { ...options, cache: "no-store" }),
+      },
+    }
   );
 
   const { data: existingReservations, error: overlapErr } = await supabaseAdmin

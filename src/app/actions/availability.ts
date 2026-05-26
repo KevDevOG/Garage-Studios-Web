@@ -52,10 +52,18 @@ export async function getAvailableSlots(
   }
 
   // Create admin client to bypass RLS for reading reservations and blocks
+  // Crucial: We must disable Next.js fetch caching for these GET requests,
+  // otherwise it returns stale availability data.
   const { createClient: createSupabaseClient } = await import("@supabase/supabase-js");
   const supabaseAdmin = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: { persistSession: false },
+      global: {
+        fetch: (url, options) => fetch(url, { ...options, cache: "no-store" }),
+      },
+    }
   );
 
   // 4. Consultar reservas existentes para esa fecha (activas, no eliminadas)
@@ -143,10 +151,18 @@ export async function validateSlotAvailable(
   const supabase = await createClient();
 
   // Create admin client to bypass RLS for reading reservations and blocks
+  // Crucial: We must disable Next.js fetch caching for these GET requests,
+  // otherwise it returns stale availability data.
   const { createClient: createSupabaseClient } = await import("@supabase/supabase-js");
   const supabaseAdmin = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: { persistSession: false },
+      global: {
+        fetch: (url, options) => fetch(url, { ...options, cache: "no-store" }),
+      },
+    }
   );
 
   // Consultar reservas para la fecha
