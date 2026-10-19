@@ -214,8 +214,28 @@ export async function updateReservation(id: string, formData: FormData) {
   const duracion = parseInt(duracionStr, 10);
   const horaFin = minutesToTime(timeToMinutes(horaInicio) + duracion);
 
-  // Validar solapamiento (excluyendo la reserva actual)
-  if (horaInicio && duracion) {
+  // 1. Obtener la reserva actual antes de actualizar
+  const { data: currentRes } = await supabase
+    .from("reserva")
+    .select("fecha_reserva, hora_inicio, hora_fin, duracion_minutos, estado, precio, confirmacion_email_enviada_at, cancelacion_email_enviada_at, completada_email_enviada_at, calendar_token, servicio(nombre)")
+    .eq("id", id)
+    .single();
+
+  if (!currentRes) return { error: "Reserva no encontrada." };
+
+  // Normalizar horas (HH:mm) para comparar fielmente
+  const currentHoraInicio = currentRes.hora_inicio?.slice(0, 5) || "";
+  const submittedHoraInicio = horaInicio?.slice(0, 5) || "";
+  const currentDuracion = currentRes.duracion_minutos || 0;
+  const submittedDuracion = isNaN(duracion) ? 0 : duracion;
+
+  const scheduleChanged =
+    currentRes.fecha_reserva !== fecha ||
+    currentHoraInicio !== submittedHoraInicio ||
+    currentDuracion !== submittedDuracion;
+
+  // Solo validar solapamiento si la fecha, hora de inicio o duración han cambiado
+  if (scheduleChanged && horaInicio && duracion) {
     const available = await validateSlotAvailable(
       fecha,
       horaInicio,
@@ -226,15 +246,6 @@ export async function updateReservation(id: string, formData: FormData) {
       return { error: "Ese horario se solapa con otra reserva." };
     }
   }
-
-  // 1. Obtener estado previo antes de actualizar
-  const { data: currentRes } = await supabase
-    .from("reserva")
-    .select("estado, precio, confirmacion_email_enviada_at, cancelacion_email_enviada_at, completada_email_enviada_at, calendar_token, servicio(nombre)")
-    .eq("id", id)
-    .single();
-
-  if (!currentRes) return { error: "Reserva no encontrada." };
 
   // 2. Actualizar la reserva
   const { error } = await supabase
@@ -260,6 +271,9 @@ export async function updateReservation(id: string, formData: FormData) {
 
   if (error) {
     console.error("Error al actualizar reserva:", error);
+    if ((error as any).code === "23P01" || error.message?.includes("reserva_no_overlap")) {
+      return { error: "Ese horario se solapa con otra reserva." };
+    }
     return { error: "Error al guardar los cambios." };
   }
 
