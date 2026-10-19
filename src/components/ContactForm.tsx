@@ -132,7 +132,7 @@ export default function ContactForm() {
         </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <a
-            href="https://wa.me/34693489379"
+            href="https://wa.me/34661652638"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 rounded-lg bg-[#25D366] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/20 transition-all hover:bg-[#128C7E] hover:-translate-y-0.5"
@@ -338,7 +338,7 @@ export default function ContactForm() {
           {loading ? "Enviando..." : "Enviar mensaje"}
         </button>
         <a
-          href="https://wa.me/34693489379"
+          href="https://wa.me/34661652638"
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#25D366] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/20 transition-all hover:bg-[#128C7E] hover:-translate-y-0.5"

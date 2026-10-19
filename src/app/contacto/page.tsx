@@ -60,11 +60,15 @@ export default function ContactoPage() {
 
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-muted">
-              WhatsApp
+              Teléfono / WhatsApp
             </h3>
-            <p className="mt-1 text-sm">
-              <a href="https://wa.me/34693489379" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-accent">
-                +34 693 48 93 79
+            <p className="mt-1 text-sm flex flex-wrap gap-x-3 gap-y-1">
+              <a href="tel:+34661652638" className="transition-colors hover:text-accent">
+                661 652 638
+              </a>
+              <span className="text-muted">·</span>
+              <a href="https://wa.me/34661652638" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-accent">
+                WhatsApp Directo
               </a>
             </p>
           </div>

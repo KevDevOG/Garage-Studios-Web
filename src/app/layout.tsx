@@ -89,7 +89,7 @@ export default function RootLayout({
       longitude: -15.4543178
     },
     hasMap: "https://maps.app.goo.gl/heSYXrycMkAFsBoCA",
-    telephone: "+34 693 48 93 79",
+    telephone: "+34 661 65 26 38",
     email: "garagestudioslp@gmail.com",
     url: "https://garagestudios.es",
     priceRange: "$$",

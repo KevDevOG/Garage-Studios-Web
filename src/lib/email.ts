@@ -110,7 +110,7 @@ function buildReservationEmailTemplate({
               ${footer}
             </p>
             <div style="display: flex; justify-content: center; gap: 10px;">
-              <a href="https://wa.me/34693489379" 
+              <a href="https://wa.me/34661652638" 
                  style="display: inline-block; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; background-color: #25D366; padding: 10px 20px; border-radius: 8px; margin: 5px;">
                  📱 WhatsApp
               </a>

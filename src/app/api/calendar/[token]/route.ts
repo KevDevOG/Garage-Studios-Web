@@ -65,7 +65,7 @@ DTSTAMP:${dtStamp}
 DTSTART;TZID=Atlantic/Canary:${dtStart}
 DTEND;TZID=Atlantic/Canary:${dtEnd}
 SUMMARY:Reserva Garage Studios - ${servicioNombre}
-DESCRIPTION:Reserva confirmada en Garage Studios.\\nServicio: ${servicioNombre}\\nCliente: ${reserva.nombre}\\nContacto: +34 693 48 93 79
+DESCRIPTION:Reserva confirmada en Garage Studios.\\nServicio: ${servicioNombre}\\nCliente: ${reserva.nombre}\\nContacto: +34 661 65 26 38
 LOCATION:C. Drago\\, 35010 Las Palmas de Gran Canaria\\, Las Palmas
 END:VEVENT
 END:VCALENDAR`;

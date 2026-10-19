@@ -62,7 +62,9 @@ export default function Footer() {
             </li>
             <li className="flex items-center gap-2">
               <Phone className="w-4 h-4 text-accent" />
-              +34 693 48 93 79
+              <a href="tel:+34661652638" className="hover:text-accent transition-colors">
+                661 652 638
+              </a>
             </li>
             <li className="flex items-center gap-2">
               <Mail className="w-4 h-4 text-accent" />
