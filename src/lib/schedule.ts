@@ -24,23 +24,47 @@ export const STUDIO_HOURS: Record<number, DaySchedule | null> = {
 /** Intervalo entre slots en minutos */
 export const SLOT_INTERVAL = 30;
 
+/** Minutos de un día completo. Una hora de fin igual a este valor es medianoche. */
+export const END_OF_DAY_MINUTES = 1440;
+
 /**
- * Convierte "HH:mm" a minutos desde medianoche.
+ * Convierte "HH:mm" (o "HH:mm:ss" tal y como lo devuelve Postgres) a minutos
+ * desde medianoche. Acepta "24:00" como fin de día (1440).
+ *
+ * Nota: "00:00" como HORA DE FIN significa medianoche y se interpreta como
+ * 1440 para que los cálculos de solapamiento funcionen. Como hora de inicio
+ * nunca se genera (el estudio no abre a medianoche).
  */
 export function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
-  // Manejar medianoche: "00:00" como cierre = 1440 (24*60)
-  if (h === 0 && m === 0) return 1440;
+  if (h === 0 && m === 0) return END_OF_DAY_MINUTES;
   return h * 60 + m;
 }
 
 /**
- * Convierte minutos desde medianoche a "HH:mm".
+ * Convierte minutos desde medianoche a "HH:mm" para GUARDAR en base de datos.
+ *
+ * El fin de día se devuelve como "24:00", que Postgres acepta como TIME válido
+ * y que, sumado a la fecha, produce la medianoche del día SIGUIENTE. Con
+ * "00:00" la restricción de exclusión `reserva_no_overlap` construiría un
+ * tsrange invertido (fin anterior al inicio) y el INSERT fallaría.
  */
 export function minutesToTime(minutes: number): string {
-  const h = Math.floor(minutes / 60) % 24;
+  if (minutes >= END_OF_DAY_MINUTES) return "24:00";
+  const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/**
+ * Normaliza una hora de base de datos ("HH:mm:ss", "24:00:00"…) a "HH:mm"
+ * para MOSTRAR al usuario. El fin de día se muestra como "00:00".
+ */
+export function formatTime(time: string | null | undefined): string {
+  if (!time) return "--:--";
+  const [h, m] = time.split(":");
+  if (h === "24") return "00:00";
+  return `${h.padStart(2, "0")}:${(m ?? "00").padStart(2, "0")}`;
 }
 
 /**
@@ -63,6 +87,20 @@ export function generateTimeSlots(
   }
 
   return slots;
+}
+
+/**
+ * Comprueba si una hora de inicio es un slot legítimo para ese día y servicio:
+ * cae dentro del horario de apertura, está alineada al intervalo y la sesión
+ * completa termina antes del cierre. Se usa en servidor para rechazar
+ * peticiones manipuladas (p. ej. una reserva a las 03:00).
+ */
+export function isSlotWithinOpeningHours(
+  dayOfWeek: number,
+  startTime: string,
+  serviceDurationMinutes: number
+): boolean {
+  return generateTimeSlots(dayOfWeek, serviceDurationMinutes).includes(startTime);
 }
 
 /**

@@ -1,77 +1,115 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Check, X, CheckCircle2, Ban } from "lucide-react";
+import { toast } from "sonner";
 import { updateReservationStatus } from "@/app/actions/admin";
+import type { ReservationState } from "@/lib/reservation-states";
 
 interface QuickActionButtonsProps {
   id: string;
   currentStatus: string;
 }
 
+const LABELS: Record<string, string> = {
+  confirmada: "Confirmar reserva",
+  rechazada: "Rechazar reserva",
+  completada: "Marcar como completada",
+  cancelada: "Cancelar reserva",
+};
+
+const DESTRUCTIVE: ReservationState[] = ["cancelada", "rechazada"];
+
+/**
+ * Botones rápidos de estado. Las acciones destructivas piden una segunda
+ * pulsación en línea en vez de usar `confirm()` nativo.
+ */
 export default function QuickActionButtons({ id, currentStatus }: QuickActionButtonsProps) {
   const [isPending, startTransition] = useTransition();
+  const [pendingConfirm, setPendingConfirm] = useState<ReservationState | null>(null);
 
-  const handleAction = (newStatus: string) => {
-    if (newStatus === 'cancelada' || newStatus === 'rechazada') {
-      if (!confirm(`¿Estás seguro de que deseas marcar esta reserva como ${newStatus}?`)) return;
-    }
-
+  const run = (newStatus: ReservationState) => {
     startTransition(async () => {
       try {
-        await updateReservationStatus(id, newStatus);
+        const result = await updateReservationStatus(id, newStatus);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success(`Reserva ${newStatus}.`);
       } catch (error) {
         console.error("Error updating status:", error);
-        alert("Error al actualizar el estado");
+        toast.error("Error al actualizar el estado.");
+      } finally {
+        setPendingConfirm(null);
       }
     });
   };
 
-  if (currentStatus === 'cancelada' || currentStatus === 'rechazada' || currentStatus === 'completada') {
+  const handleAction = (newStatus: ReservationState) => {
+    if (DESTRUCTIVE.includes(newStatus) && pendingConfirm !== newStatus) {
+      setPendingConfirm(newStatus);
+      return;
+    }
+    run(newStatus);
+  };
+
+  if (currentStatus === "cancelada" || currentStatus === "rechazada" || currentStatus === "completada") {
     return null;
   }
 
+  if (pendingConfirm) {
+    return (
+      <div className="flex items-center gap-2" role="group" aria-label="Confirmar acción">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-red-300">
+          ¿{pendingConfirm === "cancelada" ? "Cancelar" : "Rechazar"}?
+        </span>
+        <button
+          type="button"
+          onClick={() => run(pendingConfirm)}
+          disabled={isPending}
+          className="min-h-[36px] rounded-lg border border-red-500/30 bg-red-500/20 px-3 text-xs font-black uppercase text-red-300 transition-colors hover:bg-red-500/30 disabled:opacity-50"
+        >
+          Sí
+        </button>
+        <button
+          type="button"
+          onClick={() => setPendingConfirm(null)}
+          disabled={isPending}
+          className="min-h-[36px] rounded-lg border border-white/10 px-3 text-xs font-black uppercase text-muted transition-colors hover:text-white disabled:opacity-50"
+        >
+          No
+        </button>
+      </div>
+    );
+  }
+
+  const Button = ({ status, Icon, tone }: { status: ReservationState; Icon: typeof Check; tone: string }) => (
+    <button
+      type="button"
+      onClick={() => handleAction(status)}
+      disabled={isPending}
+      title={LABELS[status]}
+      aria-label={LABELS[status]}
+      className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors disabled:opacity-50 ${tone}`}
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" />
+    </button>
+  );
+
   return (
     <div className="flex items-center gap-2">
-      {currentStatus === 'pendiente' && (
+      {currentStatus === "pendiente" && (
         <>
-          <button
-            onClick={() => handleAction('confirmada')}
-            disabled={isPending}
-            title="Confirmar"
-            className="p-2 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 disabled:opacity-50 transition-colors"
-          >
-            <Check className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => handleAction('rechazada')}
-            disabled={isPending}
-            title="Rechazar"
-            className="p-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
-          >
-            <Ban className="h-4 w-4" />
-          </button>
+          <Button status="confirmada" Icon={Check} tone="bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20" />
+          <Button status="rechazada" Icon={Ban} tone="bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20" />
         </>
       )}
 
-      {currentStatus === 'confirmada' && (
+      {currentStatus === "confirmada" && (
         <>
-          <button
-            onClick={() => handleAction('completada')}
-            disabled={isPending}
-            title="Completar"
-            className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 disabled:opacity-50 transition-colors"
-          >
-            <CheckCircle2 className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => handleAction('cancelada')}
-            disabled={isPending}
-            title="Cancelar"
-            className="p-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <Button status="completada" Icon={CheckCircle2} tone="bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20" />
+          <Button status="cancelada" Icon={X} tone="bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20" />
         </>
       )}
     </div>

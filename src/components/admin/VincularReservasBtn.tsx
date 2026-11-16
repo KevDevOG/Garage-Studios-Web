@@ -13,17 +13,22 @@ export default function VincularReservasBtn({ clienteId }: VincularReservasBtnPr
   const [loading, setLoading] = useState(false);
 
   const handleLink = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const { count } = await linkReservasToCliente(clienteId);
-      
-      if (count > 0) {
-        toast.success(`Se han vinculado ${count} reservas antiguas.`);
-      } else {
-        toast.success("No se encontraron reservas pendientes de vincular.");
+      const result = await linkReservasToCliente(clienteId);
+
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
       }
-    } catch (error: any) {
-      toast.error(error.message || "Error al vincular reservas.");
+
+      if (result.data.count > 0) {
+        toast.success(`Se han vinculado ${result.data.count} reservas antiguas.`);
+      } else {
+        toast.info("No se encontraron reservas pendientes de vincular.");
+      }
+    } catch {
+      toast.error("Error al vincular reservas. Inténtalo de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -31,14 +36,16 @@ export default function VincularReservasBtn({ clienteId }: VincularReservasBtnPr
 
   return (
     <button
+      type="button"
       onClick={handleLink}
       disabled={loading}
-      className="flex items-center justify-center gap-2 bg-white/10 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full mt-4"
+      aria-busy={loading}
+      className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {loading ? (
-        <Loader2 className="w-4 h-4 animate-spin" />
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
       ) : (
-        <Link2 className="w-4 h-4" />
+        <Link2 className="h-4 w-4" aria-hidden="true" />
       )}
       Vincular reservas antiguas
     </button>

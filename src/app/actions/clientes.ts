@@ -4,15 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAuditLog } from "@/lib/audit";
+import { requireAdmin } from "@/lib/auth";
+import { buildIlikePattern, buildOrIlike } from "@/lib/search";
+import { monthRange } from "@/lib/dates";
+import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
+import { isUuid } from "@/lib/reservation-rules";
 
 // ── Helpers ──
 
 async function requireAuth() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autorizado");
+  const { supabase } = await requireAdmin();
   return supabase;
 }
 
@@ -199,15 +200,13 @@ export async function getClientes(
     .order("created_at", { ascending: false })
     .limit(100);
 
-  if (search && search.trim()) {
-    const term = `%${search.trim()}%`;
-    query = query.or(
-      `nombre.ilike.${term},email.ilike.${term},telefono.ilike.${term}`
-    );
+  const pattern = buildIlikePattern(search, 1);
+  if (pattern) {
+    query = query.or(buildOrIlike(["nombre", "email", "telefono"], pattern));
   }
 
   if (tag && tag.trim()) {
-    query = query.contains("etiquetas", [tag.trim()]);
+    query = query.contains("etiquetas", [tag.trim().slice(0, 60)]);
   }
 
   const { data, error } = await query;
@@ -289,13 +288,13 @@ export async function searchClientes(
 ): Promise<{ id: string; nombre: string; email: string | null; telefono: string | null }[]> {
   const supabase = await requireAuth();
 
-  if (!term || term.trim().length < 2) return [];
+  const pattern = buildIlikePattern(term);
+  if (!pattern) return [];
 
-  const search = `%${term.trim()}%`;
   const { data } = await supabase
     .from("cliente")
     .select("id, nombre, email, telefono")
-    .or(`nombre.ilike.${search},email.ilike.${search},telefono.ilike.${search}`)
+    .or(buildOrIlike(["nombre", "email", "telefono"], pattern))
     .limit(10);
 
   return data || [];
@@ -306,19 +305,7 @@ export async function searchClientes(
 export async function getClientesMetrics(month: number | null, year: number): Promise<ClientesMetrics> {
   const supabase = await requireAuth();
 
-  let startDateStr: string;
-  let endDateStr: string;
-
-  if (month !== null) {
-    // Pad month to ensure valid YYYY-MM-DD
-    const m = month.toString().padStart(2, "0");
-    const lastDay = new Date(year, month, 0).getDate();
-    startDateStr = `${year}-${m}-01`;
-    endDateStr = `${year}-${m}-${lastDay}`;
-  } else {
-    startDateStr = `${year}-01-01`;
-    endDateStr = `${year}-12-31`;
-  }
+  const { start: startDateStr, end: endDateStr } = monthRange(year, month);
 
   // 1. Obtener todas las reservas (mínimo de datos)
   const { data: allReservas } = await supabase
@@ -393,19 +380,44 @@ export async function getClientesMetrics(month: number | null, year: number): Pr
   };
 }
 
+interface RankingRow {
+  cliente_id: string;
+  importe_pagado: number | string | null;
+  estado: string;
+  estado_pago: string;
+  servicio: { nombre: string } | { nombre: string }[] | null;
+  cliente: { nombre: string; total_reservas: number } | { nombre: string; total_reservas: number }[] | null;
+}
+
+function first<T>(value: T | T[] | null): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value;
+}
+
+function buildRanking(reservas: RankingRow[]): Record<string, TopClienteRanking> {
+  const map: Record<string, TopClienteRanking> = {};
+  for (const r of reservas) {
+    const cid = r.cliente_id;
+    const cliente = first(r.cliente);
+    if (!map[cid]) {
+      map[cid] = {
+        id: cid,
+        nombre: cliente?.nombre || "Desconocido",
+        reservas: 0,
+        total_pagado: 0,
+        ultimo_servicio: first(r.servicio)?.nombre || null,
+        es_recurrente: (cliente?.total_reservas || 0) > 1,
+      };
+    }
+    map[cid].reservas += 1;
+    map[cid].total_pagado += Number(r.importe_pagado) || 0;
+  }
+  return map;
+}
+
 export async function getTopClientesByRevenue(month: number | null, year: number): Promise<TopClienteRanking[]> {
   const supabase = await requireAuth();
-  
-  let startDate: string;
-  let endDate: string;
-
-  if (month !== null) {
-    startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
-    endDate = new Date(year, month, 0).toISOString().split('T')[0];
-  } else {
-    startDate = `${year}-01-01`;
-    endDate = `${year}-12-31`;
-  }
+  const { start: startDate, end: endDate } = monthRange(year, month);
 
   const { data: reservas } = await supabase
     .from("reserva")
@@ -426,40 +438,13 @@ export async function getTopClientesByRevenue(month: number | null, year: number
 
   if (!reservas) return [];
 
-  const map: Record<string, TopClienteRanking> = {};
-
-  reservas.forEach((r: any) => {
-    const cid = r.cliente_id;
-    if (!map[cid]) {
-      map[cid] = {
-        id: cid,
-        nombre: r.cliente?.nombre || "Desconocido",
-        reservas: 0,
-        total_pagado: 0,
-        ultimo_servicio: r.servicio?.nombre || null,
-        es_recurrente: (r.cliente?.total_reservas || 0) > 1
-      };
-    }
-    map[cid].reservas += 1;
-    map[cid].total_pagado += Number(r.importe_pagado) || 0;
-  });
-
+  const map = buildRanking(reservas as unknown as RankingRow[]);
   return Object.values(map).sort((a, b) => b.total_pagado - a.total_pagado).slice(0, 5);
 }
 
 export async function getTopClientesByReservations(month: number | null, year: number): Promise<TopClienteRanking[]> {
   const supabase = await requireAuth();
-  
-  let startDate: string;
-  let endDate: string;
-
-  if (month !== null) {
-    startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
-    endDate = new Date(year, month, 0).toISOString().split('T')[0];
-  } else {
-    startDate = `${year}-01-01`;
-    endDate = `${year}-12-31`;
-  }
+  const { start: startDate, end: endDate } = monthRange(year, month);
 
   const { data: reservas } = await supabase
     .from("reserva")
@@ -480,24 +465,7 @@ export async function getTopClientesByReservations(month: number | null, year: n
 
   if (!reservas) return [];
 
-  const map: Record<string, TopClienteRanking> = {};
-
-  reservas.forEach((r: any) => {
-    const cid = r.cliente_id;
-    if (!map[cid]) {
-      map[cid] = {
-        id: cid,
-        nombre: r.cliente?.nombre || "Desconocido",
-        reservas: 0,
-        total_pagado: 0,
-        ultimo_servicio: r.servicio?.nombre || null,
-        es_recurrente: (r.cliente?.total_reservas || 0) > 1
-      };
-    }
-    map[cid].reservas += 1;
-    map[cid].total_pagado += Number(r.importe_pagado) || 0;
-  });
-
+  const map = buildRanking(reservas as unknown as RankingRow[]);
   return Object.values(map).sort((a, b) => b.reservas - a.reservas).slice(0, 5);
 }
 
@@ -578,7 +546,7 @@ export async function getClienteStats(clienteId: string) {
   // Servicio más contratado
   const freq: Record<string, number> = {};
   reservas.forEach(r => {
-    const name = (r.servicio as any)?.nombre || "Otros";
+    const name = first(r.servicio as { nombre: string } | { nombre: string }[] | null)?.nombre || "Otros";
     freq[name] = (freq[name] || 0) + 1;
   });
   const topServicio = Object.entries(freq).sort((a,b) => b[1] - a[1])[0]?.[0] || "—";
@@ -851,7 +819,7 @@ export async function getClienteCommercialStats(clienteId: string): Promise<Comm
   // Servicio favorito
   const freq: Record<string, number> = {};
   reservas.forEach(r => {
-    const sName = (r.servicio as any)?.nombre || "Otros";
+    const sName = first(r.servicio as { nombre: string } | { nombre: string }[] | null)?.nombre || "Otros";
     freq[sName] = (freq[sName] || 0) + 1;
   });
   const servicioFavorito = Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
@@ -872,7 +840,8 @@ export async function getClienteCommercialStats(clienteId: string): Promise<Comm
 
 // ── CRM: Vincular Reservas Antiguas ──
 
-export async function linkReservasToCliente(clienteId: string) {
+export async function linkReservasToCliente(clienteId: string): Promise<ActionResult<{ count: number }>> {
+  if (!isUuid(clienteId)) return actionError("Cliente no válido.");
   const supabase = await requireAuth();
 
   // 1. Obtener cliente
@@ -880,41 +849,43 @@ export async function linkReservasToCliente(clienteId: string) {
     .from("cliente")
     .select("email, telefono")
     .eq("id", clienteId)
-    .single();
+    .maybeSingle();
 
   if (errCliente || !cliente) {
-    throw new Error("Cliente no encontrado");
+    return actionError("Cliente no encontrado.");
   }
 
   const { email, telefono } = cliente;
 
   if (!email && !telefono) {
-    throw new Error("El cliente no tiene email ni teléfono para buscar coincidencias.");
+    return actionError("El cliente no tiene email ni teléfono para buscar coincidencias.");
   }
 
-  // 2. Buscar reservas sin cliente_id que coincidan
+  // 2. Buscar reservas sin cliente_id que coincidan (igualdad exacta, sin
+  //    comodines: el email/teléfono viene de la BD pero se trata como dato)
   let query = supabase
     .from("reserva")
     .select("id")
     .is("cliente_id", null)
     .is("deleted_at", null);
 
-  // Construir la condición OR para email o telefono
-  const orConditions: string[] = [];
-  if (email) orConditions.push(`email.ilike.${email}`);
-  if (telefono) orConditions.push(`telefono.ilike.${telefono}`);
-
-  query = query.or(orConditions.join(","));
+  if (email && telefono) {
+    query = query.or(`email.eq.${email.replace(/[,()]/g, "")},telefono.eq.${telefono.replace(/[,()]/g, "")}`);
+  } else if (email) {
+    query = query.eq("email", email);
+  } else if (telefono) {
+    query = query.eq("telefono", telefono);
+  }
 
   const { data: reservasMatch, error: errMatch } = await query;
 
   if (errMatch) {
     console.error("Error buscando reservas para vincular:", errMatch);
-    throw new Error("Error al buscar reservas coincidentes.");
+    return actionError("Error al buscar reservas coincidentes.");
   }
 
   if (!reservasMatch || reservasMatch.length === 0) {
-    return { count: 0 };
+    return actionOk({ count: 0 });
   }
 
   // 3. Actualizar reservas encontradas
@@ -930,7 +901,7 @@ export async function linkReservasToCliente(clienteId: string) {
 
   if (errUpdate) {
     console.error("Error al actualizar cliente_id en reservas:", errUpdate);
-    throw new Error("Error al vincular las reservas.");
+    return actionError("Error al vincular las reservas.");
   }
 
   // 4. Recalcular stats
@@ -953,5 +924,5 @@ export async function linkReservasToCliente(clienteId: string) {
   revalidatePath(`/admin/clientes/${clienteId}`);
   revalidatePath("/admin/dashboard");
 
-  return { count: idsToUpdate.length };
+  return actionOk({ count: idsToUpdate.length });
 }

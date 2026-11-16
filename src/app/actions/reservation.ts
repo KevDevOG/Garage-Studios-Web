@@ -1,117 +1,99 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { validateSlotAvailable } from "@/app/actions/availability";
-import { minutesToTime, timeToMinutes } from "@/lib/schedule";
-import { findOrCreateClientePublic, updateClienteStats } from "@/app/actions/clientes";
+import { minutesToTime, timeToMinutes, isSlotWithinOpeningHours, formatTime } from "@/lib/schedule";
+import { findOrCreateClientePublic } from "@/app/actions/clientes";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
 import { sendAdminNotification } from "@/lib/email";
-
+import { validateReservationInput, isSlotInPast } from "@/lib/reservation-rules";
+import { formatIsoDateEs, weekdayOfIsoDate } from "@/lib/dates";
+import { escapeHtml, escapeHtmlMultiline } from "@/lib/html";
+import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 
 export interface ReservationData {
   name: string;
   phone: string;
   email: string;
   service: string; // UUID
-  date: string;
+  date: string; // YYYY-MM-DD
   timeSlot: string; // HH:mm
   notes: string;
   acceptPrivacy: boolean;
   turnstileToken?: string;
 }
 
-export async function submitReservationAction(data: ReservationData) {
-  if (!data.acceptPrivacy) {
-    throw new Error("Debes aceptar la política de privacidad para solicitar la reserva.");
-  }
+const GENERIC_ERROR = "No se pudo enviar la solicitud. Inténtalo más tarde o escríbenos por WhatsApp.";
+const SLOT_TAKEN_ERROR = "Ese horario ya no está disponible. Elige otra hora.";
 
-  // Rate limit: máximo 5 intentos por IP por hora
+/**
+ * Solicitud de reserva desde la web pública.
+ *
+ * Devuelve `{ ok, error }` en lugar de lanzar: en producción Next.js oculta
+ * al navegador los mensajes de los errores lanzados en Server Actions.
+ */
+export async function submitReservationAction(raw: ReservationData): Promise<ActionResult> {
+  // 1. Validación de servidor (formato, longitud, fecha no pasada, privacidad)
+  const parsed = validateReservationInput(raw);
+  if (!parsed.ok) return actionError(parsed.error);
+  const data = parsed.data;
+
+  // 2. Rate limit: máximo 5 intentos por IP por hora
   const rateCheck = await checkRateLimit("reservation", 5);
   if (!rateCheck.allowed) {
-    throw new Error(
+    return actionError(
       `Has enviado demasiadas solicitudes. Inténtalo de nuevo en ${formatRetryAfter(rateCheck.retryAfterMs)}.`
     );
   }
 
-  // Turnstile: verificar captcha anti-bot
-  const turnstileResult = await verifyTurnstileToken(data.turnstileToken);
+  // 3. Turnstile anti-bot
+  const turnstileResult = await verifyTurnstileToken(raw.turnstileToken);
   if (!turnstileResult.success) {
-    throw new Error(turnstileResult.error || "Verificación anti-bot fallida.");
+    return actionError(turnstileResult.error || "Verificación anti-bot fallida.");
   }
 
-  const supabase = await createClient();
+  const supabase = createPublicClient();
+  if (!supabase) {
+    console.error("[Reservation] Supabase no configurado");
+    return actionError(GENERIC_ERROR);
+  }
 
-  // 1. Obtener nombre, duración y precio base del servicio
+  // 4. Servicio (solo activos) y su duración
   const { data: servicio, error: srvErr } = await supabase
     .from("servicio")
     .select("nombre, duracion_minutos, precio")
     .eq("id", data.service)
-    .single();
+    .eq("activo", true)
+    .maybeSingle();
 
   if (srvErr || !servicio) {
-    throw new Error("Servicio no encontrado.");
+    return actionError("El servicio seleccionado no está disponible.");
   }
 
-  const duracion = servicio.duracion_minutos;
-  const precioBase = servicio.precio;
-  const nombreServicio = servicio.nombre;
+  const duracion = Number(servicio.duracion_minutos);
+  if (!Number.isFinite(duracion) || duracion <= 0) {
+    return actionError("Este servicio no admite reserva online. Contáctanos directamente.");
+  }
+
+  // 5. Reglas de horario que NO deben depender del navegador
+  if (!isSlotWithinOpeningHours(weekdayOfIsoDate(data.date), data.timeSlot, duracion)) {
+    return actionError("El horario seleccionado está fuera del horario de apertura del estudio.");
+  }
+  if (isSlotInPast(data.date, data.timeSlot)) {
+    return actionError("Esa hora ya ha pasado. Elige otro horario.");
+  }
+
   const horaInicio = data.timeSlot;
   const horaFin = minutesToTime(timeToMinutes(horaInicio) + duracion);
 
-  // 2. Validar disponibilidad en servidor (prevenir race conditions)
-  const isAvailable = await validateSlotAvailable(
-    data.date,
-    horaInicio,
-    duracion
-  );
+  // 6. Disponibilidad (reservas, bloques y bloqueos). La restricción de
+  //    exclusión en la base de datos cubre la condición de carrera.
+  const isAvailable = await validateSlotAvailable(data.date, horaInicio, duracion);
+  if (!isAvailable) return actionError(SLOT_TAKEN_ERROR);
 
-  if (!isAvailable) {
-    throw new Error(
-      "El horario seleccionado ya no está disponible. Por favor, elige otro."
-    );
-  }
-
-  // 2.5. Validar explícitamente solapamiento de reservas en la base de datos
-  const newStart = timeToMinutes(horaInicio);
-  const newEnd = newStart + duracion;
-
-  // Create admin client to bypass RLS for reading reservations
-  // Crucial: We must disable Next.js fetch caching for these GET requests
-  const { createClient: createSupabaseClient } = await import("@supabase/supabase-js");
-  const supabaseAdmin = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: { persistSession: false },
-      global: {
-        fetch: (url, options) => fetch(url, { ...options, cache: "no-store" }),
-      },
-    }
-  );
-
-  const { data: existingReservations, error: overlapErr } = await supabaseAdmin
-    .from("reserva")
-    .select("hora_inicio, hora_fin, estado")
-    .eq("fecha_reserva", data.date);
-
-  if (!overlapErr && existingReservations) {
-    for (const res of existingReservations) {
-      if (res.estado === "cancelada") continue;
-      
-      if (res.estado === "pendiente" || res.estado === "confirmada") {
-        if (!res.hora_inicio || !res.hora_fin) continue;
-        const existingStart = timeToMinutes(res.hora_inicio);
-        const existingEnd = timeToMinutes(res.hora_fin);
-
-        if (newStart < existingEnd && newEnd > existingStart) {
-          throw new Error("Ese horario ya no está disponible. Elige otra hora.");
-        }
-      }
-    }
-  }
-
-  // 3. Crear o encontrar cliente (opcional en flujo público por RLS)
+  // 7. Cliente (opcional: si ya existe por email/teléfono, RLS impide buscarlo
+  //    y se deja sin vincular; el admin puede vincularlo después)
   let clienteId: string | null = null;
   try {
     clienteId = await findOrCreateClientePublic(supabase, {
@@ -121,11 +103,10 @@ export async function submitReservationAction(data: ReservationData) {
       origen: "web",
     });
   } catch (err) {
-    console.warn("No se pudo crear cliente desde reserva pública:", err);
-    clienteId = null;
+    console.warn("[Reservation] No se pudo crear el cliente:", err);
   }
 
-  // 4. Insertar reserva con cliente_id
+  // 8. Insertar la reserva
   const { error } = await supabase.from("reserva").insert([
     {
       servicio_id: data.service,
@@ -138,7 +119,7 @@ export async function submitReservationAction(data: ReservationData) {
       duracion_minutos: duracion,
       observaciones: data.notes || null,
       estado: "pendiente",
-      precio: precioBase,
+      precio: servicio.precio,
       origen: "web",
       cliente_id: clienteId,
       accepted_privacy_at: new Date().toISOString(),
@@ -146,62 +127,86 @@ export async function submitReservationAction(data: ReservationData) {
   ]);
 
   if (error) {
-    console.error("Error al insertar reserva en Supabase:", error);
+    console.error("[Reservation] Error al insertar:", error.code, error.message);
     if (error.code === "23P01" || error.message?.includes("reserva_no_overlap")) {
-      throw new Error("Ese horario ya no está disponible. Elige otra hora.");
+      return actionError(SLOT_TAKEN_ERROR);
     }
-    throw new Error("No se pudo enviar la solicitud. Inténtalo más tarde.");
+    return actionError(GENERIC_ERROR);
   }
 
-  // 5. Actualizar estadísticas del cliente
-  if (clienteId) {
-    await updateClienteStats(supabase, clienteId);
-  }
-
+  // 9. Aviso al estudio (no bloquea la respuesta al usuario si falla)
   try {
-    const htmlBody = `
-      <div style="background-color: #000000; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #ffffff;">
-        <div style="max-width: 600px; margin: 0 auto; background-color: #111111; border-radius: 16px; overflow: hidden; border: 1px solid #333333; padding: 40px;">
-          <!-- Header -->
-          <div style="text-align: center; margin-bottom: 30px;">
-            <img src="https://garagestudios.es/images/logo-sin-fondo.png" alt="Garage Studios" style="width: 150px; height: auto; margin-bottom: 20px;" />
-            <h2 style="color: #fbbf24; font-size: 22px; margin: 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Nueva Solicitud de Reserva</h2>
-            <p style="color: #a0a0a0; font-size: 14px; margin-top: 5px;">Se ha recibido una nueva reserva a través de la web</p>
-          </div>
+    await sendAdminNotification(
+      "Nueva reserva desde la web de Garage Studios",
+      buildAdminReservationEmail({
+        nombre: data.name,
+        email: data.email,
+        telefono: data.phone,
+        servicio: String(servicio.nombre),
+        fecha: data.date,
+        horaInicio,
+        horaFin,
+        duracion,
+        notas: data.notes,
+      })
+    );
+  } catch (err) {
+    console.error("[Reservation] Error enviando aviso al estudio:", err);
+  }
 
-          <!-- Customer Info -->
-          <div style="background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
-            <h3 style="color: #fbbf24; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #333333; padding-bottom: 8px;">Datos del Cliente</h3>
-            <p style="margin: 0 0 8px 0; font-size: 14px; color: #e0e0e0;"><strong style="color: #ffffff;">Nombre:</strong> ${data.name}</p>
-            <p style="margin: 0 0 8px 0; font-size: 14px; color: #e0e0e0;"><strong style="color: #ffffff;">Email:</strong> ${data.email}</p>
-            <p style="margin: 0; font-size: 14px; color: #e0e0e0;"><strong style="color: #ffffff;">Teléfono:</strong> ${data.phone}</p>
-          </div>
+  return actionOk();
+}
 
-          <!-- Reservation Details -->
-          <div style="background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
-            <h3 style="color: #fbbf24; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #333333; padding-bottom: 8px;">Detalles del Servicio</h3>
-            <p style="margin: 0 0 8px 0; font-size: 14px; color: #e0e0e0;"><strong style="color: #ffffff;">Servicio:</strong> ${nombreServicio}</p>
-            <p style="margin: 0 0 8px 0; font-size: 14px; color: #e0e0e0;"><strong style="color: #ffffff;">Fecha:</strong> ${data.date}</p>
-            <p style="margin: 0; font-size: 14px; color: #e0e0e0;"><strong style="color: #ffffff;">Hora:</strong> ${horaInicio} - ${horaFin} (${duracion} min)</p>
-          </div>
+interface AdminEmailData {
+  nombre: string;
+  email: string;
+  telefono: string;
+  servicio: string;
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+  duracion: number;
+  notas: string;
+}
 
-          <!-- Notes -->
-          <div style="background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 20px;">
-            <h3 style="color: #fbbf24; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #333333; padding-bottom: 8px;">Notas o Mensaje</h3>
-            <p style="margin: 0; font-size: 14px; color: #e0e0e0; line-height: 1.5;">${data.notes ? data.notes.replace(/\n/g, '<br/>') : 'Ninguna'}</p>
-          </div>
+function buildAdminReservationEmail(d: AdminEmailData): string {
+  const row = (label: string, value: string, last = false) =>
+    `<p style="margin: 0 ${last ? "" : "0 8px 0"}; font-size: 14px; color: #e0e0e0;"><strong style="color: #ffffff;">${label}:</strong> ${value}</p>`;
 
-          <!-- Footer -->
-          <div style="text-align: center; margin-top: 30px; border-top: 1px solid #333333; padding-top: 20px;">
-            <p style="font-size: 11px; color: #666666; margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">
-              Garage Studios &copy; ${new Date().getFullYear()} · Gestión de reservas
-            </p>
-          </div>
+  return `
+    <div style="background-color: #000000; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #ffffff;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #111111; border-radius: 16px; overflow: hidden; border: 1px solid #333333; padding: 40px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <img src="https://garagestudios.es/images/logo-sin-fondo.png" alt="Garage Studios" style="width: 150px; height: auto; margin-bottom: 20px;" />
+          <h2 style="color: #fbbf24; font-size: 22px; margin: 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Nueva Solicitud de Reserva</h2>
+          <p style="color: #a0a0a0; font-size: 14px; margin-top: 5px;">Se ha recibido una nueva reserva a través de la web</p>
+        </div>
+
+        <div style="background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+          <h3 style="color: #fbbf24; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #333333; padding-bottom: 8px;">Datos del Cliente</h3>
+          ${row("Nombre", escapeHtml(d.nombre))}
+          ${row("Email", escapeHtml(d.email))}
+          ${row("Teléfono", escapeHtml(d.telefono), true)}
+        </div>
+
+        <div style="background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+          <h3 style="color: #fbbf24; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #333333; padding-bottom: 8px;">Detalles del Servicio</h3>
+          ${row("Servicio", escapeHtml(d.servicio))}
+          ${row("Fecha", escapeHtml(formatIsoDateEs(d.fecha)))}
+          ${row("Hora", `${formatTime(d.horaInicio)} - ${formatTime(d.horaFin)} (${d.duracion} min)`, true)}
+        </div>
+
+        <div style="background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 20px;">
+          <h3 style="color: #fbbf24; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #333333; padding-bottom: 8px;">Notas o Mensaje</h3>
+          <p style="margin: 0; font-size: 14px; color: #e0e0e0; line-height: 1.5;">${d.notas ? escapeHtmlMultiline(d.notas) : "Ninguna"}</p>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px; border-top: 1px solid #333333; padding-top: 20px;">
+          <p style="font-size: 11px; color: #666666; margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">
+            Garage Studios &copy; ${new Date().getFullYear()} · Gestión de reservas
+          </p>
         </div>
       </div>
-    `;
-    await sendAdminNotification("Nueva reserva desde la web de Garage Studios", htmlBody);
-  } catch (err) {
-    console.error("Error enviando email de notificación de reserva:", err);
-  }
+    </div>
+  `;
 }

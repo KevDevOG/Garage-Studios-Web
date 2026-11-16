@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { escapeHtml } from "@/lib/html";
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
@@ -38,8 +39,16 @@ function buildReservationEmailTemplate({
   footer,
   calendarUrl,
 }: TemplateProps) {
+  // Todo dato variable se escapa: nombre, servicio y fechas proceden de la BD
+  // y en origen del formulario público.
+  nombre = escapeHtml(nombre);
+  servicioNombre = escapeHtml(servicioNombre);
+  fecha = escapeHtml(fecha);
+  horaInicio = escapeHtml(horaInicio);
+  horaFin = escapeHtml(horaFin);
+
   const precioSection = precio
-    ? `<p style="margin: 0 0 12px 0; font-size: 14px;">💶 <strong>Precio:</strong> ${precio}€</p>`
+    ? `<p style="margin: 0 0 12px 0; font-size: 14px;">💶 <strong>Precio:</strong> ${escapeHtml(precio)}€</p>`
     : "";
 
   const calendarSection = calendarUrl

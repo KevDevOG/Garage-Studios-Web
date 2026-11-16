@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { Search, User, Calendar, DollarSign, MessageSquare, Briefcase, X, Loader2 } from "lucide-react";
-import { searchGlobalAdmin, SearchResults } from "@/app/actions/admin-search";
+import { searchGlobalAdmin, type SearchResults } from "@/app/actions/admin-search";
+import { formatIsoDateEs, formatDateTimeEs } from "@/lib/dates";
+import { formatTime } from "@/lib/schedule";
+import StatusBadge from "@/components/admin/StatusBadge";
 import Link from "next/link";
+
+const SHORT_DATE: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit", year: "numeric" };
 
 export default function AdminGlobalSearch() {
   const [query, setQuery] = useState("");
@@ -11,6 +16,8 @@ export default function AdminGlobalSearch() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const requestId = useRef(0);
+  const listboxId = useId();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -18,176 +25,226 @@ export default function AdminGlobalSearch() {
         setIsOpen(false);
       }
     };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, []);
 
   useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      setResults(null);
+      setIsOpen(false);
+      return;
+    }
+
+    const currentRequest = ++requestId.current;
     const delayDebounceFn = setTimeout(async () => {
-      if (query.length >= 2) {
-        setLoading(true);
-        try {
-          const res = await searchGlobalAdmin(query);
-          setResults(res);
-          setIsOpen(true);
-        } catch (error) {
-          console.error("Search error:", error);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        setResults(null);
-        setIsOpen(false);
+      setLoading(true);
+      try {
+        const res = await searchGlobalAdmin(trimmed);
+        // Descartar respuestas de peticiones antiguas (carreras)
+        if (currentRequest !== requestId.current) return;
+        setResults(res);
+        setIsOpen(true);
+      } catch (error) {
+        console.error("Search error:", error);
+      } finally {
+        if (currentRequest === requestId.current) setLoading(false);
       }
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
   }, [query]);
 
-  const hasResults = results && (
-    results.clientes.length > 0 ||
-    results.reservas.length > 0 ||
-    results.finanzas.length > 0 ||
-    results.mensajes.length > 0 ||
-    results.servicios.length > 0
+  const hasResults =
+    !!results &&
+    (results.clientes.length > 0 ||
+      results.reservas.length > 0 ||
+      results.finanzas.length > 0 ||
+      results.mensajes.length > 0 ||
+      results.servicios.length > 0);
+
+  const clear = () => {
+    setQuery("");
+    setResults(null);
+    setIsOpen(false);
+  };
+
+  const SectionTitle = ({ icon: Icon, children }: { icon: typeof User; children: React.ReactNode }) => (
+    <h3 className="mb-2 flex items-center gap-2 px-3 text-[10px] font-black uppercase tracking-widest text-muted">
+      <Icon className="h-3 w-3" aria-hidden="true" /> {children}
+    </h3>
   );
 
   return (
-    <div className="relative mb-8" ref={containerRef}>
-      <div className="relative group">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted transition-colors group-focus-within:text-accent" />
+    <div className="relative mb-8" ref={containerRef} role="search">
+      <div className="group relative">
+        <Search
+          className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted transition-colors group-focus-within:text-accent"
+          aria-hidden="true"
+        />
         <input
-          type="text"
+          type="search"
+          aria-label="Buscar clientes, reservas, finanzas, mensajes y servicios"
+          aria-controls={listboxId}
+          aria-expanded={isOpen}
           placeholder="Buscar clientes, reservas, mensajes..."
-          className="w-full rounded-2xl border border-card-border bg-card-bg py-3.5 pl-12 pr-12 text-sm text-white placeholder-muted/50 outline-none transition-all focus:border-accent/40 focus:ring-4 focus:ring-accent/5"
+          className="w-full rounded-2xl border border-card-border bg-card-bg py-3.5 pl-12 pr-12 text-sm text-white placeholder-muted/60 outline-none transition-all focus:border-accent/40 focus:ring-4 focus:ring-accent/5"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => query.length >= 2 && setIsOpen(true)}
+          onFocus={() => query.trim().length >= 2 && results && setIsOpen(true)}
         />
         {loading ? (
-          <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-accent animate-spin" />
-        ) : query && (
-          <button 
-            onClick={() => { setQuery(""); setResults(null); setIsOpen(false); }}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-white"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <Loader2 className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-accent" aria-label="Buscando" />
+        ) : (
+          query && (
+            <button
+              type="button"
+              onClick={clear}
+              aria-label="Limpiar búsqueda"
+              className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-muted hover:text-white"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
+            </button>
+          )
         )}
       </div>
 
       {isOpen && results && (
-        <div className="absolute top-full z-50 mt-2 w-full max-h-[70vh] overflow-y-auto rounded-2xl border border-card-border bg-card-bg/95 backdrop-blur-xl p-2 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+        <div
+          id={listboxId}
+          className="absolute top-full z-50 mt-2 max-h-[70vh] w-full overflow-y-auto rounded-2xl border border-card-border bg-card-bg/95 p-2 shadow-2xl backdrop-blur-xl"
+        >
           {!hasResults ? (
-            <div className="py-8 text-center text-muted italic">No se encontraron resultados para "{query}"</div>
+            <p className="py-8 text-center italic text-muted">
+              No se encontraron resultados para &ldquo;{query}&rdquo;
+            </p>
           ) : (
             <div className="space-y-4 p-2">
-              {/* Clientes */}
               {results.clientes.length > 0 && (
-                <div>
-                  <h4 className="px-3 mb-2 text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
-                    <User className="h-3 w-3" /> Clientes
-                  </h4>
+                <section>
+                  <SectionTitle icon={User}>Clientes</SectionTitle>
                   <div className="space-y-1">
                     {results.clientes.map((c) => (
-                      <Link key={c.id} href={`/admin/clientes/${c.id}`} onClick={() => setIsOpen(false)} className="flex flex-col px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors">
-                        <span className="font-bold text-white text-sm">{c.nombre}</span>
-                        <span className="text-[10px] text-muted">{c.email} • {c.telefono}</span>
+                      <Link
+                        key={c.id}
+                        href={`/admin/clientes/${c.id}`}
+                        onClick={() => setIsOpen(false)}
+                        className="flex flex-col rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5"
+                      >
+                        <span className="text-sm font-bold text-white">{c.nombre}</span>
+                        <span className="text-[11px] text-muted">
+                          {[c.email, c.telefono].filter(Boolean).join(" • ") || "Sin datos de contacto"}
+                        </span>
                       </Link>
                     ))}
                   </div>
-                </div>
+                </section>
               )}
 
-              {/* Reservas */}
               {results.reservas.length > 0 && (
-                <div>
-                  <h4 className="px-3 mb-2 text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
-                    <Calendar className="h-3 w-3" /> Reservas
-                  </h4>
+                <section>
+                  <SectionTitle icon={Calendar}>Reservas</SectionTitle>
                   <div className="space-y-1">
                     {results.reservas.map((r) => (
-                      <Link key={r.id} href={`/admin/calendario?fecha=${r.fecha_reserva}`} onClick={() => setIsOpen(false)} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-white text-sm">{r.nombre}</span>
-                          <span className="text-[10px] text-muted">
-                            {new Date(r.fecha_reserva + "T00:00:00").toLocaleDateString("es-ES")} • {r.hora_inicio?.slice(0, 5)} • {r.servicio?.nombre}
+                      <Link
+                        key={r.id}
+                        href={`/admin/calendario/${r.id}`}
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5"
+                      >
+                        <div className="flex min-w-0 flex-col">
+                          <span className="truncate text-sm font-bold text-white">{r.nombre}</span>
+                          <span className="text-[11px] text-muted">
+                            {formatIsoDateEs(r.fecha_reserva, SHORT_DATE)} • {formatTime(r.hora_inicio)}
+                            {r.servicio?.nombre ? ` • ${r.servicio.nombre}` : ""}
                           </span>
                         </div>
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                          r.estado === 'confirmada' ? 'border-green-500/20 text-green-400 bg-green-500/5' : 
-                          r.estado === 'pendiente' ? 'border-amber-500/20 text-amber-400 bg-amber-500/5' : 'border-white/10 text-muted'
-                        }`}>
-                          {r.estado}
-                        </span>
+                        <StatusBadge type="reserva" value={r.estado} />
                       </Link>
                     ))}
                   </div>
-                </div>
+                </section>
               )}
 
-              {/* Finanzas */}
               {results.finanzas.length > 0 && (
-                <div>
-                  <h4 className="px-3 mb-2 text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
-                    <DollarSign className="h-3 w-3" /> Finanzas
-                  </h4>
+                <section>
+                  <SectionTitle icon={DollarSign}>Finanzas</SectionTitle>
                   <div className="space-y-1">
                     {results.finanzas.map((f) => (
-                      <Link key={f.id} href={`/admin/finanzas/${f.id}`} onClick={() => setIsOpen(false)} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-white text-sm truncate max-w-[200px]">{f.concepto}</span>
-                          <span className="text-[10px] text-muted">{new Date(f.fecha).toLocaleDateString("es-ES")}</span>
+                      <Link
+                        key={f.id}
+                        href={`/admin/finanzas/${f.id}`}
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5"
+                      >
+                        <div className="flex min-w-0 flex-col">
+                          <span className="truncate text-sm font-bold text-white">{f.concepto}</span>
+                          <span className="text-[11px] text-muted">{formatIsoDateEs(f.fecha, SHORT_DATE)}</span>
                         </div>
-                        <span className={`font-black text-sm ${f.importe >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {f.importe > 0 ? '+' : ''}{f.importe} €
+                        <span className={`text-sm font-black ${f.tipo === "gasto" ? "text-red-400" : "text-green-400"}`}>
+                          {f.tipo === "gasto" ? "-" : "+"}
+                          {Number(f.importe).toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
                         </span>
                       </Link>
                     ))}
                   </div>
-                </div>
+                </section>
               )}
 
-              {/* Mensajes */}
               {results.mensajes.length > 0 && (
-                <div>
-                  <h4 className="px-3 mb-2 text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
-                    <MessageSquare className="h-3 w-3" /> Mensajes
-                  </h4>
+                <section>
+                  <SectionTitle icon={MessageSquare}>Mensajes</SectionTitle>
                   <div className="space-y-1">
                     {results.mensajes.map((m) => (
-                      <div key={m.id} className="flex flex-col px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors group">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-white text-sm">{m.nombre}</span>
-                          <span className="text-[9px] text-muted italic">{new Date(m.created_at).toLocaleDateString("es-ES")}</span>
-                        </div>
-                        <span className="text-[10px] text-muted truncate italic">"{m.asunto}"</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Servicios */}
-              {results.servicios.length > 0 && (
-                <div>
-                  <h4 className="px-3 mb-2 text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
-                    <Briefcase className="h-3 w-3" /> Servicios
-                  </h4>
-                  <div className="space-y-1">
-                    {results.servicios.map((s) => (
-                      <Link key={s.id} href={`/admin/servicios/${s.id}`} onClick={() => setIsOpen(false)} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-white text-sm">{s.nombre}</span>
-                          <span className={`text-[9px] font-bold ${s.activo ? 'text-green-400' : 'text-red-400'}`}>
-                            {s.activo ? 'ACTIVO' : 'INACTIVO'}
+                      <Link
+                        key={m.id}
+                        href="/admin/dashboard#mensajes"
+                        onClick={() => setIsOpen(false)}
+                        className="flex flex-col rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5"
+                      >
+                        <div className="mb-1 flex items-center justify-between gap-3">
+                          <span className="truncate text-sm font-bold text-white">{m.nombre}</span>
+                          <span className="shrink-0 text-[11px] italic text-muted">
+                            {formatDateTimeEs(m.created_at, SHORT_DATE)}
                           </span>
                         </div>
-                        <span className="font-black text-accent text-sm">{s.precio} €</span>
+                        <span className="truncate text-[11px] italic text-muted">&ldquo;{m.asunto}&rdquo;</span>
                       </Link>
                     ))}
                   </div>
-                </div>
+                </section>
+              )}
+
+              {results.servicios.length > 0 && (
+                <section>
+                  <SectionTitle icon={Briefcase}>Servicios</SectionTitle>
+                  <div className="space-y-1">
+                    {results.servicios.map((s) => (
+                      <Link
+                        key={s.id}
+                        href={`/admin/servicios/${s.id}`}
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5"
+                      >
+                        <div className="flex min-w-0 flex-col">
+                          <span className="truncate text-sm font-bold text-white">{s.nombre}</span>
+                          <span className={`text-[11px] font-bold ${s.activo ? "text-green-400" : "text-red-400"}`}>
+                            {s.activo ? "ACTIVO" : "INACTIVO"}
+                          </span>
+                        </div>
+                        <span className="text-sm font-black text-accent">{s.precio} €</span>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
               )}
             </div>
           )}

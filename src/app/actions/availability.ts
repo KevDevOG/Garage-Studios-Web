@@ -1,11 +1,14 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createPublicClient, createServiceClient } from "@/lib/supabase/public";
 import {
   generateTimeSlots,
   timeToMinutes,
   isSlotAvailable,
 } from "@/lib/schedule";
+import { isValidIsoDate, todayInStudio, nowMinutesInStudio, weekdayOfIsoDate } from "@/lib/dates";
+import { isUuid } from "@/lib/reservation-rules";
 
 export interface AvailableSlotResult {
   slots: string[];
@@ -13,88 +16,75 @@ export interface AvailableSlotResult {
   mensaje?: string;
 }
 
-/**
- * Consulta los intervalos ocupados para una fecha usando la función RPC
- * SECURITY DEFINER (get_occupied_slots). Esto permite que usuarios anónimos
- * obtengan la disponibilidad sin necesidad de SUPABASE_SERVICE_ROLE_KEY.
- */
-async function fetchOccupiedSlots(
-  fecha: string
-): Promise<{ start: number; end: number }[]> {
-  // Use a raw supabase-js client with cache disabled to avoid stale reads
-  const { createClient: createSupabaseClient } = await import("@supabase/supabase-js");
-  const supabase = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: { persistSession: false },
-      global: {
-        fetch: (url, options) => fetch(url, { ...options, cache: "no-store" }),
-      },
-    }
-  );
+interface OccupiedInterval {
+  start: number;
+  end: number;
+}
 
-  const { data, error } = await supabase.rpc("get_occupied_slots", {
-    p_fecha: fecha,
-  });
+/**
+ * Consulta los intervalos ocupados de una fecha mediante la función RPC
+ * SECURITY DEFINER `get_occupied_slots` (reservas activas, bloques y
+ * bloqueos manuales). Devuelve solo horas, nunca datos personales, por lo
+ * que puede ejecutarla el rol anónimo.
+ */
+async function fetchOccupiedSlots(fecha: string): Promise<OccupiedInterval[]> {
+  const supabase = createServiceClient() ?? createPublicClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase.rpc("get_occupied_slots", { p_fecha: fecha });
 
   if (error) {
-    console.error("[Availability] Error calling get_occupied_slots RPC:", error.message);
-    // Return empty — the backend exclusion constraint is still the final authority
+    console.error("[Availability] Error en get_occupied_slots:", error.message);
+    // Devolvemos vacío: la restricción de exclusión en la base de datos
+    // sigue siendo la última barrera contra solapamientos.
     return [];
   }
 
-  const occupied: { start: number; end: number }[] = [];
-
-  if (data) {
-    for (const row of data) {
-      if (row.hora_inicio && row.hora_fin) {
-        occupied.push({
-          start: timeToMinutes(row.hora_inicio),
-          end: timeToMinutes(row.hora_fin),
-        });
-      }
+  const occupied: OccupiedInterval[] = [];
+  for (const row of (data ?? []) as { hora_inicio: string | null; hora_fin: string | null }[]) {
+    if (row.hora_inicio && row.hora_fin) {
+      occupied.push({ start: timeToMinutes(row.hora_inicio), end: timeToMinutes(row.hora_fin) });
     }
   }
-
-  if (occupied.length > 0) {
-    console.log(
-      `[Availability] ${occupied.length} intervalo(s) ocupado(s) para ${fecha}`
-    );
-  }
-
   return occupied;
 }
 
 /**
  * Obtiene los horarios disponibles para un servicio en una fecha concreta.
- * Consulta reservas y bloques existentes para excluir horas ocupadas.
+ * Excluye horas ocupadas y, si la fecha es hoy, las horas ya pasadas.
  */
 export async function getAvailableSlots(
   serviceId: string,
   fecha: string
 ): Promise<AvailableSlotResult> {
-  const supabase = await createClient();
+  if (!isUuid(serviceId) || !isValidIsoDate(fecha)) {
+    return { slots: [], duracion: 0, mensaje: "Datos de consulta no válidos." };
+  }
 
-  // 1. Obtener duración del servicio
+  const supabase = createPublicClient();
+  if (!supabase) {
+    return { slots: [], duracion: 0, mensaje: "El servicio de reservas no está disponible ahora mismo." };
+  }
+
+  // 1. Duración del servicio (solo servicios activos)
   const { data: servicio, error: srvErr } = await supabase
     .from("servicio")
     .select("duracion_minutos")
     .eq("id", serviceId)
-    .single();
+    .eq("activo", true)
+    .maybeSingle();
 
   if (srvErr || !servicio) {
     return { slots: [], duracion: 0, mensaje: "Servicio no encontrado." };
   }
 
-  const duracion = servicio.duracion_minutos;
+  const duracion = Number(servicio.duracion_minutos);
+  if (!Number.isFinite(duracion) || duracion <= 0) {
+    return { slots: [], duracion: 0, mensaje: "Este servicio no admite reserva online." };
+  }
 
-  // 2. Determinar día de la semana de la fecha solicitada
-  const dateObj = new Date(fecha + "T00:00:00");
-  const dayOfWeek = dateObj.getDay(); // 0=Domingo
-
-  // 3. Generar slots posibles para ese día
-  const allSlots = generateTimeSlots(dayOfWeek, duracion);
+  // 2. Slots posibles según el día de la semana (independiente de la zona del servidor)
+  const allSlots = generateTimeSlots(weekdayOfIsoDate(fecha), duracion);
 
   if (allSlots.length === 0) {
     return {
@@ -104,28 +94,38 @@ export async function getAvailableSlots(
     };
   }
 
-  // 4. Consultar intervalos ocupados via RPC (bypasses RLS via SECURITY DEFINER)
+  // 3. Si es hoy, descartar horas ya pasadas (zona Atlantic/Canary)
+  const now = new Date();
+  const minMinutes = fecha === todayInStudio(now) ? nowMinutesInStudio(now) : -1;
+
+  // 4. Intervalos ocupados (reservas + bloques + bloqueos)
   const occupied = await fetchOccupiedSlots(fecha);
 
-  // 5. Filtrar slots disponibles
-  const available = allSlots.filter((slot) =>
-    isSlotAvailable(timeToMinutes(slot), duracion, occupied)
-  );
+  // 5. Filtrar
+  const available = allSlots.filter((slot) => {
+    const start = timeToMinutes(slot);
+    return start > minMinutes && isSlotAvailable(start, duracion, occupied);
+  });
 
   if (available.length === 0) {
     return {
       slots: [],
       duracion,
-      mensaje: "No hay horarios disponibles para esta fecha.",
+      mensaje:
+        minMinutes >= 0
+          ? "Ya no quedan horas disponibles para hoy. Prueba con otra fecha."
+          : "No hay horarios disponibles para esta fecha.",
     };
   }
 
-  return { slots: available, duracion, mensaje: undefined };
+  return { slots: available, duracion };
 }
 
 /**
- * Valida en servidor que un slot sigue libre antes de insertar.
- * Devuelve true si está libre, false si hay conflicto.
+ * Valida en servidor que un slot sigue libre antes de insertar o mover una
+ * reserva. Si se pasa `excludeReservaId` (edición desde el panel), el propio
+ * intervalo de esa reserva se descarta para no detectar un falso solapamiento
+ * consigo misma.
  */
 export async function validateSlotAvailable(
   fecha: string,
@@ -133,13 +133,31 @@ export async function validateSlotAvailable(
   duracionMinutos: number,
   excludeReservaId?: string
 ): Promise<boolean> {
-  // Consultar intervalos ocupados via RPC
   const occupied = await fetchOccupiedSlots(fecha);
 
-  // If excluding a specific reservation (e.g. when editing), we'd need
-  // the reservation's time range to remove it from occupied. For now,
-  // the RPC returns all occupied slots — the exclusion constraint in
-  // the DB is the final safety net.
+  if (excludeReservaId && isUuid(excludeReservaId)) {
+    // Solo un admin autenticado llega aquí; RLS permite leer la reserva.
+    const supabase = await createClient();
+    const { data: own } = await supabase
+      .from("reserva")
+      .select("fecha_reserva, hora_inicio, hora_fin, estado, deleted_at")
+      .eq("id", excludeReservaId)
+      .maybeSingle();
+
+    if (
+      own &&
+      own.fecha_reserva === fecha &&
+      own.hora_inicio &&
+      own.hora_fin &&
+      !own.deleted_at &&
+      (own.estado === "pendiente" || own.estado === "confirmada")
+    ) {
+      const start = timeToMinutes(own.hora_inicio);
+      const end = timeToMinutes(own.hora_fin);
+      const index = occupied.findIndex((o) => o.start === start && o.end === end);
+      if (index >= 0) occupied.splice(index, 1);
+    }
+  }
 
   return isSlotAvailable(timeToMinutes(horaInicio), duracionMinutos, occupied);
 }

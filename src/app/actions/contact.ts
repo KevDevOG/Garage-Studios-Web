@@ -1,10 +1,12 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
 import { sendAdminNotification } from "@/lib/email";
-
+import { validateContactInput } from "@/lib/reservation-rules";
+import { escapeHtml, escapeHtmlMultiline } from "@/lib/html";
+import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 
 export interface ContactData {
   name: string;
@@ -16,28 +18,34 @@ export interface ContactData {
   turnstileToken?: string;
 }
 
-export async function submitContactAction(data: ContactData) {
-  if (!data.acceptPrivacy) {
-    throw new Error("Debes aceptar la política de privacidad para enviar el mensaje.");
-  }
+/**
+ * Mensaje de contacto desde la web pública. Devuelve `{ ok, error }`;
+ * nunca lanza para que el usuario vea el motivo real en producción.
+ */
+export async function submitContactAction(raw: ContactData): Promise<ActionResult> {
+  const parsed = validateContactInput(raw);
+  if (!parsed.ok) return actionError(parsed.error);
+  const data = parsed.data;
 
   // Rate limit: máximo 5 envíos por IP por hora
   const rateCheck = await checkRateLimit("contact", 5);
   if (!rateCheck.allowed) {
-    throw new Error(
+    return actionError(
       `Has enviado demasiados mensajes. Inténtalo de nuevo en ${formatRetryAfter(rateCheck.retryAfterMs)}.`
     );
   }
 
-  // Turnstile: verificar captcha anti-bot
-  const turnstileResult = await verifyTurnstileToken(data.turnstileToken);
+  const turnstileResult = await verifyTurnstileToken(raw.turnstileToken);
   if (!turnstileResult.success) {
-    throw new Error(turnstileResult.error || "Verificación anti-bot fallida.");
+    return actionError(turnstileResult.error || "Verificación anti-bot fallida.");
   }
 
-  const supabase = await createClient();
+  const supabase = createPublicClient();
+  if (!supabase) {
+    console.error("[Contact] Supabase no configurado");
+    return actionError("No se pudo enviar el mensaje. Inténtalo más tarde o escríbenos por WhatsApp.");
+  }
 
-  // Insertar datos en la tabla contacto
   const { error } = await supabase.from("contacto").insert([
     {
       nombre: data.name,
@@ -50,21 +58,23 @@ export async function submitContactAction(data: ContactData) {
   ]);
 
   if (error) {
-    console.error("Error al insertar contacto en Supabase:", error);
-    throw new Error("No se pudo enviar el mensaje. Inténtalo más tarde.");
+    console.error("[Contact] Error al insertar:", error.code, error.message);
+    return actionError("No se pudo enviar el mensaje. Inténtalo más tarde o escríbenos por WhatsApp.");
   }
 
   try {
     const htmlBody = `
       <h2>Nuevo mensaje de contacto</h2>
-      <p><strong>Nombre:</strong> ${data.name}</p>
-      <p><strong>Email:</strong> ${data.email}</p>
-      <p><strong>Teléfono:</strong> ${data.phone || 'No especificado'}</p>
-      <p><strong>Asunto:</strong> ${data.subject}</p>
-      <p><strong>Mensaje:</strong><br/>${data.message.replace(/\n/g, '<br/>')}</p>
+      <p><strong>Nombre:</strong> ${escapeHtml(data.name)}</p>
+      <p><strong>Email:</strong> ${escapeHtml(data.email)}</p>
+      <p><strong>Teléfono:</strong> ${data.phone ? escapeHtml(data.phone) : "No especificado"}</p>
+      <p><strong>Asunto:</strong> ${escapeHtml(data.subject)}</p>
+      <p><strong>Mensaje:</strong><br/>${escapeHtmlMultiline(data.message)}</p>
     `;
     await sendAdminNotification("Nuevo mensaje desde la web de Garage Studios", htmlBody);
   } catch (err) {
-    console.error("Error enviando email de notificación de contacto:", err);
+    console.error("[Contact] Error enviando aviso al estudio:", err);
   }
+
+  return actionOk();
 }

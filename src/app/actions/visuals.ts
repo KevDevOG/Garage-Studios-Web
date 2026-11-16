@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
+import { createAuditLog } from "@/lib/audit";
+import { createPublicClient } from "@/lib/supabase/public";
 
 export interface VisualImage {
   id: string;
@@ -21,7 +23,9 @@ export interface VisualImage {
  * (activo = true, ordenado por destacado, orden, y fecha)
  */
 export async function getVisualsImages(): Promise<VisualImage[]> {
-  const supabase = await createClient();
+  // Cliente sin cookies: permite que /visuals sea estática con revalidación.
+  const supabase = createPublicClient();
+  if (!supabase) return [];
 
   const { data, error } = await supabase
     .from("visuals_imagen")
@@ -191,18 +195,13 @@ export async function createVisualsImage(formData: FormData): Promise<{ success:
 
     if (error) throw error;
 
-    // Log de auditoría
-    try {
-      await supabase.from("audit_log").insert({
-        user_id: user.id,
-        action: "CREATE",
-        table_name: "visuals_imagen",
-        record_id: newImage.id,
-        details: { action: "Crear imagen en galería Visuals", titulo }
-      });
-    } catch (auditError) {
-      console.error("Error en audit_log:", auditError);
-    }
+    await createAuditLog({
+      accion: "creación",
+      entidad: "visuals_imagen",
+      entidad_id: newImage.id,
+      descripcion: `Imagen de Visuals creada: ${finalTitulo ?? "sin título"}`,
+      metadata: { tipo, destacado, activo },
+    });
 
     revalidatePath("/visuals");
     revalidatePath("/admin/visuals");
@@ -333,18 +332,13 @@ export async function createVisualsImages(formData: FormData): Promise<{ success
         throw insertError;
       }
 
-      // Audit Log
-      try {
-        await supabase.from("audit_log").insert({
-          user_id: user.id,
-          action: "CREATE",
-          table_name: "visuals_imagen",
-          record_id: newImages[0]?.id,
-          details: { action: `Se subieron ${recordsToInsert.length} imágenes a Garage Visuals`, cantidad: recordsToInsert.length }
-        });
-      } catch (auditError) {
-        console.error("Error en audit_log:", auditError);
-      }
+      await createAuditLog({
+        accion: "creación",
+        entidad: "visuals_imagen",
+        entidad_id: newImages?.[0]?.id,
+        descripcion: `Se subieron ${recordsToInsert.length} imágenes a Garage Visuals`,
+        metadata: { cantidad: recordsToInsert.length, tipo, ids: (newImages ?? []).map((i) => i.id) },
+      });
 
     } else {
       // 5. Caso URL Manual
@@ -371,18 +365,13 @@ export async function createVisualsImages(formData: FormData): Promise<{ success
 
       if (insertError) throw insertError;
 
-      // Audit Log
-      try {
-        await supabase.from("audit_log").insert({
-          user_id: user.id,
-          action: "CREATE",
-          table_name: "visuals_imagen",
-          record_id: newImage.id,
-          details: { action: "Crear imagen en galería Visuals desde URL", titulo: finalTitulo }
-        });
-      } catch (auditError) {
-        console.error("Error en audit_log:", auditError);
-      }
+      await createAuditLog({
+        accion: "creación",
+        entidad: "visuals_imagen",
+        entidad_id: newImage.id,
+        descripcion: `Imagen de Visuals creada desde URL: ${finalTitulo ?? "sin título"}`,
+        metadata: { tipo },
+      });
     }
 
     revalidatePath("/visuals");
@@ -449,17 +438,13 @@ export async function updateVisualsImage(id: string, formData: FormData): Promis
 
     if (error) throw error;
 
-    try {
-      await supabase.from("audit_log").insert({
-        user_id: user.id,
-        action: "UPDATE",
-        table_name: "visuals_imagen",
-        record_id: id,
-        details: { action: "Actualizar imagen de Visuals", titulo }
-      });
-    } catch (auditError) {
-      console.error("Error en audit_log:", auditError);
-    }
+    await createAuditLog({
+      accion: "edición",
+      entidad: "visuals_imagen",
+      entidad_id: id,
+      descripcion: `Imagen de Visuals editada: ${titulo}`,
+      metadata: { tipo, destacado, activo },
+    });
 
     revalidatePath("/visuals");
     revalidatePath("/admin/visuals");
@@ -503,17 +488,13 @@ export async function toggleVisualsImageActive(id: string): Promise<{ success: b
 
     if (error) throw error;
 
-    try {
-      await supabase.from("audit_log").insert({
-        user_id: user.id,
-        action: "UPDATE",
-        table_name: "visuals_imagen",
-        record_id: id,
-        details: { action: nuevoEstado ? "Activar imagen Visuals" : "Desactivar imagen Visuals", titulo: img.titulo }
-      });
-    } catch (auditError) {
-      console.error("Error en audit_log:", auditError);
-    }
+    await createAuditLog({
+      accion: nuevoEstado ? "activación" : "desactivación",
+      entidad: "visuals_imagen",
+      entidad_id: id,
+      descripcion: `Imagen de Visuals ${nuevoEstado ? "activada" : "desactivada"}: ${img.titulo ?? "sin título"}`,
+      metadata: { activo: nuevoEstado },
+    });
 
     revalidatePath("/visuals");
     revalidatePath("/admin/visuals");
@@ -543,17 +524,12 @@ export async function deleteVisualsImage(id: string): Promise<{ success: boolean
 
     if (error) throw error;
 
-    try {
-      await supabase.from("audit_log").insert({
-        user_id: user.id,
-        action: "DELETE",
-        table_name: "visuals_imagen",
-        record_id: id,
-        details: { action: "Eliminar (borrado lógico) imagen Visuals" }
-      });
-    } catch (auditError) {
-      console.error("Error en audit_log:", auditError);
-    }
+    await createAuditLog({
+      accion: "eliminación",
+      entidad: "visuals_imagen",
+      entidad_id: id,
+      descripcion: "Imagen de Visuals eliminada (borrado lógico)",
+    });
 
     revalidatePath("/visuals");
     revalidatePath("/admin/visuals");

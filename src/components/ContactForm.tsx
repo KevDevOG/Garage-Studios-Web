@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, type FormEvent } from "react";
-import Script from "next/script";
+import { useState, useEffect, useRef, type FormEvent } from "react";
 import { submitContactAction } from "@/app/actions/contact";
-import {
-  validateRequired,
-  validateEmail,
-  validatePhone,
-} from "@/lib/validation";
+import { validateRequired, validateEmail, validatePhone } from "@/lib/validation";
+import { useTurnstile, TurnstileWidget } from "@/components/ui/Turnstile";
+import FormAlert from "@/components/ui/FormAlert";
 import { CheckCircle, MessageCircle } from "lucide-react";
 
 interface FormErrors {
@@ -16,48 +13,30 @@ interface FormErrors {
   phone?: string;
   subject?: string;
   message?: string;
+  acceptPrivacy?: string;
 }
+
+const EMPTY_FORM = { name: "", email: "", phone: "", subject: "", message: "" };
 
 export default function ContactForm() {
   // ── Estado ──
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    subject: "",
-    message: "",
-  });
+  const [formData, setFormData] = useState(EMPTY_FORM);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
-  const [errors, setErrors] = useState<FormErrors & { acceptPrivacy?: string; turnstile?: string }>({});
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const turnstileRef = useRef<HTMLDivElement>(null);
 
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-
-  // Render Turnstile widget when script loads
-  const renderTurnstile = useCallback(() => {
-    if (turnstileSiteKey && turnstileRef.current && (window as any).turnstile) {
-      turnstileRef.current.innerHTML = "";
-      (window as any).turnstile.render(turnstileRef.current, {
-        sitekey: turnstileSiteKey,
-        callback: (token: string) => setTurnstileToken(token),
-        "expired-callback": () => setTurnstileToken(null),
-        theme: "dark",
-      });
-    }
-  }, [turnstileSiteKey]);
+  const turnstile = useTurnstile("dark");
+  const successRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if ((window as any).turnstile && turnstileSiteKey) {
-      renderTurnstile();
-    }
-  }, [renderTurnstile, turnstileSiteKey]);
+    if (submitted) successRef.current?.focus();
+  }, [submitted]);
 
   // ── Validación ──
-  function validate(): FormErrors & { acceptPrivacy?: string } {
-    const newErrors: FormErrors & { acceptPrivacy?: string } = {};
+  function validate(): FormErrors {
+    const newErrors: FormErrors = {};
 
     const nameErr = validateRequired(formData.name, "El nombre");
     if (nameErr) newErrors.name = nameErr;
@@ -74,48 +53,55 @@ export default function ContactForm() {
     const messageErr = validateRequired(formData.message, "El mensaje");
     if (messageErr) newErrors.message = messageErr;
 
-    if (!acceptPrivacy) {
-      newErrors.acceptPrivacy = "Debes aceptar la política de privacidad";
-    }
+    if (!acceptPrivacy) newErrors.acceptPrivacy = "Debes aceptar la política de privacidad";
 
     return newErrors;
   }
 
   // ── Actualizar campo ──
-  function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    // Limpiar error del campo al escribir
     if (errors[name as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
+    if (formError) setFormError(null);
   }
 
   // ── Enviar ──
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return;
 
     const newErrors = validate();
     setErrors(newErrors);
-
-    if (Object.keys(newErrors).length > 0) return;
+    setFormError(null);
+    if (Object.keys(newErrors).length > 0) {
+      const firstField = Object.keys(newErrors)[0];
+      document.getElementById(`contact-${firstField}`)?.focus();
+      return;
+    }
 
     setLoading(true);
     try {
-      await submitContactAction({ ...formData, acceptPrivacy, turnstileToken: turnstileToken || undefined });
-      setSubmitted(true);
-      setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
-      setAcceptPrivacy(false);
-      setTurnstileToken(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Error al enviar. Inténtalo de nuevo.";
-      setErrors({ message });
-      // Reset Turnstile widget para que se pueda volver a completar
-      if ((window as any).turnstile && turnstileSiteKey) {
-        renderTurnstile();
+      const result = await submitContactAction({
+        ...formData,
+        acceptPrivacy,
+        turnstileToken: turnstile.token ?? undefined,
+      });
+
+      if (!result.ok) {
+        setFormError(result.error);
+        turnstile.reset();
+        return;
       }
+
+      setSubmitted(true);
+      setFormData(EMPTY_FORM);
+      setAcceptPrivacy(false);
+    } catch {
+      setFormError("No se pudo enviar el mensaje. Revisa tu conexión e inténtalo de nuevo.");
+      turnstile.reset();
     } finally {
       setLoading(false);
     }
@@ -124,22 +110,29 @@ export default function ContactForm() {
   // ── Mensaje de éxito ──
   if (submitted) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-card-border bg-card-bg p-8 text-center">
-        <CheckCircle className="w-16 h-16 text-accent mb-6 animate-bounce" />
-        <h3 className="mt-6 text-xl font-bold">¡Mensaje enviado!</h3>
+      <div
+        ref={successRef}
+        tabIndex={-1}
+        role="status"
+        aria-live="polite"
+        className="flex flex-col items-center justify-center rounded-xl border border-accent/30 bg-card-bg p-8 text-center outline-none animate-fade-in"
+      >
+        <CheckCircle className="mb-4 h-14 w-14 text-accent" aria-hidden="true" />
+        <h2 className="text-xl font-black uppercase italic tracking-tight">¡Mensaje enviado!</h2>
         <p className="mt-2 max-w-sm text-sm text-muted">
-          Te responderemos lo antes posible o puedes escribirnos directamente por WhatsApp.
+          Te responderemos lo antes posible. Si tienes prisa, escríbenos directamente por WhatsApp.
         </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <a
             href="https://wa.me/34661652638"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-lg bg-[#25D366] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/20 transition-all hover:bg-[#128C7E] hover:-translate-y-0.5"
+            className="flex items-center justify-center gap-2 rounded-lg bg-[#25D366] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/20 transition-all hover:-translate-y-0.5 hover:bg-[#128C7E]"
           >
-            <MessageCircle className="w-5 h-5" /> WhatsApp Directo
+            <MessageCircle className="h-5 w-5" aria-hidden="true" /> WhatsApp Directo
           </a>
           <button
+            type="button"
             onClick={() => setSubmitted(false)}
             className="rounded-lg border border-card-border px-6 py-2.5 text-sm font-semibold transition-colors hover:border-accent hover:text-accent"
           >
@@ -155,17 +148,20 @@ export default function ContactForm() {
     <form
       onSubmit={handleSubmit}
       noValidate
+      aria-busy={loading}
       className="space-y-4 rounded-xl border border-card-border bg-card-bg p-6"
     >
       {/* Nombre */}
       <div>
         <label htmlFor="contact-name" className="mb-1 block text-sm font-medium">
-          Nombre <span className="text-accent">*</span>
+          Nombre <span className="text-accent" aria-hidden="true">*</span>
         </label>
         <input
           id="contact-name"
           name="name"
           type="text"
+          autoComplete="name"
+          required
           value={formData.name}
           onChange={handleChange}
           placeholder="Tu nombre completo"
@@ -182,12 +178,15 @@ export default function ContactForm() {
       {/* Email */}
       <div>
         <label htmlFor="contact-email" className="mb-1 block text-sm font-medium">
-          Email <span className="text-accent">*</span>
+          Email <span className="text-accent" aria-hidden="true">*</span>
         </label>
         <input
           id="contact-email"
           name="email"
           type="email"
+          inputMode="email"
+          autoComplete="email"
+          required
           value={formData.email}
           onChange={handleChange}
           placeholder="tu@email.com"
@@ -204,12 +203,14 @@ export default function ContactForm() {
       {/* Teléfono */}
       <div>
         <label htmlFor="contact-phone" className="mb-1 block text-sm font-medium">
-          Teléfono
+          Teléfono <span className="text-xs font-normal text-muted">(opcional)</span>
         </label>
         <input
           id="contact-phone"
           name="phone"
           type="tel"
+          inputMode="tel"
+          autoComplete="tel"
           value={formData.phone}
           onChange={handleChange}
           placeholder="+34 600 000 000"
@@ -226,12 +227,14 @@ export default function ContactForm() {
       {/* Asunto */}
       <div>
         <label htmlFor="contact-subject" className="mb-1 block text-sm font-medium">
-          Asunto <span className="text-accent">*</span>
+          Asunto <span className="text-accent" aria-hidden="true">*</span>
         </label>
         <input
           id="contact-subject"
           name="subject"
           type="text"
+          required
+          maxLength={150}
           value={formData.subject}
           onChange={handleChange}
           placeholder="¿En qué podemos ayudarte?"
@@ -248,12 +251,14 @@ export default function ContactForm() {
       {/* Mensaje */}
       <div>
         <label htmlFor="contact-message" className="mb-1 block text-sm font-medium">
-          Mensaje <span className="text-accent">*</span>
+          Mensaje <span className="text-accent" aria-hidden="true">*</span>
         </label>
         <textarea
           id="contact-message"
           name="message"
           rows={4}
+          required
+          maxLength={5000}
           value={formData.message}
           onChange={handleChange}
           placeholder="Cuéntanos los detalles..."
@@ -269,21 +274,22 @@ export default function ContactForm() {
 
       {/* Política de Privacidad */}
       <div className="pt-2">
-        <label className="flex items-start gap-3 cursor-pointer group">
-          <div className="relative flex items-center mt-0.5">
+        <label className="group flex cursor-pointer items-start gap-3">
+          <div className="relative mt-0.5 flex items-center">
             <input
+              id="contact-acceptPrivacy"
               type="checkbox"
               checked={acceptPrivacy}
+              aria-invalid={!!errors.acceptPrivacy}
+              aria-describedby={errors.acceptPrivacy ? "contact-privacy-error" : undefined}
               onChange={(e) => {
                 setAcceptPrivacy(e.target.checked);
-                if (errors.acceptPrivacy) {
-                  setErrors((prev) => ({ ...prev, acceptPrivacy: undefined }));
-                }
+                if (errors.acceptPrivacy) setErrors((prev) => ({ ...prev, acceptPrivacy: undefined }));
               }}
-              className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-card-border bg-card-bg transition-all checked:border-accent checked:bg-accent hover:border-accent/50 focus:ring-2 focus:ring-accent/20 focus:outline-none peer-checked:shadow-[0_0_10px_rgba(245,158,11,0.4)]"
+              className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-card-border bg-card-bg transition-all checked:border-accent checked:bg-accent hover:border-accent/50 focus-visible:ring-2 focus-visible:ring-accent/40 focus:outline-none"
             />
             <svg
-              className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 text-white transition-all duration-300 scale-0 opacity-0 peer-checked:scale-110 peer-checked:opacity-100"
+              className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 scale-0 text-black opacity-0 transition-all duration-300 peer-checked:scale-110 peer-checked:opacity-100"
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
               fill="none"
@@ -291,16 +297,18 @@ export default function ContactForm() {
               strokeWidth="4"
               strokeLinecap="round"
               strokeLinejoin="round"
+              aria-hidden="true"
             >
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           </div>
-          <span className="text-xs leading-relaxed text-muted group-hover:text-foreground/90 transition-colors">
+          <span className="text-xs leading-relaxed text-muted transition-colors group-hover:text-foreground/90">
             He leído y acepto la{" "}
             <a
               href="/privacidad"
               target="_blank"
-              className="text-accent font-bold hover:underline"
+              rel="noopener noreferrer"
+              className="font-bold text-accent hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
               Política de Privacidad
@@ -308,32 +316,22 @@ export default function ContactForm() {
           </span>
         </label>
         {errors.acceptPrivacy && (
-          <p className="mt-2 text-[10px] font-bold uppercase tracking-tight text-red-400">
+          <p id="contact-privacy-error" className="mt-2 text-xs font-bold text-red-400">
             {errors.acceptPrivacy}
           </p>
         )}
       </div>
 
-      {/* Cloudflare Turnstile Anti-Bot */}
-      {turnstileSiteKey && (
-        <>
-          <Script
-            src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-            onLoad={renderTurnstile}
-          />
-          <div ref={turnstileRef} className="flex justify-center" />
-          {errors.turnstile && (
-            <p className="text-xs text-red-400 text-center">{errors.turnstile}</p>
-          )}
-        </>
-      )}
+      <TurnstileWidget controller={turnstile} />
+
+      <FormAlert message={formError} />
 
       {/* Botones */}
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 rounded-lg bg-accent px-6 py-3 text-sm font-semibold text-black transition-all hover:bg-accent-hover hover:-translate-y-0.5 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-none"
+          className="flex-1 rounded-lg bg-accent px-6 py-3 text-sm font-semibold text-black transition-all hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-none"
         >
           {loading ? "Enviando..." : "Enviar mensaje"}
         </button>
@@ -341,9 +339,9 @@ export default function ContactForm() {
           href="https://wa.me/34661652638"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#25D366] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/20 transition-all hover:bg-[#128C7E] hover:-translate-y-0.5"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#25D366] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/20 transition-all hover:-translate-y-0.5 hover:bg-[#128C7E]"
         >
-          <MessageCircle className="w-5 h-5" /> Escribir por WhatsApp
+          <MessageCircle className="h-5 w-5" aria-hidden="true" /> Escribir por WhatsApp
         </a>
       </div>
     </form>

@@ -1,11 +1,16 @@
 "use client";
 
 import { useTransition } from "react";
+import { toast } from "sonner";
 import { updateReservationStatus } from "@/app/actions/admin";
+import { RESERVATION_STATES } from "@/lib/reservation-states";
+import { RESERVA_STATUS } from "@/lib/status-colors";
 
 interface Props {
   id: string;
   currentStatus: string;
+  /** Nombre del cliente para el aria-label del selector. */
+  clienteNombre?: string;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -16,18 +21,24 @@ const STATUS_STYLES: Record<string, string> = {
   completada: "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20",
 };
 
-export default function ReservationStatusSelect({ id, currentStatus }: Props) {
+export default function ReservationStatusSelect({ id, currentStatus, clienteNombre }: Props) {
   const [isPending, startTransition] = useTransition();
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newStatus = e.target.value;
+    if (newStatus === currentStatus) return;
 
     startTransition(async () => {
       try {
-        await updateReservationStatus(id, newStatus);
+        const result = await updateReservationStatus(id, newStatus);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success(`Reserva marcada como ${RESERVA_STATUS[newStatus]?.label.toLowerCase() ?? newStatus}.`);
       } catch (error) {
         console.error("Error updating status:", error);
-        alert("Hubo un error al actualizar el estado de la reserva.");
+        toast.error("Hubo un error al actualizar el estado de la reserva.");
       }
     });
   };
@@ -37,25 +48,17 @@ export default function ReservationStatusSelect({ id, currentStatus }: Props) {
       value={currentStatus}
       onChange={handleChange}
       disabled={isPending}
-      className={`cursor-pointer rounded-full border border-transparent px-2.5 py-1 text-xs font-medium capitalize outline-none transition-colors focus:border-card-border focus:ring-1 focus:ring-card-border disabled:cursor-not-allowed disabled:opacity-50 ${
+      aria-busy={isPending}
+      aria-label={clienteNombre ? `Estado de la reserva de ${clienteNombre}` : "Estado de la reserva"}
+      className={`min-h-[36px] cursor-pointer rounded-full border border-transparent px-2.5 py-1 text-xs font-medium capitalize outline-none transition-colors focus:border-card-border focus:ring-1 focus:ring-card-border disabled:cursor-not-allowed disabled:opacity-50 ${
         STATUS_STYLES[currentStatus] || "bg-gray-500/10 text-gray-400"
       }`}
     >
-      <option value="pendiente" className="bg-card-bg text-foreground">
-        Pendiente
-      </option>
-      <option value="confirmada" className="bg-card-bg text-foreground">
-        Confirmada
-      </option>
-      <option value="cancelada" className="bg-card-bg text-foreground">
-        Cancelada
-      </option>
-      <option value="rechazada" className="bg-card-bg text-foreground">
-        Rechazada
-      </option>
-      <option value="completada" className="bg-card-bg text-foreground">
-        Completada
-      </option>
+      {RESERVATION_STATES.map((estado) => (
+        <option key={estado} value={estado} className="bg-card-bg text-foreground">
+          {RESERVA_STATUS[estado]?.label ?? estado}
+        </option>
+      ))}
     </select>
   );
 }
