@@ -34,6 +34,10 @@ export const metadata: Metadata = {
 };
 
 
+// El catálogo del selector es estático con revalidación horaria; la
+// disponibilidad real se consulta en cliente mediante getAvailableSlots.
+export const revalidate = 3600;
+
 export default async function ReservasPage() {
   const servicesList = await getActiveServices();
 

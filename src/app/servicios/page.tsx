@@ -35,6 +35,9 @@ export const metadata: Metadata = {
 
 import { Mic, Music, Camera, Clapperboard, Hammer, Diamond } from "lucide-react";
 
+// Estática con revalidación horaria; el panel invalida la ruta al editar servicios.
+export const revalidate = 3600;
+
 // Definición de categorías: orden, título visual e icono decorativo
 const CATEGORIES = [
   { key: "Grabación",    label: "Grabación & Producción", icon: Mic },

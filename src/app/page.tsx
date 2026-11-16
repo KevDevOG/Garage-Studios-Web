@@ -316,9 +316,9 @@ export default async function HomePage() {
           <ScrollReveal className="mt-12 text-center" delay={0.2}>
             <Link
               href="/galeria"
-              className="text-sm font-black uppercase tracking-widest text-accent hover:underline"
+              className="inline-flex min-h-[44px] items-center text-sm font-black uppercase tracking-widest text-accent hover:underline"
             >
-              Ver galería completa <ChevronRight className="inline-block w-4 h-4 ml-1" />
+              Ver galería completa <ChevronRight className="ml-1 inline-block h-4 w-4" aria-hidden="true" />
             </Link>
           </ScrollReveal>
         </div>
@@ -402,7 +402,11 @@ export default async function HomePage() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-white">Email directo</h3>
-                    <p className="mt-1 text-muted hover:text-white transition-colors"><a href="mailto:garagestudioslp@gmail.com">garagestudioslp@gmail.com</a></p>
+                    <p className="mt-1 text-muted">
+                      <a href="mailto:garagestudioslp@gmail.com" className="inline-flex min-h-[44px] items-center transition-colors hover:text-white">
+                        garagestudioslp@gmail.com
+                      </a>
+                    </p>
                   </div>
                 </div>
               </div>
