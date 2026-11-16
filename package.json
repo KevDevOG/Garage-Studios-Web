@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test --import ./tests/setup.mjs \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

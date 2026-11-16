@@ -30,7 +30,9 @@ export function sanitizeSearchTerm(raw: unknown): string {
  */
 export function buildIlikePattern(raw: unknown, minLength = 2): string | null {
   const term = sanitizeSearchTerm(raw);
-  if (term.replace(/\\/g, "").length < minLength) return null;
+  // Los comodines escapados no cuentan como caracteres útiles de búsqueda
+  const useful = term.replace(/\\[%_]/g, "").replace(/\s/g, "");
+  if (useful.length < minLength) return null;
   return `%${term}%`;
 }
 
