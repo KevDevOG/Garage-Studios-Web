@@ -125,7 +125,7 @@ export async function GET(
     `DTSTART;TZID=Atlantic/Canary:${dtStart}`,
     `DTEND;TZID=Atlantic/Canary:${dtEnd}`,
     `SUMMARY:Reserva Garage Studios - ${servicio}`,
-    `DESCRIPTION:Reserva confirmada en Garage Studios.\\nServicio: ${servicio}\\nCliente: ${cliente}\\nContacto: +34 661 65 26 38`,
+    `DESCRIPTION:Sesión en Garage Studios.\\nServicio: ${servicio}\\nCliente: ${cliente}\\nContacto: +34 661 65 26 38`,
     "LOCATION:C. Drago\\, 35010 Las Palmas de Gran Canaria\\, Las Palmas",
     "URL:https://garagestudios.es",
     "END:VEVENT",

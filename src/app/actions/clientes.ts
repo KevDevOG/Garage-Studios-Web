@@ -1,10 +1,9 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAuditLog } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
+import { updateClienteStats } from "@/lib/cliente-repo";
 import { buildIlikePattern, buildOrIlike } from "@/lib/search";
 import { monthRange } from "@/lib/dates";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
@@ -73,116 +72,6 @@ export interface ClienteEvolution {
   nuevos: number;
   reservas: number;
   ingresos: number;
-}
-
-// ── findOrCreateCliente (público, sin auth) ──
-
-export async function findOrCreateClientePublic(
-  supabase: SupabaseClient,
-  data: {
-    nombre: string;
-    email?: string;
-    telefono?: string;
-    instagram?: string;
-    origen?: string;
-  }
-): Promise<string | null> {
-  try {
-    const { data: newCliente, error } = await supabase
-      .from("cliente")
-      .insert([
-        {
-          nombre: data.nombre,
-          email: data.email || null,
-          telefono: data.telefono || null,
-          instagram: data.instagram || null,
-          origen: data.origen || "web",
-        },
-      ])
-      .select("id")
-      .single();
-
-    if (error || !newCliente) {
-      console.warn("No se pudo crear cliente desde reserva pública (RLS u otro):", error);
-      return null;
-    }
-
-    return newCliente.id;
-  } catch (err) {
-    console.warn("Excepción al intentar crear cliente público:", err);
-    return null;
-  }
-}
-
-// ── updateClienteStats (público, sin auth) ──
-
-export async function updateClienteStats(
-  supabaseOrNull: SupabaseClient | null,
-  clienteId: string | null
-) {
-  if (!clienteId) return;
-
-  const supabase = supabaseOrNull || (await createClient());
-
-  // Obtener todas las reservas activas del cliente
-  const { data: reservas } = await supabase
-    .from("reserva")
-    .select("id, estado, created_at, fecha_reserva, servicio_id, precio, importe_pagado, estado_pago")
-    .eq("cliente_id", clienteId)
-    .is("deleted_at", null);
-
-  if (!reservas) return;
-
-  const total = reservas.length;
-  const confirmadas = reservas.filter((r) => r.estado === "confirmada").length;
-  const canceladas = reservas.filter((r) => r.estado === "cancelada").length;
-  const completadas = reservas.filter((r) => r.estado === "completada").length;
-
-  // Importe: cobros reales
-  const importe = reservas
-    .filter((r) => 
-      (r.estado_pago === "parcial" || r.estado_pago === "pagado") && 
-      !["cancelada", "rechazada"].includes(r.estado) &&
-      (Number(r.importe_pagado) || 0) > 0
-    )
-    .reduce((sum, r) => sum + (Number(r.importe_pagado) || 0), 0);
-
-  // Última reserva (por fecha_reserva)
-  const sorted = [...reservas].sort(
-    (a, b) => b.fecha_reserva.localeCompare(a.fecha_reserva)
-  );
-  const ultima = sorted[0] || null;
-
-  // Servicio favorito (el más frecuente)
-  let servicioFavoritoId: string | null = null;
-  if (reservas.length > 0) {
-    const freq: Record<string, number> = {};
-    for (const r of reservas) {
-      if (r.servicio_id) {
-        freq[r.servicio_id] = (freq[r.servicio_id] || 0) + 1;
-      }
-    }
-    const entries = Object.entries(freq);
-    if (entries.length > 0) {
-      entries.sort((a, b) => b[1] - a[1]);
-      servicioFavoritoId = entries[0][0];
-    }
-  }
-
-  await supabase
-    .from("cliente")
-    .update({
-      total_reservas: total,
-      reservas_confirmadas: confirmadas,
-      reservas_canceladas: canceladas,
-      reservas_completadas: completadas,
-      importe_total: importe,
-      ultima_reserva_at: ultima?.created_at || null,
-      ultima_reserva_fecha: ultima?.fecha_reserva || null,
-      servicio_favorito_id: servicioFavoritoId,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", clienteId);
 }
 
 // ── getClientes (admin) ──

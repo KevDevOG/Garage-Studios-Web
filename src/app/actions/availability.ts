@@ -26,18 +26,20 @@ interface OccupiedInterval {
  * SECURITY DEFINER `get_occupied_slots` (reservas activas, bloques y
  * bloqueos manuales). Devuelve solo horas, nunca datos personales, por lo
  * que puede ejecutarla el rol anónimo.
+ *
+ * Devuelve `null` si la consulta falla: quien llama debe tratarlo como
+ * "no se puede garantizar disponibilidad" (fallo cerrado). La restricción de
+ * exclusión de la BD solo cubre reserva contra reserva, no los bloqueos.
  */
-async function fetchOccupiedSlots(fecha: string): Promise<OccupiedInterval[]> {
+async function fetchOccupiedSlots(fecha: string): Promise<OccupiedInterval[] | null> {
   const supabase = createServiceClient({ fresh: true }) ?? createPublicClient({ fresh: true });
-  if (!supabase) return [];
+  if (!supabase) return null;
 
   const { data, error } = await supabase.rpc("get_occupied_slots", { p_fecha: fecha });
 
   if (error) {
     console.error("[Availability] Error en get_occupied_slots:", error.message);
-    // Devolvemos vacío: la restricción de exclusión en la base de datos
-    // sigue siendo la última barrera contra solapamientos.
-    return [];
+    return null;
   }
 
   const occupied: OccupiedInterval[] = [];
@@ -100,6 +102,13 @@ export async function getAvailableSlots(
 
   // 4. Intervalos ocupados (reservas + bloques + bloqueos)
   const occupied = await fetchOccupiedSlots(fecha);
+  if (occupied === null) {
+    return {
+      slots: [],
+      duracion,
+      mensaje: "No se pudo comprobar la disponibilidad. Inténtalo de nuevo en unos segundos.",
+    };
+  }
 
   // 5. Filtrar
   const available = allSlots.filter((slot) => {
@@ -134,6 +143,8 @@ export async function validateSlotAvailable(
   excludeReservaId?: string
 ): Promise<boolean> {
   const occupied = await fetchOccupiedSlots(fecha);
+  // Fallo cerrado: sin datos fiables no damos el hueco por libre.
+  if (occupied === null) return false;
 
   if (excludeReservaId && isUuid(excludeReservaId)) {
     // Solo un admin autenticado llega aquí; RLS permite leer la reserva.

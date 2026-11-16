@@ -5,6 +5,7 @@ import ExcelJS from "exceljs";
 import { createAuditLog } from "@/lib/audit";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { formatDateTimeEs, todayInStudio } from "@/lib/dates";
+import { formatTime } from "@/lib/schedule";
 
 export type ExportType = "reservas" | "clientes" | "finanzas" | "contactos" | "servicios";
 
@@ -69,8 +70,8 @@ const CONFIGS: Record<ExportType, ExportConfig> = {
     softDelete: true,
     toRow: (r) => ({
       fecha: r.fecha_reserva,
-      hora_inicio: r.hora_inicio,
-      hora_fin: r.hora_fin,
+      hora_inicio: formatTime(r.hora_inicio as string | null),
+      hora_fin: formatTime(r.hora_fin as string | null),
       nombre: r.nombre,
       email: r.email,
       telefono: r.telefono,

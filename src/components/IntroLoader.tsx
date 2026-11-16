@@ -47,11 +47,11 @@ export default function IntroLoader() {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (hasSeenIntro || prefersReduced) return;
 
-    // Primera visita: activamos el loader y bloqueamos el scroll de fondo
+    // Primera visita: activamos el loader. No tocamos body.overflow: en
+    // escritorio ocultar la barra de scroll desplaza todo el layout (CLS).
     const timer = window.setTimeout(() => {
       setWithVideo(canAffordVideo());
       setShowLoader(true);
-      document.body.style.overflow = "hidden";
     }, 0);
 
     const steps = INTRO_DURATION_MS / TICK_MS;
@@ -70,7 +70,6 @@ export default function IntroLoader() {
     return () => {
       window.clearTimeout(timer);
       window.clearInterval(interval);
-      document.body.style.overflow = "";
     };
   }, []);
 
@@ -84,7 +83,6 @@ export default function IntroLoader() {
       } catch {
         /* sessionStorage no disponible */
       }
-      document.body.style.overflow = "";
     }, 350);
     return () => window.clearTimeout(timeout);
   }, [progress, showLoader]);
@@ -96,7 +94,9 @@ export default function IntroLoader() {
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.45, ease: "easeInOut" }}
-          className="fixed inset-0 z-[9999] flex select-none flex-col items-center justify-center bg-black px-4"
+          className="fixed inset-0 z-[9999] flex select-none flex-col items-center justify-center overscroll-none bg-black px-4"
+          onWheel={(e) => e.preventDefault()}
+          onTouchMove={(e) => e.preventDefault()}
           role="status"
           aria-live="polite"
           aria-label="Cargando Garage Studios"

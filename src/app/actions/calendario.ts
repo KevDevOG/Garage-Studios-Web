@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { validateSlotAvailable } from "@/app/actions/availability";
 import { minutesToTime, timeToMinutes, formatTime } from "@/lib/schedule";
-import { findOrCreateClientePublic, updateClienteStats } from "@/app/actions/clientes";
+import { findOrCreateClientePublic, updateClienteStats } from "@/lib/cliente-repo";
 import {
   sendReservationConfirmationEmail,
   sendReservationCancelledEmail,
@@ -267,6 +267,12 @@ export async function updateReservation(id: string, formData: FormData) {
   if (!Number.isNaN(importePagado) && importePagado < 0) return { error: "El importe pagado no puede ser negativo." };
 
   const duracion = Number.parseInt(field(formData, "duracion_minutos"), 10);
+
+  // Una reserva que ocupa agenda (pendiente/confirmada) necesita hora y duración:
+  // con horas NULL la restricción de exclusión trabajaría con rangos infinitos.
+  if ((estado === "pendiente" || estado === "confirmada") && (!horaInicio || !Number.isFinite(duracion) || duracion <= 0)) {
+    return { error: "Una reserva pendiente o confirmada necesita hora de inicio y duración." };
+  }
   const horaFin = horaInicio && Number.isFinite(duracion)
     ? minutesToTime(timeToMinutes(horaInicio) + duracion)
     : "";
@@ -479,12 +485,21 @@ export async function getReservationBlocks(
 export async function addReservationBlock(formData: FormData) {
   const supabase = await requireAuth();
 
-  const reservaId = formData.get("reserva_id") as string;
-  const titulo = formData.get("titulo") as string;
-  const fecha = formData.get("fecha") as string;
-  const horaInicio = formData.get("hora_inicio") as string;
-  const duracionStr = formData.get("duracion_minutos") as string;
-  const duracion = parseInt(duracionStr, 10);
+  const reservaId = field(formData, "reserva_id");
+  const titulo = field(formData, "titulo");
+  const fecha = field(formData, "fecha");
+  const horaInicio = field(formData, "hora_inicio");
+  const duracion = Number.parseInt(field(formData, "duracion_minutos"), 10);
+
+  if (!isUuid(reservaId)) return { error: "Reserva no válida." };
+  if (titulo.length < 1 || titulo.length > 120) return { error: "El título del bloque es obligatorio." };
+  if (!isValidIsoDate(fecha)) return { error: "La fecha del bloque no es válida." };
+  if (!isValidTime(horaInicio)) return { error: "La hora de inicio del bloque no es válida." };
+  if (!Number.isFinite(duracion) || duracion <= 0) return { error: "La duración del bloque debe ser mayor que cero." };
+  if (timeToMinutes(horaInicio) + duracion > 24 * 60) {
+    return { error: "El bloque no puede terminar después de medianoche." };
+  }
+
   const horaFin = minutesToTime(timeToMinutes(horaInicio) + duracion);
 
   const { error } = await supabase.from("reserva_bloque").insert([

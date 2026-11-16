@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin, UnauthorizedError } from "@/lib/auth";
-import { updateClienteStats } from "@/app/actions/clientes";
+import { updateClienteStats } from "@/lib/cliente-repo";
 import {
   sendReservationConfirmationEmail,
   sendReservationCancelledEmail,
@@ -10,7 +10,7 @@ import {
 } from "@/lib/email";
 import { createAuditLog } from "@/lib/audit";
 import { formatIsoDateEs, isValidIsoDate } from "@/lib/dates";
-import { formatTime, minutesToTime, timeToMinutes } from "@/lib/schedule";
+import { formatTime, minutesToTime, timeToMinutes, END_OF_DAY_MINUTES } from "@/lib/schedule";
 import { isUuid } from "@/lib/reservation-rules";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { isPaymentState, isReservationState, type PaymentState } from "@/lib/reservation-states";
@@ -201,7 +201,11 @@ export async function rescheduleReservation(
     const duracion = Number(res.duracion_minutos);
     if (!Number.isFinite(duracion) || duracion <= 0) return actionError("La reserva no tiene duración definida.");
 
-    const newEndTime = minutesToTime(timeToMinutes(newStartTime) + duracion);
+    const endMinutes = timeToMinutes(newStartTime) + duracion;
+    if (endMinutes > END_OF_DAY_MINUTES) {
+      return actionError("La sesión no puede terminar después de medianoche. Elige una hora anterior.");
+    }
+    const newEndTime = minutesToTime(endMinutes);
 
     const { validateSlotAvailable } = await import("@/app/actions/availability");
     const isAvailable = await validateSlotAvailable(newDate, newStartTime, duracion, id);

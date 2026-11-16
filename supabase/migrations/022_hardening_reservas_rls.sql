@@ -20,8 +20,15 @@
 BEGIN;
 
 -- ─────────────────────────────────────────────────────────────
--- 0. PREFLIGHT: no debe haber reservas activas con horas inválidas
+-- 0. NORMALIZACIÓN + PREFLIGHT
 -- ─────────────────────────────────────────────────────────────
+-- Primero normalizamos las reservas antiguas que terminaban "a las 00:00"
+-- (medianoche): solo las que claramente son de cierre (inicio > 00:00).
+UPDATE public.reserva
+SET hora_fin = TIME '24:00'
+WHERE hora_fin = TIME '00:00' AND hora_inicio IS NOT NULL AND hora_inicio > TIME '00:00';
+
+-- Después comprobamos que no queda ninguna reserva activa con horas inválidas.
 DO $$
 BEGIN
   IF EXISTS (
@@ -32,12 +39,6 @@ BEGIN
     RAISE EXCEPTION '022: hay reservas activas con horas nulas o fin <= inicio; corrígelas antes de aplicar';
   END IF;
 END $$;
-
--- Normalizar reservas antiguas que terminaban "a las 00:00" (medianoche):
--- solo las que claramente son de cierre (inicio > 00:00 y fin = 00:00).
-UPDATE public.reserva
-SET hora_fin = TIME '24:00'
-WHERE hora_fin = TIME '00:00' AND hora_inicio IS NOT NULL AND hora_inicio > TIME '00:00';
 
 -- ─────────────────────────────────────────────────────────────
 -- 1. INTEGRIDAD DE HORAS E IMPORTES

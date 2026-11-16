@@ -3,7 +3,7 @@
 import { createPublicClient } from "@/lib/supabase/public";
 import { validateSlotAvailable } from "@/app/actions/availability";
 import { minutesToTime, timeToMinutes, isSlotWithinOpeningHours, formatTime } from "@/lib/schedule";
-import { findOrCreateClientePublic } from "@/app/actions/clientes";
+import { findOrCreateClientePublic } from "@/lib/cliente-repo";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
 import { sendAdminNotification } from "@/lib/email";
