@@ -1,7 +1,31 @@
 # Cierre de pendientes de seguridad y estabilidad (16-nov-2026)
 
-Continuación de `docs/auditoria-v1.md`. Rama `aaos/apruebo-las-mejoras-realizadas-20261116`.
+Continuación de `docs/auditoria-v1.md`. Rama `aaos/apruebo-las-mejoras-realizadas-20261116`
+(contiene los 8 commits de la auditoría integral, comprobado con `git merge-base`).
 Nada se ha aplicado en producción ni se ha publicado.
+
+## Segunda fase (misma fecha)
+
+- **Registro de Auth**: sigue **abierto** (`disable_signup: false`). Ninguna herramienta disponible
+  puede cambiar la configuración de Auth: lo desactiva el propietario en el panel.
+- **`SUPABASE_SERVICE_ROLE_KEY` en Vercel**: **no existe** (listado sin descifrar: 9 variables, ninguna
+  es esa). Hay que añadirla antes de aplicar la 024.
+- **Migraciones validadas contra PostgreSQL** (PGlite, esquema de producción): ver
+  `docs/migraciones-022-023.md` §2b. Todo correcto, incluidos rollbacks y permisos de la cuenta legítima.
+- **Antispam sin atajos**: los formularios escriben con la clave de servicio
+  (`createPublicWriteClient`), la migración 024 retira la escritura al rol anon, Turnstile falla en
+  cerrado (sin respuesta de Cloudflare o sin clave secreta en producción se rechaza) con tiempo
+  límite e IP del cliente, y hay una cuota en BD de 3 solicitudes pendientes por email o teléfono.
+  Probado: 10 pruebas unitarias nuevas y, en Playwright, envío real del formulario en local →
+  rechazado sin escribir nada en producción (comprobado: 0 filas).
+- **Reasignación de servicios**: script con comprobaciones en `supabase/maintenance/`, validado,
+  **no ejecutado en producción** (ver §5 del documento de migraciones: hay 68 reservas detrás).
+- **Medios** (FFmpeg 9.0.2 con winget, mismo nombre y formato, SSIM medido a la resolución de
+  visionado ≥ 0,983, misma duración y fotogramas): vídeos 31,3 MB → 4,0 MB; GIF 6,9 MB → 2,3 MB
+  (160 px, transparencia conservada); `visuals_logo.png` 244 → 200 KB sin pérdida;
+  `public/rayos.mp4` (6,6 MB) eliminado tras confirmar que no se usa en código, BD ni README.
+  `logo-sin-fondo.png`, la imagen OG y los iconos ya eran óptimos. La marca «Veo» de la esquina
+  de la intro ya estaba en el vídeo original.
 
 ## Estado por punto
 

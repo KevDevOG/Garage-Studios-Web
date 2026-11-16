@@ -314,7 +314,7 @@ BEGIN
     ('B14 el administrador no mueve una reserva sobre un bloqueo (trigger)',
      $q$UPDATE public.reserva SET hora_inicio = '18:30', hora_fin = '19:30' WHERE id = '00000000-0000-4000-8000-000000000010'$q$, '23P01'),
     ('B15 borrar un servicio con reservas está prohibido (FK RESTRICT)',
-     $q$DELETE FROM public.servicio WHERE id = '00000000-0000-4000-8000-000000000001'$q$, '23503'),
+     $q$DELETE FROM public.servicio WHERE id = '00000000-0000-4000-8000-000000000001'$q$, '23001|23503'),  -- RESTRICT → 23001 (validado en PostgreSQL)
     ('B16 no se guarda una reserva activa con fin anterior al inicio',
      $q$UPDATE public.reserva SET hora_inicio = '16:00', hora_fin = '15:00' WHERE id = '00000000-0000-4000-8000-000000000010'$q$, '23514')
   ) AS v(label, q, code)

@@ -1,8 +1,8 @@
 "use server";
 
-import { createPublicClient } from "@/lib/supabase/public";
+import { createPublicWriteClient } from "@/lib/supabase/public";
 import { verifyTurnstileToken } from "@/lib/turnstile";
-import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
+import { checkRateLimit, formatRetryAfter, getClientIp } from "@/lib/rate-limit";
 import { sendAdminNotification } from "@/lib/email";
 import { validateContactInput } from "@/lib/reservation-rules";
 import { escapeHtml, escapeHtmlMultiline } from "@/lib/html";
@@ -35,12 +35,13 @@ export async function submitContactAction(raw: ContactData): Promise<ActionResul
     );
   }
 
-  const turnstileResult = await verifyTurnstileToken(raw.turnstileToken);
+  const turnstileResult = await verifyTurnstileToken(raw.turnstileToken, await getClientIp());
   if (!turnstileResult.success) {
     return actionError(turnstileResult.error || "Verificación anti-bot fallida.");
   }
 
-  const supabase = createPublicClient({ fresh: true });
+  // Escritura solo desde el servidor (clave de servicio; ver createPublicWriteClient)
+  const { client: supabase } = createPublicWriteClient();
   if (!supabase) {
     console.error("[Contact] Supabase no configurado");
     return actionError("No se pudo enviar el mensaje. Inténtalo más tarde o escríbenos por WhatsApp.");

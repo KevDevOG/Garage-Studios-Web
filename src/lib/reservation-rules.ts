@@ -22,6 +22,12 @@ export const LIMITS = {
   messageMax: 5000,
 } as const;
 
+/**
+ * Máximo de solicitudes de reserva PENDIENTES y futuras por email o teléfono.
+ * Cuota en base de datos: no depende de la IP ni de la instancia del servidor.
+ */
+export const MAX_PENDING_PER_CONTACT = 3;
+
 export type ValidationResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
 export interface ReservationInput {

@@ -1,14 +1,15 @@
 "use server";
 
-import { createPublicClient } from "@/lib/supabase/public";
+import { createPublicWriteClient } from "@/lib/supabase/public";
 import { validateSlotAvailable } from "@/app/actions/availability";
 import { minutesToTime, timeToMinutes, isSlotWithinOpeningHours, formatTime } from "@/lib/schedule";
 import { findOrCreateClientePublic } from "@/lib/cliente-repo";
 import { verifyTurnstileToken } from "@/lib/turnstile";
-import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
+import { checkRateLimit, formatRetryAfter, getClientIp } from "@/lib/rate-limit";
 import { sendAdminNotification } from "@/lib/email";
-import { validateReservationInput, isSlotInPast } from "@/lib/reservation-rules";
-import { formatIsoDateEs, weekdayOfIsoDate } from "@/lib/dates";
+import { validateReservationInput, isSlotInPast, MAX_PENDING_PER_CONTACT } from "@/lib/reservation-rules";
+import { formatIsoDateEs, todayInStudio, weekdayOfIsoDate } from "@/lib/dates";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { escapeHtml, escapeHtmlMultiline } from "@/lib/html";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 
@@ -47,16 +48,24 @@ export async function submitReservationAction(raw: ReservationData): Promise<Act
     );
   }
 
-  // 3. Turnstile anti-bot
-  const turnstileResult = await verifyTurnstileToken(raw.turnstileToken);
+  // 3. Turnstile anti-bot (falla en cerrado)
+  const turnstileResult = await verifyTurnstileToken(raw.turnstileToken, await getClientIp());
   if (!turnstileResult.success) {
     return actionError(turnstileResult.error || "Verificación anti-bot fallida.");
   }
 
-  const supabase = createPublicClient({ fresh: true });
+  // Escritura solo desde el servidor (clave de servicio; ver createPublicWriteClient)
+  const { client: supabase, privileged } = createPublicWriteClient();
   if (!supabase) {
     console.error("[Reservation] Supabase no configurado");
     return actionError(GENERIC_ERROR);
+  }
+
+  // 3b. Cuota en BD por contacto: no depende de la instancia ni de la IP
+  if (privileged && (await countPendingByContact(supabase, data.email, data.phone)) >= MAX_PENDING_PER_CONTACT) {
+    return actionError(
+      "Ya tienes solicitudes pendientes de confirmar. Te escribiremos en breve; si es urgente, contáctanos por WhatsApp."
+    );
   }
 
   // 4. Servicio (solo activos) y su duración
@@ -155,6 +164,30 @@ export async function submitReservationAction(raw: ReservationData): Promise<Act
   }
 
   return actionOk();
+}
+
+/**
+ * Solicitudes pendientes y futuras con el mismo email o teléfono. Dos
+ * consultas `.eq()` (y no un `.or()`) para que ningún carácter del email
+ * altere la sintaxis del filtro. Requiere la clave de servicio.
+ */
+async function countPendingByContact(supabase: SupabaseClient, email: string, phone: string): Promise<number> {
+  const today = todayInStudio();
+  const base = () =>
+    supabase
+      .from("reserva")
+      .select("id", { count: "exact", head: true })
+      .eq("estado", "pendiente")
+      .is("deleted_at", null)
+      .gte("fecha_reserva", today);
+
+  const [byEmail, byPhone] = await Promise.all([base().eq("email", email), base().eq("telefono", phone)]);
+  if (byEmail.error || byPhone.error) {
+    // No bloquea al cliente por un fallo de lectura: Turnstile y el rate limit siguen activos.
+    console.error("[Reservation] No se pudo comprobar la cuota:", byEmail.error?.code ?? byPhone.error?.code);
+    return 0;
+  }
+  return Math.max(byEmail.count ?? 0, byPhone.count ?? 0);
 }
 
 interface AdminEmailData {

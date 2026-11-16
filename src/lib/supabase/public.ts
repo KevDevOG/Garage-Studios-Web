@@ -54,3 +54,22 @@ export function createPublicClient(options: PublicClientOptions = {}): SupabaseC
 export function createServiceClient(options: PublicClientOptions = { fresh: true }): SupabaseClient | null {
   return buildClient(process.env.SUPABASE_SERVICE_ROLE_KEY, options);
 }
+
+/**
+ * Cliente para las ESCRITURAS de los formularios públicos (reservas, contacto).
+ *
+ * Con la clave de servicio, las inserciones solo pueden hacerse desde este
+ * servidor, después de Turnstile, el rate limit y las validaciones; la
+ * migración 024 retira además el INSERT al rol anon, de modo que la anon key
+ * pública ya no sirve para saltárselas.
+ *
+ * Sin la clave (entornos antiguos) cae al rol anon para no romper la web;
+ * en cuanto se aplique la 024 ese camino deja de funcionar, por eso la 024
+ * solo se aplica con SUPABASE_SERVICE_ROLE_KEY configurada en Vercel.
+ */
+export function createPublicWriteClient(): { client: SupabaseClient | null; privileged: boolean } {
+  const service = createServiceClient({ fresh: true });
+  if (service) return { client: service, privileged: true };
+  console.warn("[Supabase] Sin SUPABASE_SERVICE_ROLE_KEY: escrituras públicas con la anon key.");
+  return { client: createPublicClient({ fresh: true }), privileged: false };
+}

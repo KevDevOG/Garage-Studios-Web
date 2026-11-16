@@ -80,6 +80,16 @@ export async function checkRateLimit(
   return { allowed: true, remaining: limit - entry.count, retryAfterMs: 0 };
 }
 
+/** IP del cliente según las cabeceras del proxy (Vercel), o null. */
+export async function getClientIp(): Promise<string | null> {
+  const headersList = await headers();
+  return (
+    headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    headersList.get("x-real-ip") ||
+    null
+  );
+}
+
 /**
  * Formatea el tiempo de espera para mostrar al usuario.
  */
