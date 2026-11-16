@@ -1,10 +1,9 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAdminSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAuditLog } from "@/lib/audit";
-import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 /**
  * Las páginas públicas que muestran el catálogo son estáticas (ISR), así que
@@ -18,31 +17,13 @@ function revalidateCatalog() {
   revalidatePath("/visuals");
 }
 
-async function ensureAdminExists(supabase: SupabaseClient, user: User) {
-  // Verificamos si existe en la tabla administrador
-  const { data: admin } = await supabase
-    .from("administrador")
-    .select("id")
-    .eq("id", user.id)
-    .single();
-
-  if (!admin) {
-    // Si no existe, lo insertamos para evitar el error de Foreign Key
-    await supabase.from("administrador").insert([
-      {
-        id: user.id,
-        email: user.email,
-        nombre: "Admin",
-      },
-    ]);
-  }
-}
+// Nota de seguridad: aquí existía `ensureAdminExists`, que insertaba en
+// `administrador` a cualquier usuario autenticado. Se eliminó: la lista de
+// administradores es privada y solo se gestiona desde Supabase (migración 023).
+// `getAdminSession` garantiza que `user` ya está en esa lista.
 
 export async function toggleServiceActiveAction(id: string, activo: boolean) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAdminSession();
   if (!user) throw new Error("No autorizado");
 
   const { error } = await supabase
@@ -63,14 +44,8 @@ export async function toggleServiceActiveAction(id: string, activo: boolean) {
 }
 
 export async function createServiceAction(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  
+  const { supabase, user } = await getAdminSession();
   if (!user) return { error: "No autorizado" };
-
-  await ensureAdminExists(supabase, user);
 
   const nombre = formData.get("nombre") as string;
   const descripcion = formData.get("descripcion") as string;
@@ -130,11 +105,7 @@ export async function createServiceAction(formData: FormData) {
 }
 
 export async function updateServiceAction(id: string, formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { supabase, user } = await getAdminSession();
   if (!user) return { error: "No autorizado" };
 
   const nombre = formData.get("nombre") as string;
@@ -195,11 +166,7 @@ export async function updateServiceAction(id: string, formData: FormData) {
 }
 
 export async function deleteServiceAction(id: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { supabase, user } = await getAdminSession();
   if (!user) return { error: "No autorizado" };
 
   // Comprobar si el servicio tiene reservas asociadas

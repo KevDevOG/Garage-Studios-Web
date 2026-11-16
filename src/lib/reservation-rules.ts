@@ -175,3 +175,52 @@ export function validateContactInput(raw: unknown): ValidationResult<ContactInpu
     data: { name, email, phone: phoneRaw || null, subject, message, acceptPrivacy: true },
   };
 }
+
+export interface BlockInput {
+  fecha: string;
+  hora_inicio: string;
+  hora_fin: string;
+  motivo?: string | null;
+}
+
+/**
+ * Valida un bloqueo manual de agenda del panel. El fin "00:00" significa
+ * medianoche del mismo día y se normaliza a "24:00" (igual que las reservas)
+ * para que la restricción `hora_fin > hora_inicio` de la BD lo acepte.
+ */
+export function validateBlockInput(raw: unknown): ValidationResult<{
+  fecha: string;
+  hora_inicio: string;
+  hora_fin: string;
+  motivo: string | null;
+}> {
+  const input = (raw ?? {}) as Partial<Record<keyof BlockInput, unknown>>;
+  const fecha = typeof input.fecha === "string" ? input.fecha.trim() : "";
+  const inicio = typeof input.hora_inicio === "string" ? input.hora_inicio.trim().slice(0, 5) : "";
+  const fin = typeof input.hora_fin === "string" ? input.hora_fin.trim().slice(0, 5) : "";
+  const motivo = typeof input.motivo === "string" ? input.motivo.trim() : "";
+
+  if (!isValidIsoDate(fecha)) return { ok: false, error: "La fecha del bloqueo no es válida." };
+  if (!isValidTime(inicio) || !isValidTime(fin)) {
+    return { ok: false, error: "Las horas del bloqueo no son válidas." };
+  }
+
+  const [h, m] = inicio.split(":").map(Number);
+  const startMinutes = h * 60 + m; // aquí "00:00" es el inicio del día
+  const endMinutes = timeToMinutes(fin); // y aquí "00:00" es medianoche (1440)
+
+  if (endMinutes <= startMinutes) {
+    return { ok: false, error: "La hora de fin debe ser posterior a la de inicio." };
+  }
+  if (motivo.length > 200) return { ok: false, error: "El motivo no puede superar 200 caracteres." };
+
+  return {
+    ok: true,
+    data: {
+      fecha,
+      hora_inicio: inicio,
+      hora_fin: endMinutes >= 24 * 60 ? "24:00" : fin,
+      motivo: motivo || null,
+    },
+  };
+}

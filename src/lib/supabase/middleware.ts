@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isAuthorizedAdmin } from "@/lib/admin-allowlist";
 
 export async function updateSession(request: NextRequest) {
   // Verificamos que las variables existan para no crashear en build o si faltan
@@ -45,15 +46,20 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute = request.nextUrl.pathname.startsWith("/admin/login");
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
 
-  // Si trata de entrar a un panel protegido y NO está logueado
-  if (isAdminRoute && !isAuthRoute && !user) {
+  // Tener sesión no basta: la cuenta debe estar en la lista privada de
+  // administradores. Solo se consulta en rutas del panel.
+  const isAdmin = isAdminRoute ? await isAuthorizedAdmin(supabase, user) : false;
+
+  // Si trata de entrar a un panel protegido sin ser administrador
+  if (isAdminRoute && !isAuthRoute && !isAdmin) {
     const url = request.nextUrl.clone();
     url.pathname = "/admin/login";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 
-  // Si trata de entrar al login y YA está logueado
-  if (isAuthRoute && user) {
+  // Si trata de entrar al login y YA es administrador
+  if (isAuthRoute && isAdmin) {
     const url = request.nextUrl.clone();
     url.pathname = "/admin/dashboard";
     return NextResponse.redirect(url);

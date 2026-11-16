@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getAdminSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { createAuditLog } from "@/lib/audit";
@@ -57,10 +58,8 @@ export async function getVisualsImages(): Promise<VisualImage[]> {
  * (incluyendo inactivas, pero no borradas lógicamente)
  */
 export async function getAdminVisualsImages(): Promise<VisualImage[]> {
-  const supabase = await createClient();
-
-  // Verificamos si el usuario es admin
-  const { data: { user } } = await supabase.auth.getUser();
+  // Sesión válida + lista privada de administradores
+  const { supabase, user } = await getAdminSession();
   if (!user) {
     throw new Error("No autenticado");
   }
@@ -84,9 +83,7 @@ export async function getAdminVisualsImages(): Promise<VisualImage[]> {
  * Obtener una imagen específica (para edición)
  */
 export async function getVisualsImageById(id: string): Promise<VisualImage | null> {
-  const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await getAdminSession();
   if (!user) {
     throw new Error("No autenticado");
   }
@@ -155,8 +152,7 @@ async function uploadToStorage(file: File): Promise<string> {
  */
 export async function createVisualsImage(formData: FormData): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { supabase, user } = await getAdminSession();
     
     if (!user) {
       return { success: false, error: "No autorizado" };
@@ -225,8 +221,7 @@ export async function createVisualsImage(formData: FormData): Promise<{ success:
  */
 export async function createVisualsImages(formData: FormData): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { supabase, user } = await getAdminSession();
     
     if (!user) {
       return { success: false, error: "No autorizado" };
@@ -396,8 +391,7 @@ export async function createVisualsImages(formData: FormData): Promise<{ success
  */
 export async function updateVisualsImage(id: string, formData: FormData): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { supabase, user } = await getAdminSession();
     
     if (!user) {
       return { success: false, error: "No autorizado" };
@@ -468,8 +462,7 @@ export async function updateVisualsImage(id: string, formData: FormData): Promis
  */
 export async function toggleVisualsImageActive(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { supabase, user } = await getAdminSession();
     
     if (!user) {
       return { success: false, error: "No autorizado" };
@@ -518,8 +511,7 @@ export async function toggleVisualsImageActive(id: string): Promise<{ success: b
  */
 export async function deleteVisualsImage(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { supabase, user } = await getAdminSession();
     
     if (!user) {
       return { success: false, error: "No autorizado" };

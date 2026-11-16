@@ -1,43 +1,28 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAdminSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAuditLog } from "@/lib/audit";
-import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 const BUCKET_NAME = "galeria";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+/** La extensión se deriva del tipo validado, nunca del nombre que envía el navegador. */
+const EXTENSION_BY_TYPE: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
 
-// Reutilizamos el mismo helper que en servicios
-async function ensureAdminExists(supabase: SupabaseClient, user: User) {
-  const { data: admin } = await supabase
-    .from("administrador")
-    .select("id")
-    .eq("id", user.id)
-    .single();
-
-  if (!admin) {
-    await supabase.from("administrador").insert([
-      {
-        id: user.id,
-        email: user.email,
-        nombre: "Admin",
-      },
-    ]);
-  }
-}
+// Nota de seguridad: aquí existía `ensureAdminExists`, que insertaba en
+// `administrador` a cualquier usuario autenticado. Se eliminó: la lista de
+// administradores es privada y solo se gestiona desde Supabase (migración 023).
 
 export async function uploadImageAction(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { supabase, user } = await getAdminSession();
   if (!user) return { error: "No autorizado" };
-
-  await ensureAdminExists(supabase, user);
 
   const file = formData.get("archivo") as File;
   const titulo = formData.get("titulo") as string;
@@ -63,7 +48,7 @@ export async function uploadImageAction(formData: FormData) {
   }
 
   // Generar nombre único para evitar colisiones
-  const extension = file.name.split(".").pop() || "jpg";
+  const extension = EXTENSION_BY_TYPE[file.type] ?? "jpg";
   const uniqueName = `${Date.now()}-${crypto.randomUUID()}.${extension}`;
 
   // Convertir File a ArrayBuffer (más fiable en Server Actions de Next.js)
@@ -121,11 +106,7 @@ export async function uploadImageAction(formData: FormData) {
 }
 
 export async function updateImageAction(id: string, formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { supabase, user } = await getAdminSession();
   if (!user) return { error: "No autorizado" };
 
   const titulo = formData.get("titulo") as string;
@@ -155,11 +136,7 @@ export async function updateImageAction(id: string, formData: FormData) {
 }
 
 export async function deleteImageAction(id: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { supabase, user } = await getAdminSession();
   if (!user) return { error: "No autorizado" };
 
   // Obtener la URL de la imagen para saber qué archivo borrar del Storage

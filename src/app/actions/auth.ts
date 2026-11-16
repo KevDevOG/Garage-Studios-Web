@@ -1,25 +1,36 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { isAuthorizedAdmin } from "@/lib/admin-allowlist";
 import { redirect } from "next/navigation";
 
-export async function loginAction(formData: FormData) {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+const LOGIN_ERROR = "Credenciales incorrectas o usuario no encontrado";
 
-  if (!email || !password) {
+export async function loginAction(formData: FormData) {
+  const email = formData.get("email");
+  const password = formData.get("password");
+
+  if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
     return { error: "El email y la contraseña son obligatorios" };
   }
 
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
   if (error) {
-    return { error: "Credenciales incorrectas o usuario no encontrado" };
+    return { error: LOGIN_ERROR };
+  }
+
+  // Una cuenta válida de Supabase Auth que no está en la lista privada de
+  // administradores no entra al panel: se cierra su sesión y se responde con
+  // el mismo mensaje genérico (no revela qué cuentas existen).
+  if (!(await isAuthorizedAdmin(supabase, data.user))) {
+    await supabase.auth.signOut();
+    return { error: LOGIN_ERROR };
   }
 
   // Redirigir al dashboard tras un login exitoso
@@ -29,7 +40,7 @@ export async function loginAction(formData: FormData) {
 export async function logoutAction() {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  
+
   // Redirigir al login
   redirect("/admin/login");
 }

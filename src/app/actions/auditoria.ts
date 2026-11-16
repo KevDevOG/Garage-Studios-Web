@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAdminSession } from "@/lib/auth";
 import { buildIlikePattern, buildOrIlike } from "@/lib/search";
 import { getZonedParts, monthRange, todayInStudio } from "@/lib/dates";
 
@@ -46,8 +46,7 @@ function addDays(isoDate: string, days: number): string {
 }
 
 export async function getAuditLogs(filters: AuditLogFilters = {}): Promise<AuditLogRow[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await getAdminSession();
   if (!user) throw new Error("No autorizado");
 
   let query = supabase.from("audit_log").select("*");

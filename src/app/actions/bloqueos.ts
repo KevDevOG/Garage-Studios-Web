@@ -1,6 +1,8 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAdminSession } from "@/lib/auth";
+import { isUuid, validateBlockInput } from "@/lib/reservation-rules";
+import { isValidIsoDate } from "@/lib/dates";
 import { revalidatePath } from "next/cache";
 
 export async function createBloqueo(data: {
@@ -9,18 +11,14 @@ export async function createBloqueo(data: {
   hora_fin: string;
   motivo?: string;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await getAdminSession();
   if (!user) throw new Error("No autorizado");
 
-  const { error } = await supabase.from("bloqueo_horario").insert([
-    {
-      fecha: data.fecha,
-      hora_inicio: data.hora_inicio,
-      hora_fin: data.hora_fin,
-      motivo: data.motivo || null,
-    },
-  ]);
+  // Validación de servidor: el navegador puede enviar cualquier cosa.
+  const parsed = validateBlockInput(data);
+  if (!parsed.ok) throw new Error(parsed.error);
+
+  const { error } = await supabase.from("bloqueo_horario").insert([parsed.data]);
 
   if (error) {
     console.error("Error creating bloqueo:", {
@@ -32,17 +30,14 @@ export async function createBloqueo(data: {
     throw new Error("No se pudo crear el bloqueo.");
   }
 
-  // Auditoría (esto asume que existe una tabla audit_log o similar, si no, lo ignoramos por ahora)
-  // await createAuditLog("crear", "bloqueo", { fecha: data.fecha, horas: `${data.hora_inicio}-${data.hora_fin}` });
-
   revalidatePath("/admin/calendario");
   revalidatePath("/reservas"); // Revalidar para que afecte a la disponibilidad pública
 }
 
 export async function deleteBloqueo(id: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await getAdminSession();
   if (!user) throw new Error("No autorizado");
+  if (!isUuid(id)) throw new Error("Bloqueo no válido.");
 
   const { error } = await supabase
     .from("bloqueo_horario")
@@ -59,7 +54,9 @@ export async function deleteBloqueo(id: string) {
 }
 
 export async function getBloqueos(startDate: string, endDate: string) {
-  const supabase = await createClient();
+  const { supabase, user } = await getAdminSession();
+  if (!user || !isValidIsoDate(startDate) || !isValidIsoDate(endDate)) return [];
+
   const { data, error } = await supabase
     .from("bloqueo_horario")
     .select("*")

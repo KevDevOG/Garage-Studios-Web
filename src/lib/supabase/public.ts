@@ -13,6 +13,10 @@
 // página con `revalidate` ese flag la convertiría en dinámica y la rompería
 // durante el prerender ("Dynamic server usage").
 
+// Este módulo lee SUPABASE_SERVICE_ROLE_KEY: importarlo desde un componente
+// cliente debe romper el build, no filtrar la clave (Next.js resuelve
+// `server-only` internamente; no requiere dependencia).
+import "server-only";
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
 
 interface PublicClientOptions {

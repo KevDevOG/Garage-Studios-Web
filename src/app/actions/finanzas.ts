@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getAdminSession, isAuthorizedAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
@@ -133,9 +134,10 @@ async function fetchFinanceData(
   };
 }
 
+/** Sesión válida + pertenencia a la lista privada de administradores. */
 async function requireUser(supabase: SupabaseServerClient) {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autorizado");
+  if (!user || !(await isAuthorizedAdmin(supabase, user))) throw new Error("No autorizado");
   return user;
 }
 
@@ -330,8 +332,7 @@ function parseMovementForm(
 // ── Escritura ─────────────────────────────────────────────────
 
 export async function createFinanceMovement(formData: FormData): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await getAdminSession();
   if (!user) return actionError("No autorizado");
 
   const parsed = parseMovementForm(formData);
@@ -358,8 +359,7 @@ export async function createFinanceMovement(formData: FormData): Promise<ActionR
 }
 
 export async function updateFinanceMovement(id: string, formData: FormData): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await getAdminSession();
   if (!user) return actionError("No autorizado");
 
   if (!UUID_RE.test(id)) return actionError("Movimiento no válido.");
@@ -397,8 +397,7 @@ export async function updateFinanceMovement(id: string, formData: FormData): Pro
 }
 
 export async function deleteFinanceMovement(id: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await getAdminSession();
   if (!user) return actionError("No autorizado");
 
   if (!UUID_RE.test(id)) return actionError("Movimiento no válido.");
@@ -431,8 +430,7 @@ export async function deleteFinanceMovement(id: string): Promise<ActionResult> {
 }
 
 export async function checkFinanceMovementExistsForReservation(reserva_id: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await getAdminSession();
   if (!user) return false;
 
   const { data, error } = await supabase
@@ -614,8 +612,7 @@ export async function getFinanceYearOverview(year: number) {
  * Obtiene los ingresos reales del mes actual
  */
 export async function getMonthlyRevenue() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await getAdminSession();
   if (!user) return 0;
 
   const { year, month } = getZonedParts();

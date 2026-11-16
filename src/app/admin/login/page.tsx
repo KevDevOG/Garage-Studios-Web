@@ -41,7 +41,8 @@ export default function AdminLoginPage() {
               name="email"
               type="email"
               required
-              placeholder="admin@garagestudios.es"
+              autoComplete="username"
+              placeholder="correo@ejemplo.com"
             />
           </div>
 
@@ -56,6 +57,7 @@ export default function AdminLoginPage() {
               id="password"
               name="password"
               type="password"
+              autoComplete="current-password"
               required
               placeholder="••••••••"
             />

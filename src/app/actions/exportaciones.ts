@@ -1,6 +1,7 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import type { createClient } from "@/lib/supabase/server";
+import { getAdminSession } from "@/lib/auth";
 import ExcelJS from "exceljs";
 import { createAuditLog } from "@/lib/audit";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
@@ -211,8 +212,7 @@ async function fetchAll(
 export async function exportToExcel(
   type: ExportType
 ): Promise<ActionResult<{ buffer: string; filename: string }>> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await getAdminSession();
   if (!user) return actionError("No autorizado");
 
   if (typeof type !== "string" || !EXPORT_TYPES.includes(type)) {
