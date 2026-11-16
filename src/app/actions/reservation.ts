@@ -53,7 +53,7 @@ export async function submitReservationAction(raw: ReservationData): Promise<Act
     return actionError(turnstileResult.error || "Verificación anti-bot fallida.");
   }
 
-  const supabase = createPublicClient();
+  const supabase = createPublicClient({ fresh: true });
   if (!supabase) {
     console.error("[Reservation] Supabase no configurado");
     return actionError(GENERIC_ERROR);

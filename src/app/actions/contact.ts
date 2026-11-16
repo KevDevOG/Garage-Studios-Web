@@ -40,7 +40,7 @@ export async function submitContactAction(raw: ContactData): Promise<ActionResul
     return actionError(turnstileResult.error || "Verificación anti-bot fallida.");
   }
 
-  const supabase = createPublicClient();
+  const supabase = createPublicClient({ fresh: true });
   if (!supabase) {
     console.error("[Contact] Supabase no configurado");
     return actionError("No se pudo enviar el mensaje. Inténtalo más tarde o escríbenos por WhatsApp.");

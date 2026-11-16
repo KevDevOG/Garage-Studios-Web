@@ -7,28 +7,38 @@
 // Las dos factorías devuelven `null` si faltan variables de entorno, para
 // que un build sin credenciales no falle: quien las use debe tratar `null`
 // como "sin datos".
+//
+// `fresh: true` fuerza `cache: "no-store"` en las peticiones. SOLO para
+// Server Actions y Route Handlers (disponibilidad, inserciones, .ics): en una
+// página con `revalidate` ese flag la convertiría en dinámica y la rompería
+// durante el prerender ("Dynamic server usage").
 
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
+
+interface PublicClientOptions {
+  /** Desactiva cualquier caché de fetch. Nunca en páginas estáticas. */
+  fresh?: boolean;
+}
 
 function noStoreFetch(input: RequestInfo | URL, init?: RequestInit) {
   return fetch(input, { ...init, cache: "no-store" });
 }
 
-function buildClient(key: string | undefined): SupabaseClient | null {
+function buildClient(key: string | undefined, options: PublicClientOptions): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!url || !key) return null;
   return createSupabaseClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: { fetch: noStoreFetch },
+    global: options.fresh ? { fetch: noStoreFetch } : undefined,
   });
 }
 
 /**
  * Cliente anónimo (rol `anon`, sujeto a RLS). Úsalo para lecturas públicas
- * y para las inserciones del formulario público.
+ * y, con `fresh: true`, para las acciones del formulario público.
  */
-export function createPublicClient(): SupabaseClient | null {
-  return buildClient(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+export function createPublicClient(options: PublicClientOptions = {}): SupabaseClient | null {
+  return buildClient(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, options);
 }
 
 /**
@@ -37,6 +47,6 @@ export function createPublicClient(): SupabaseClient | null {
  * reserva por su token de calendario). Devuelve `null` si la clave no está
  * configurada; el código debe tener siempre un camino alternativo.
  */
-export function createServiceClient(): SupabaseClient | null {
-  return buildClient(process.env.SUPABASE_SERVICE_ROLE_KEY);
+export function createServiceClient(options: PublicClientOptions = { fresh: true }): SupabaseClient | null {
+  return buildClient(process.env.SUPABASE_SERVICE_ROLE_KEY, options);
 }

@@ -41,7 +41,7 @@ async function findReservation(token: string): Promise<CalendarReservation | nul
     };
   }
 
-  const publicClient = createPublicClient();
+  const publicClient = createPublicClient({ fresh: true });
   if (!publicClient) return null;
 
   const { data, error } = await publicClient.rpc("get_reserva_by_calendar_token", { p_token: token });

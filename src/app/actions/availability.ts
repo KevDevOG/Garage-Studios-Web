@@ -28,7 +28,7 @@ interface OccupiedInterval {
  * que puede ejecutarla el rol anónimo.
  */
 async function fetchOccupiedSlots(fecha: string): Promise<OccupiedInterval[]> {
-  const supabase = createServiceClient() ?? createPublicClient();
+  const supabase = createServiceClient({ fresh: true }) ?? createPublicClient({ fresh: true });
   if (!supabase) return [];
 
   const { data, error } = await supabase.rpc("get_occupied_slots", { p_fecha: fecha });
@@ -61,7 +61,7 @@ export async function getAvailableSlots(
     return { slots: [], duracion: 0, mensaje: "Datos de consulta no válidos." };
   }
 
-  const supabase = createPublicClient();
+  const supabase = createPublicClient({ fresh: true });
   if (!supabase) {
     return { slots: [], duracion: 0, mensaje: "El servicio de reservas no está disponible ahora mismo." };
   }
