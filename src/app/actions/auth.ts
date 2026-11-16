@@ -29,7 +29,9 @@ export async function loginAction(formData: FormData) {
   // administradores no entra al panel: se cierra su sesión y se responde con
   // el mismo mensaje genérico (no revela qué cuentas existen).
   if (!(await isAuthorizedAdmin(supabase, data.user))) {
-    await supabase.auth.signOut();
+    // scope local: si la comprobación falla por un error transitorio, no se
+    // cierran las sesiones del administrador en otros dispositivos.
+    await supabase.auth.signOut({ scope: "local" });
     return { error: LOGIN_ERROR };
   }
 

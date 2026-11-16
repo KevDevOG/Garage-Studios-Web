@@ -219,19 +219,27 @@ export default function VisualsGalleryCarousel({
 
           {/* Indicadores en forma de puntos (opcional, muy premium) */}
           {images.length > 1 && (
-            <div className="mt-4 flex justify-center gap-1.5 md:hidden">
+            <div className="mt-3 flex justify-center md:hidden">
+              {/* El punto visible no cambia; el botón da una zona táctil de 24×24 px */}
               {images.map((_, index) => (
                 <button
                   key={index}
+                  type="button"
                   onClick={() => {
                     setActiveIndex(index);
                     scrollToIndex(index);
                   }}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    index === activeIndex ? "w-4 bg-accent" : "w-1.5 bg-gray-300"
-                  }`}
+                  className="flex h-6 min-w-6 items-center justify-center"
                   aria-label={`Ir a imagen ${index + 1}`}
-                />
+                  aria-current={index === activeIndex ? "true" : undefined}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`block h-1.5 rounded-full transition-all duration-300 ${
+                      index === activeIndex ? "w-4 bg-accent" : "w-1.5 bg-gray-300"
+                    }`}
+                  />
+                </button>
               ))}
             </div>
           )}

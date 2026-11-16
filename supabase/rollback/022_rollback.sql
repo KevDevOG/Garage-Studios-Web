@@ -22,6 +22,9 @@ BEGIN;
 -- 5. Trigger de solapamientos
 DROP TRIGGER IF EXISTS trg_reserva_check_agenda_overlap ON public.reserva;
 DROP FUNCTION IF EXISTS public.reserva_check_agenda_overlap();
+DROP TRIGGER IF EXISTS trg_bloqueo_agenda_lock ON public.bloqueo_horario;
+DROP TRIGGER IF EXISTS trg_reserva_bloque_agenda_lock ON public.reserva_bloque;
+DROP FUNCTION IF EXISTS public.agenda_lock_fecha();
 
 -- 4. Funciones
 DROP FUNCTION IF EXISTS public.get_reserva_by_calendar_token(UUID);

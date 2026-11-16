@@ -91,7 +91,9 @@ export default function Navbar() {
         </div>
 
         {/* Desktop links */}
-        <div className="hidden items-center gap-6 md:flex">
+        {/* Desde 1024 px. Entre 768 y 1023 px no cabía: desbordaba 12 px, los
+            enlaces se montaban sobre el botón Visuals y el logo quedaba en 1 px. */}
+        <div className="hidden items-center gap-6 lg:flex">
           {links.map((link) => (
             <Link
               key={link.href}
@@ -119,7 +121,7 @@ export default function Navbar() {
           ref={toggleRef}
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
-          className="flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-lg md:hidden"
+          className="flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-lg lg:hidden"
           aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
           aria-expanded={menuOpen}
           aria-controls={menuId}
@@ -134,7 +136,7 @@ export default function Navbar() {
       <div
         id={menuId}
         hidden={!menuOpen}
-        className="border-t border-card-border px-4 pb-4 md:hidden"
+        className="border-t border-card-border px-4 pb-4 lg:hidden"
       >
         <nav aria-label="Principal móvil" className="flex flex-col">
           {links.map((link) => (

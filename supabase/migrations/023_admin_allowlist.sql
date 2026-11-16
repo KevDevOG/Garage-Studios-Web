@@ -194,6 +194,37 @@ BEGIN
   LOOP
     RAISE EXCEPTION '023: la política %.%."%" no exige is_admin()', r.schemaname, r.tablename, r.policyname;
   END LOOP;
+
+  -- Ninguna política de ESCRITURA en Storage (para cualquier rol) sin is_admin()
+  FOR r IN
+    SELECT policyname FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND cmd IN ('INSERT','UPDATE','DELETE','ALL')
+      AND coalesce(qual, '') NOT ILIKE '%is_admin()%'
+      AND coalesce(with_check, '') NOT ILIKE '%is_admin()%'
+  LOOP
+    RAISE EXCEPTION '023: la política de escritura storage.objects."%" no exige is_admin()', r.policyname;
+  END LOOP;
+
+  -- Ninguna política de anon/public en public salvo lectura o las INSERT públicas conocidas
+  FOR r IN
+    SELECT tablename, policyname, cmd FROM pg_policies
+    WHERE schemaname = 'public'
+      AND (roles && ARRAY['anon','public']::name[])
+      AND NOT (cmd = 'SELECT'
+               OR (cmd = 'INSERT' AND tablename IN ('reserva','cliente','contacto')))
+  LOOP
+    RAISE EXCEPTION '023: política inesperada para anon/public: %."%" (%)', r.tablename, r.policyname, r.cmd;
+  END LOOP;
+
+  -- Toda tabla de public con RLS activado
+  FOR r IN
+    SELECT c.relname FROM pg_class c
+    WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r','p')
+      AND NOT c.relrowsecurity
+  LOOP
+    RAISE EXCEPTION '023: la tabla public.% no tiene RLS activado', r.relname;
+  END LOOP;
 END $$;
 
 COMMIT;

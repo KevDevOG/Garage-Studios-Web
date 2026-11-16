@@ -20,6 +20,11 @@ y qué queda pendiente de decisión del propietario.
 
 ## Pendiente de decisión del propietario (no aplicado)
 
+> **Actualización 16-nov-2026:** los puntos 1–4 se cerraron en código en
+> `docs/cierre-pendientes-v1.md` (lista privada de administradores, migración 023,
+> 022 revisada con pruebas y rollback en `docs/migraciones-022-023.md`, plan de medios).
+> Se midió que el registro de Auth está **abierto**.
+
 1. **Aplicar `supabase/migrations/022_hardening_reservas_rls.sql`** en staging y luego en producción. Corrige: políticas anon `WITH CHECK (true)` (hoy cualquiera con la anon key puede insertar reservas "pagadas" o con horas nulas que bloquean la agenda), audit_log inmutable, FKs sin borrado en cascada de reservas, RPC para el `.ics`, índices.
 2. **Comprobar en Supabase Auth que el registro de usuarios está desactivado.** Cualquier usuario autenticado es administrador (`TO authenticated`).
 3. **Confirmar `SUPABASE_SERVICE_ROLE_KEY` en Vercel** (no se pudo verificar). Sin ella, el enlace `.ics` de los emails solo funcionará tras aplicar la migración 022.

@@ -182,6 +182,9 @@ CREATE POLICY "cliente_public_insert" ON public.cliente
     AND ultima_reserva_at IS NULL
     AND coalesce(array_length(etiquetas, 1), 0) = 0
     AND length(nombre) BETWEEN 2 AND 200
+    AND length(coalesce(email, '')) <= 254
+    AND length(coalesce(telefono, '')) <= 40
+    AND length(coalesce(instagram, '')) <= 100
   );
 
 -- La política de 019 (request.method = 'POST') permitía a cualquier POST anon
@@ -344,11 +347,19 @@ BEGIN
   v_inicio := NEW.fecha_reserva + NEW.hora_inicio;
   v_fin := NEW.fecha_reserva + NEW.hora_fin;
 
+  -- Serializa por fecha con los triggers de bloqueo_horario y reserva_bloque:
+  -- si un bloqueo se está guardando a la vez, esta comprobación espera a que
+  -- termine y lo ve (READ COMMITTED toma una instantánea nueva por consulta).
+  PERFORM pg_advisory_xact_lock(hashtextextended('agenda:' || NEW.fecha_reserva::text, 0));
+
+  -- Comparación de extremos (no tsrange): una fila histórica con horas
+  -- invertidas no debe hacer fallar todas las reservas de ese día.
   IF EXISTS (
     SELECT 1 FROM public.bloqueo_horario bh
     WHERE bh.fecha = NEW.fecha_reserva
       AND bh.deleted_at IS NULL
-      AND tsrange(bh.fecha + bh.hora_inicio, bh.fecha + bh.hora_fin) && tsrange(v_inicio, v_fin)
+      AND bh.fecha + bh.hora_inicio < v_fin
+      AND bh.fecha + bh.hora_fin > v_inicio
   ) THEN
     RAISE EXCEPTION 'reserva_no_overlap: el horario coincide con un bloqueo de agenda'
       USING ERRCODE = 'exclusion_violation';
@@ -362,7 +373,8 @@ BEGIN
       AND rb.estado IN ('pendiente','confirmada')
       AND r.estado IN ('pendiente','confirmada')
       AND r.deleted_at IS NULL
-      AND tsrange(rb.fecha + rb.hora_inicio, rb.fecha + rb.hora_fin) && tsrange(v_inicio, v_fin)
+      AND rb.fecha + rb.hora_inicio < v_fin
+      AND rb.fecha + rb.hora_fin > v_inicio
   ) THEN
     RAISE EXCEPTION 'reserva_no_overlap: el horario coincide con una sesión de un pack'
       USING ERRCODE = 'exclusion_violation';
@@ -378,6 +390,32 @@ DROP TRIGGER IF EXISTS trg_reserva_check_agenda_overlap ON public.reserva;
 CREATE TRIGGER trg_reserva_check_agenda_overlap
   BEFORE INSERT OR UPDATE OF fecha_reserva, hora_inicio, hora_fin ON public.reserva
   FOR EACH ROW EXECUTE FUNCTION public.reserva_check_agenda_overlap();
+
+-- Bloqueos y sesiones de pack toman el mismo lock por fecha. No rechazan
+-- nada: el panel puede bloquear a propósito sobre una reserva existente.
+-- Solo cierran la carrera "reserva y bloqueo guardados en el mismo instante".
+CREATE OR REPLACE FUNCTION public.agenda_lock_fecha()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('agenda:' || NEW.fecha::text, 0));
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.agenda_lock_fecha() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_bloqueo_agenda_lock ON public.bloqueo_horario;
+CREATE TRIGGER trg_bloqueo_agenda_lock
+  BEFORE INSERT OR UPDATE OF fecha, hora_inicio, hora_fin, deleted_at ON public.bloqueo_horario
+  FOR EACH ROW EXECUTE FUNCTION public.agenda_lock_fecha();
+
+DROP TRIGGER IF EXISTS trg_reserva_bloque_agenda_lock ON public.reserva_bloque;
+CREATE TRIGGER trg_reserva_bloque_agenda_lock
+  BEFORE INSERT OR UPDATE OF fecha, hora_inicio, hora_fin, estado ON public.reserva_bloque
+  FOR EACH ROW EXECUTE FUNCTION public.agenda_lock_fecha();
 
 -- ─────────────────────────────────────────────────────────────
 -- 6. ÍNDICES (FKs sin cubrir y consultas de disponibilidad)
