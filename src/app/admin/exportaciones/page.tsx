@@ -3,10 +3,10 @@
 import { useState } from "react";
 import AdminNav from "@/components/admin/AdminNav";
 import { Download, FileSpreadsheet, Users, Wallet, MessageSquare, Tag, Loader2 } from "lucide-react";
-import { exportToExcel } from "@/app/actions/exportaciones";
+import { exportToExcel, type ExportType } from "@/app/actions/exportaciones";
 import { toast } from "sonner";
 
-const EXPORT_CARDS = [
+const EXPORT_CARDS: { id: ExportType; label: string; icon: typeof Users; color: string; desc: string }[] = [
   { id: "reservas", label: "Reservas", icon: FileSpreadsheet, color: "text-blue-400", desc: "Historial completo de citas, estados y cobros." },
   { id: "clientes", label: "Clientes", icon: Users, color: "text-purple-400", desc: "Base de datos de clientes, etiquetas y métricas comerciales." },
   { id: "finanzas", label: "Finanzas", icon: Wallet, color: "text-green-400", desc: "Movimientos de ingresos, gastos y categorías." },
@@ -17,13 +17,21 @@ const EXPORT_CARDS = [
 export default function ExportacionesPage() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
-  const handleExport = async (type: any) => {
+  const handleExport = async (type: ExportType) => {
     setLoadingId(type);
     try {
       const result = await exportToExcel(type);
-      
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      if (!result.data) {
+        toast.error("La exportación no devolvió ningún archivo");
+        return;
+      }
+
       // Descargar el archivo
-      const byteCharacters = atob(result.buffer);
+      const byteCharacters = atob(result.data.buffer);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
         byteNumbers[i] = byteCharacters.charCodeAt(i);
@@ -34,7 +42,7 @@ export default function ExportacionesPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = result.filename;
+      a.download = result.data.filename;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);

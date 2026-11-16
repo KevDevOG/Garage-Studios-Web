@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ClienteRow, ClientesMetrics, TopClienteRanking, ClienteEvolution } from "@/app/actions/clientes";
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
+import { getZonedParts } from "@/lib/dates";
 import StatusBadge from "@/components/admin/StatusBadge";
 
 interface ClientesClientProps {
@@ -16,6 +17,7 @@ interface ClientesClientProps {
   topByReservations: TopClienteRanking[];
   clientes: ClienteRow[];
   evolution?: ClienteEvolution[];
+  initialQuery?: string;
 }
 
 export default function ClientesClient({ 
@@ -26,16 +28,43 @@ export default function ClientesClient({
   topByRevenue, 
   topByReservations, 
   clientes,
-  evolution = []
+  evolution = [],
+  initialQuery = ""
 }: ClientesClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [filterType, setFilterType] = useState<"todos" | "recurrentes" | "nuevos">("todos");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialQuery);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tagFilter, setTagFilter] = useState<string>("");
 
   // Obtener todas las etiquetas únicas presentes en el listado para el selector
   const allAvailableTags = Array.from(new Set(clientes.flatMap(c => c.etiquetas || []))).sort();
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  const buildQParam = (term: string) => (term.trim() ? `&q=${encodeURIComponent(term.trim())}` : "");
+  const qParam = buildQParam(searchTerm);
+
+  const goTo = (href: string) => {
+    startTransition(() => {
+      router.push(href);
+    });
+  };
+
+  // Busqueda con debounce de 300 ms: actualiza ?q= conservando periodo y vista.
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const monthPart = view === "monthly" ? `&month=${month}` : "";
+      goTo(`/admin/clientes?view=${view}&year=${year}${monthPart}${buildQParam(value)}`);
+    }, 300);
+  };
 
   const handlePeriodChange = (delta: number) => {
     if (view === "monthly") {
@@ -43,15 +72,15 @@ export default function ClientesClient({
       let newYear = year;
       if (newMonth > 12) { newMonth = 1; newYear++; }
       else if (newMonth < 1) { newMonth = 12; newYear--; }
-      router.push(`/admin/clientes?view=monthly&month=${newMonth}&year=${newYear}${searchTerm ? `&q=${searchTerm}` : ""}`);
+      goTo(`/admin/clientes?view=monthly&month=${newMonth}&year=${newYear}${qParam}`);
     } else {
       const newYear = year + delta;
-      router.push(`/admin/clientes?view=yearly&year=${newYear}${searchTerm ? `&q=${searchTerm}` : ""}`);
+      goTo(`/admin/clientes?view=yearly&year=${newYear}${qParam}`);
     }
   };
 
   const toggleView = (newView: "monthly" | "yearly") => {
-    router.push(`/admin/clientes?view=${newView}&year=${year}${newView === 'monthly' ? `&month=${month}` : ""}${searchTerm ? `&q=${searchTerm}` : ""}`);
+    goTo(`/admin/clientes?view=${newView}&year=${year}${newView === 'monthly' ? `&month=${month}` : ""}${qParam}`);
   };
 
   const formatCurrency = (value: number) => 
@@ -65,26 +94,26 @@ export default function ClientesClient({
     { val: 10, name: "Octubre" }, { val: 11, name: "Noviembre" }, { val: 12, name: "Diciembre" }
   ];
 
-  const currentYear = new Date().getFullYear();
+  const currentYear = getZonedParts().year;
   const YEARS = Array.from({ length: (currentYear + 1) - 2025 + 1 }, (_, i) => 2025 + i);
 
   const handleMonthSelect = (m: string) => {
-    router.push(`/admin/clientes?view=monthly&month=${m}&year=${year}${searchTerm ? `&q=${searchTerm}` : ""}`);
+    goTo(`/admin/clientes?view=monthly&month=${m}&year=${year}${qParam}`);
   };
 
   const handleYearSelect = (y: string) => {
-    router.push(`/admin/clientes?view=${view}&year=${y}${view === 'monthly' ? `&month=${month}` : ""}${searchTerm ? `&q=${searchTerm}` : ""}`);
+    goTo(`/admin/clientes?view=${view}&year=${y}${view === 'monthly' ? `&month=${month}` : ""}${qParam}`);
   };
 
   const filteredList = clientes.filter(c => {
     if (filterType === "recurrentes" && c.total_reservas <= 1) return false;
     if (filterType === "nuevos") {
-      const created = new Date(c.created_at);
-      if (view === "monthly") {
-        return created.getMonth() + 1 === month && created.getFullYear() === year;
-      } else {
-        return created.getFullYear() === year;
-      }
+      const created = getZonedParts(new Date(c.created_at));
+      const inPeriod =
+        view === "monthly"
+          ? created.month === month && created.year === year
+          : created.year === year;
+      if (!inPeriod) return false;
     }
     if (tagFilter && !(c.etiquetas || []).includes(tagFilter)) return false;
     return true;
@@ -94,20 +123,20 @@ export default function ClientesClient({
   const maxReservations = Math.max(...topByReservations.map(c => c.reservas), 1);
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in" aria-busy={isPending}>
       
       {/* Header & Controls */}
       <div className="flex flex-col lg:flex-row justify-between items-center gap-6 bg-card-bg p-6 rounded-2xl border border-card-border shadow-xl">
         <div className="flex flex-col sm:flex-row items-center gap-6 w-full lg:w-auto">
           {/* Selector de Periodo */}
           <div className="flex items-center gap-3 bg-white/5 p-1.5 rounded-xl border border-white/5">
-            <button onClick={() => handlePeriodChange(-1)} className="p-2 hover:bg-white/10 rounded-lg transition-all text-muted hover:text-white">
+            <button type="button" aria-label={view === "monthly" ? "Mes anterior" : "Año anterior"} onClick={() => handlePeriodChange(-1)} className="p-2 hover:bg-white/10 rounded-lg transition-all text-muted hover:text-white">
               <ChevronLeft className="w-4 h-4" />
             </button>
             
             <div className="flex gap-2 items-center">
               {view === "monthly" && (
-                <select 
+                <select aria-label="Mes" 
                   value={month}
                   onChange={(e) => handleMonthSelect(e.target.value)}
                   className="bg-transparent text-sm font-bold text-white focus:outline-none cursor-pointer hover:text-accent transition-colors appearance-none text-center px-2"
@@ -118,7 +147,7 @@ export default function ClientesClient({
                 </select>
               )}
               
-              <select 
+              <select aria-label="Año" 
                 value={year}
                 onChange={(e) => handleYearSelect(e.target.value)}
                 className="bg-transparent text-sm font-bold text-white focus:outline-none cursor-pointer hover:text-accent transition-colors appearance-none text-center px-2"
@@ -129,7 +158,7 @@ export default function ClientesClient({
               </select>
             </div>
 
-            <button onClick={() => handlePeriodChange(1)} className="p-2 hover:bg-white/10 rounded-lg transition-all text-muted hover:text-white">
+            <button type="button" aria-label={view === "monthly" ? "Mes siguiente" : "Año siguiente"} onClick={() => handlePeriodChange(1)} className="p-2 hover:bg-white/10 rounded-lg transition-all text-muted hover:text-white">
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -198,7 +227,7 @@ export default function ClientesClient({
                       <Link href={`/admin/clientes/${c.id}`} className="text-sm font-bold text-white hover:text-accent transition-colors flex items-center gap-2">
                         {c.nombre}
                         {c.es_recurrente && (
-                          <span className="text-[8px] bg-accent/10 text-accent border border-accent/20 px-1.5 py-0.5 rounded font-black flex items-center gap-1">
+                          <span className="text-[10px] bg-accent/10 text-accent border border-accent/20 px-1.5 py-0.5 rounded font-black flex items-center gap-1">
                             <RefreshCw className="w-2 h-2" /> RECURRENTE
                           </span>
                         )}
@@ -238,7 +267,7 @@ export default function ClientesClient({
                       <Link href={`/admin/clientes/${c.id}`} className="text-sm font-bold text-white hover:text-accent transition-colors flex items-center gap-2">
                         {c.nombre}
                         {c.es_recurrente && (
-                          <span className="text-[8px] bg-accent/10 text-accent border border-accent/20 px-1.5 py-0.5 rounded font-black flex items-center gap-1">
+                          <span className="text-[10px] bg-accent/10 text-accent border border-accent/20 px-1.5 py-0.5 rounded font-black flex items-center gap-1">
                             <RefreshCw className="w-2 h-2" /> RECURRENTE
                           </span>
                         )}
@@ -360,6 +389,23 @@ export default function ClientesClient({
             </div>
           </div>
 
+          <div className="w-full sm:w-64">
+            <label htmlFor="clientes-search" className="sr-only">Buscar clientes</label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" aria-hidden="true" />
+              <input
+                id="clientes-search"
+                type="search"
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Buscar por nombre, email o teléfono"
+                maxLength={80}
+                className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-xs text-white focus:border-accent/50 focus:outline-none"
+              />
+            </div>
+            {isPending && <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-accent animate-pulse">Actualizando...</p>}
+          </div>
+
           {/* Filtros de Listado */}
           <div className="flex flex-wrap items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5 overflow-x-auto max-w-full">
             <button 
@@ -383,7 +429,7 @@ export default function ClientesClient({
             
             <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block"></div>
 
-            <select
+            <select aria-label="Filtrar por etiqueta"
               value={tagFilter}
               onChange={(e) => setTagFilter(e.target.value)}
               className="bg-transparent text-[10px] font-black uppercase tracking-widest text-muted hover:text-white focus:outline-none cursor-pointer px-3 py-1.5"
@@ -405,11 +451,11 @@ export default function ClientesClient({
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-white/5 bg-white/[0.02] text-[10px] uppercase tracking-widest text-muted/50">
-                  <th className="px-6 py-5 font-bold">Información del Cliente</th>
-                  <th className="px-6 py-5 font-bold">Contacto</th>
-                  <th className="px-6 py-5 font-bold text-center">Reservas Totales</th>
-                  <th className="px-6 py-5 font-bold text-right">Importe Total</th>
-                  <th className="px-6 py-5 font-bold text-right">Acciones</th>
+                  <th scope="col" className="px-6 py-5 font-bold">Información del Cliente</th>
+                  <th scope="col" className="px-6 py-5 font-bold">Contacto</th>
+                  <th scope="col" className="px-6 py-5 font-bold text-center">Reservas Totales</th>
+                  <th scope="col" className="px-6 py-5 font-bold text-right">Importe Total</th>
+                  <th scope="col" className="px-6 py-5 font-bold text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -424,12 +470,12 @@ export default function ClientesClient({
                           <StatusBadge type="cliente" value="recurrente" />
                         )}
                         {(c.etiquetas || []).map(tag => (
-                          <span key={tag} className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-blue-400 border border-blue-500/20">
+                          <span key={tag} className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-blue-400 border border-blue-500/20">
                             {tag}
                           </span>
                         ))}
                         {(!c.etiquetas || c.etiquetas.length === 0) && (
-                          <span className="rounded-full bg-white/5 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-muted border border-white/5 italic">
+                          <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-muted border border-white/5 italic">
                             Sin etiquetas
                           </span>
                         )}
@@ -466,6 +512,9 @@ export default function ClientesClient({
                 </Link>
                 <span className="text-lg font-black text-accent">{formatCurrency(c.importe_total)}</span>
               </div>
+              {(c.email || c.telefono) && (
+                <p className="text-xs text-muted break-all">{[c.email, c.telefono].filter(Boolean).join(" · ")}</p>
+              )}
               <div className="flex justify-between items-center text-[10px] uppercase tracking-widest font-bold">
                 <div className="flex gap-2">
                   <span className="text-muted">{c.total_reservas} RESERVAS</span>
@@ -477,12 +526,12 @@ export default function ClientesClient({
                 </div>
                 <div className="flex gap-1 flex-wrap">
                   {(c.etiquetas || []).slice(0, 2).map(tag => (
-                    <span key={tag} className="bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded-full text-[7px] border border-blue-500/20">
+                    <span key={tag} className="bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded-full text-[10px] border border-blue-500/20">
                       {tag}
                     </span>
                   ))}
                   {(c.etiquetas || []).length > 2 && (
-                    <span className="text-[7px] text-muted flex items-center">+{c.etiquetas.length - 2}</span>
+                    <span className="text-[10px] text-muted flex items-center">+{c.etiquetas.length - 2}</span>
                   )}
                 </div>
                 <Link href={`/admin/clientes/${c.id}`} className="text-white bg-white/5 px-2 py-1 rounded">DETALLE</Link>

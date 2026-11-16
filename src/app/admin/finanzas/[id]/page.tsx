@@ -9,6 +9,8 @@ export const metadata = {
   title: "Editar Movimiento - Finanzas",
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function EditarFinanzaPage(props: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -18,11 +20,18 @@ export default async function EditarFinanzaPage(props: { params: Promise<{ id: s
   const params = await props.params;
   const { id } = params;
 
+  // Las filas "reserva-<uuid>" del listado no son movimientos editables.
+  if (id.startsWith("reserva-") && UUID_RE.test(id.slice("reserva-".length))) {
+    redirect(`/admin/calendario/${id.slice("reserva-".length)}`);
+  }
+  if (!UUID_RE.test(id)) redirect("/admin/finanzas");
+
   const { data, error } = await supabase
     .from("finanza_movimiento")
     .select("*")
     .eq("id", id)
-    .single();
+    .is("deleted_at", null)
+    .maybeSingle();
 
   if (error || !data) {
     redirect("/admin/finanzas");

@@ -1,19 +1,34 @@
-import { getFinanceMovements, getFinanceSummary } from "@/app/actions/finanzas";
-import { Printer } from "lucide-react";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { getFinanceMovements } from "@/app/actions/finanzas";
+import { formatIsoDateEs, monthRange, parsePeriod, todayInStudio } from "@/lib/dates";
+import PrintButton from "./PrintButton";
+
+export const metadata = {
+  title: "Informe Financiero - Admin",
+};
 
 export default async function InformeFinanzasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; year?: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/admin/login");
+
   const params = await searchParams;
-  const month = params.month ? parseInt(params.month, 10) : new Date().getMonth() + 1;
-  const year = params.year ? parseInt(params.year, 10) : new Date().getFullYear();
+  const { month, year } = parsePeriod(params.month, params.year);
 
+  // Una sola lectura: los totales se derivan del propio listado (mismas reglas
+  // que el resumen: sin ingresos manuales ligados a reserva, con cobros de reservas).
   const movements = await getFinanceMovements(month, year);
-  const summary = await getFinanceSummary(month, year);
+  const ingresos = movements.filter((m) => m.tipo === "ingreso").reduce((s, m) => s + m.importe, 0);
+  const gastos = movements.filter((m) => m.tipo === "gasto").reduce((s, m) => s + m.importe, 0);
+  const summary = { ingresos, gastos, beneficio: ingresos - gastos };
 
-  const monthName = new Date(year, month - 1).toLocaleString("es-ES", { month: "long" });
+  const monthName = formatIsoDateEs(monthRange(year, month).start, { month: "long" });
+  const generatedOn = formatIsoDateEs(todayInStudio(), { day: "2-digit", month: "2-digit", year: "numeric" });
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(val);
@@ -29,7 +44,7 @@ export default async function InformeFinanzasPage({
         </div>
         <div className="text-right">
           <p className="text-sm font-bold">Fecha de generación:</p>
-          <p className="text-sm">{new Date().toLocaleDateString("es-ES")}</p>
+          <p className="text-sm">{generatedOn}</p>
         </div>
       </div>
 
@@ -55,17 +70,17 @@ export default async function InformeFinanzasPage({
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="border-b border-black font-black uppercase text-[10px]">
-              <th className="py-2 px-2">Fecha</th>
-              <th className="py-2 px-2">Concepto</th>
-              <th className="py-2 px-2">Categoría</th>
-              <th className="py-2 px-2">Método</th>
-              <th className="py-2 px-2 text-right">Importe</th>
+              <th scope="col" className="py-2 px-2">Fecha</th>
+              <th scope="col" className="py-2 px-2">Concepto</th>
+              <th scope="col" className="py-2 px-2">Categoría</th>
+              <th scope="col" className="py-2 px-2">Método</th>
+              <th scope="col" className="py-2 px-2 text-right">Importe</th>
             </tr>
           </thead>
           <tbody>
             {movements.map((mov) => (
               <tr key={mov.id} className="border-b border-gray-200">
-                <td className="py-3 px-2">{new Date(mov.fecha).toLocaleDateString("es-ES")}</td>
+                <td className="py-3 px-2">{formatIsoDateEs(mov.fecha, { day: "2-digit", month: "2-digit", year: "numeric" })}</td>
                 <td className="py-3 px-2 font-bold">{mov.concepto}</td>
                 <td className="py-3 px-2 text-xs uppercase">{mov.categoria}</td>
                 <td className="py-3 px-2 text-xs capitalize">{mov.metodo_pago}</td>
@@ -93,13 +108,7 @@ export default async function InformeFinanzasPage({
       </div>
 
       {/* Botón Flotante para imprimir (solo visible en pantalla) */}
-      <button 
-        onClick={() => typeof window !== 'undefined' && window.print()}
-        className="fixed bottom-8 right-8 bg-black text-white px-6 py-3 rounded-full font-black uppercase tracking-widest text-xs shadow-2xl hover:scale-105 transition-transform flex items-center gap-3 print:hidden"
-      >
-        <Printer className="w-4 h-4" />
-        Imprimir Informe
-      </button>
+      <PrintButton />
 
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {

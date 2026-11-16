@@ -2,14 +2,20 @@
 
 import { useRouter } from "next/navigation";
 
-export default function DateJump({ currentFecha }: { currentFecha: string }) {
+export default function DateJump({
+  currentFecha,
+  view = "weekly",
+}: {
+  currentFecha: string;
+  view?: "weekly" | "daily";
+}) {
   const router = useRouter();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const date = e.target.value;
     if (date) {
-      // Al saltar a una fecha, reseteamos la semana a 0
-      router.push(`/admin/calendario?fecha=${date}`);
+      // Al saltar a una fecha se conserva la vista (semanal/diaria).
+      router.push(`/admin/calendario?view=${view}&fecha=${date}`);
     }
   };
 
@@ -18,7 +24,9 @@ export default function DateJump({ currentFecha }: { currentFecha: string }) {
       <label htmlFor="jump-date" className="text-xs font-medium text-muted uppercase tracking-wider">
         Ir a fecha:
       </label>
+      {/* key: fuerza a remontar el input cuando cambia la fecha de la URL (flechas, vistas). */}
       <input
+        key={currentFecha}
         id="jump-date"
         type="date"
         defaultValue={currentFecha}

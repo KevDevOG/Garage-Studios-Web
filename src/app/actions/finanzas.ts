@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
+import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
+import { compareIsoDates, getZonedParts, isValidIsoDate, monthRange } from "@/lib/dates";
 
 export interface FinanceMovement {
   id: string;
@@ -21,237 +23,400 @@ export interface FinanceMovement {
   created_at: string;
 }
 
-export async function getFinanceSummary(month: number, year: number) {
-  const supabase = await createClient();
+// ── Tipos internos ────────────────────────────────────────────
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+interface NamedRef {
+  nombre: string | null;
+}
+
+interface MovementRow extends FinanceMovement {
+  servicio: NamedRef | null;
+  cliente: NamedRef | null;
+}
+
+interface ReservationRow {
+  id: string;
+  nombre: string | null;
+  importe_pagado: number | string | null;
+  fecha_reserva: string;
+  created_at: string;
+  servicio: NamedRef | null;
+  cliente: NamedRef | null;
+}
+
+interface FinanceData {
+  /** Movimientos manuales que cuentan (sin ingresos ligados a reserva). */
+  movements: MovementRow[];
+  /** Reservas con cobro (parcial/pagado) no canceladas ni rechazadas. */
+  reservations: ReservationRow[];
+}
+
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 50;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const METODOS_PAGO = ["efectivo", "transferencia", "tarjeta", "bizum", "otro"] as const;
+const MAX_IMPORTE = 99_999_999.99; // NUMERIC(10,2)
+
+// ── Helpers de lectura ────────────────────────────────────────
+
+/** PostgREST corta en 1000 filas: pagina con .range() hasta agotar. */
+async function fetchAllRows<T>(
+  label: string,
+  run: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>
+): Promise<T[] | null> {
+  const rows: T[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const from = page * PAGE_SIZE;
+    const { data, error } = await run(from, from + PAGE_SIZE - 1);
+    if (error) {
+      console.error(`[finanzas] Error consultando ${label}:`, error.message);
+      return null;
+    }
+    const chunk = (data ?? []) as T[];
+    rows.push(...chunk);
+    if (chunk.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+/**
+ * Lee, una sola vez, los movimientos manuales y los cobros de reservas de un
+ * rango de fechas (YYYY-MM-DD, ambos incluidos). Devuelve null si falla alguna
+ * de las dos consultas.
+ *
+ * Regla de negocio: un ingreso manual con reserva_id se excluye para no
+ * duplicar el cobro que ya aporta la propia reserva.
+ */
+async function fetchFinanceData(
+  supabase: SupabaseServerClient,
+  start: string,
+  end: string
+): Promise<FinanceData | null> {
+  const [movements, reservations] = await Promise.all([
+    fetchAllRows<MovementRow>("finanza_movimiento", (from, to) =>
+      supabase
+        .from("finanza_movimiento")
+        .select(
+          "id, tipo, categoria, concepto, descripcion, importe, fecha, metodo_pago, reserva_id, cliente_id, servicio_id, recurrente, notas, created_at, servicio:servicio_id(nombre), cliente:cliente_id(nombre)"
+        )
+        .gte("fecha", start)
+        .lte("fecha", end)
+        .is("deleted_at", null)
+        .order("fecha", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
+    fetchAllRows<ReservationRow>("reserva", (from, to) =>
+      supabase
+        .from("reserva")
+        .select("id, nombre, importe_pagado, fecha_reserva, created_at, servicio:servicio_id(nombre), cliente:cliente_id(nombre)")
+        .gte("fecha_reserva", start)
+        .lte("fecha_reserva", end)
+        .in("estado_pago", ["parcial", "pagado"])
+        .not("estado", "in", "(cancelada,rechazada)")
+        .gt("importe_pagado", 0)
+        .is("deleted_at", null)
+        .order("fecha_reserva", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
+  ]);
+
+  if (!movements || !reservations) return null;
+
+  return {
+    movements: movements.filter((m) => !(m.tipo === "ingreso" && m.reserva_id)),
+    reservations,
+  };
+}
+
+async function requireUser(supabase: SupabaseServerClient) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autorizado");
+  return user;
+}
 
-  const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
-  const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+function monthIndex(isoDate: string | null | undefined): number {
+  const month = Number.parseInt((isoDate ?? "").slice(5, 7), 10);
+  return Number.isFinite(month) ? month - 1 : -1;
+}
 
-  // 1. Gastos y otros ingresos manuales (sin reserva_id)
-  const { data: movements, error: movError } = await supabase
-    .from("finanza_movimiento")
-    .select("tipo, importe, reserva_id")
-    .gte("fecha", startDate)
-    .lte("fecha", endDate)
-    .is("deleted_at", null);
+function toAmount(value: unknown): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
 
-  if (movError) throw new Error(movError.message);
+// ── Resumen mensual ───────────────────────────────────────────
 
-  // 2. Ingresos automáticos de reservas
-  const { data: reservations, error: resError } = await supabase
-    .from("reserva")
-    .select("importe_pagado")
-    .gte("fecha_reserva", startDate)
-    .lte("fecha_reserva", endDate)
-    .in("estado_pago", ["parcial", "pagado"])
-    .not("estado", "in", "(cancelada,rechazada)")
-    .gt("importe_pagado", 0)
-    .is("deleted_at", null);
+export async function getFinanceSummary(month: number, year: number) {
+  const supabase = await createClient();
+  await requireUser(supabase);
 
-  if (resError) throw new Error(resError.message);
+  const empty = { ingresos: 0, gastos: 0, beneficio: 0, count: 0, ticketMedio: 0 };
+  const { start, end } = monthRange(year, month);
+  const data = await fetchFinanceData(supabase, start, end);
+  if (!data) return empty;
 
   let ingresos = 0;
   let gastos = 0;
-  let count = (movements?.length || 0) + (reservations?.length || 0);
+  let numIngresos = 0;
 
-  // Procesar movimientos manuales
-  movements?.forEach(mov => {
+  for (const mov of data.movements) {
     if (mov.tipo === "gasto") {
-      gastos += Number(mov.importe ?? 0);
-    } else if (mov.tipo === "ingreso" && !mov.reserva_id) {
-      // Solo contamos ingresos manuales si NO están asociados a una reserva
-      ingresos += Number(mov.importe ?? 0);
+      gastos += toAmount(mov.importe);
+    } else if (mov.tipo === "ingreso") {
+      ingresos += toAmount(mov.importe);
+      numIngresos++;
     }
-  });
-
-  // Procesar ingresos de reservas
-  reservations?.forEach(res => {
-    ingresos += Number(res.importe_pagado ?? 0);
-  });
-
-  const numIngresos = (movements?.filter(m => m.tipo === 'ingreso' && !m.reserva_id).length || 0) + (reservations?.length || 0);
+  }
+  for (const res of data.reservations) {
+    ingresos += toAmount(res.importe_pagado);
+    numIngresos++;
+  }
 
   return {
     ingresos,
     gastos,
     beneficio: ingresos - gastos,
-    count,
-    ticketMedio: numIngresos > 0 ? ingresos / numIngresos : 0
+    count: data.movements.length + data.reservations.length,
+    ticketMedio: numIngresos > 0 ? ingresos / numIngresos : 0,
   };
 }
 
-export async function getFinanceMovements(month: number, year: number) {
+export async function getFinanceMovements(month: number, year: number): Promise<FinanceMovement[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autorizado");
+  await requireUser(supabase);
 
-  const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
-  const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+  const { start, end } = monthRange(year, month);
+  const data = await fetchFinanceData(supabase, start, end);
+  if (!data) return [];
 
-  // 1. Obtener movimientos reales
-  const { data: movements, error: movError } = await supabase
-    .from("finanza_movimiento")
-    .select("*")
-    .gte("fecha", startDate)
-    .lte("fecha", endDate)
-    .is("deleted_at", null);
+  const manual: FinanceMovement[] = data.movements.map((m) => ({
+    id: m.id,
+    tipo: m.tipo,
+    categoria: m.categoria,
+    concepto: m.concepto,
+    descripcion: m.descripcion,
+    importe: toAmount(m.importe),
+    fecha: m.fecha,
+    metodo_pago: m.metodo_pago,
+    reserva_id: m.reserva_id,
+    cliente_id: m.cliente_id,
+    servicio_id: m.servicio_id,
+    recurrente: m.recurrente,
+    notas: m.notas,
+    created_at: m.created_at,
+  }));
 
-  if (movError) throw new Error(movError.message);
+  const fromReservations: FinanceMovement[] = data.reservations.map((res) => ({
+    id: `reserva-${res.id}`,
+    tipo: "ingreso",
+    categoria: res.servicio?.nombre || "Reserva",
+    concepto: `Reserva - ${res.nombre ?? "Sin nombre"}`,
+    descripcion: null,
+    importe: toAmount(res.importe_pagado),
+    fecha: res.fecha_reserva,
+    metodo_pago: "Cobro Reserva",
+    reserva_id: res.id,
+    cliente_id: null,
+    servicio_id: null,
+    recurrente: false,
+    notas: "Pago automático desde reserva",
+    created_at: res.created_at,
+  }));
 
-  // 2. Obtener reservas con pagos
-  const { data: reservations, error: resError } = await supabase
-    .from("reserva")
-    .select("id, nombre, importe_pagado, fecha_reserva, created_at, servicio:servicio_id(nombre)")
-    .gte("fecha_reserva", startDate)
-    .lte("fecha_reserva", endDate)
-    .in("estado_pago", ["parcial", "pagado"])
-    .not("estado", "in", "(cancelada,rechazada)")
-    .gt("importe_pagado", 0)
-    .is("deleted_at", null);
-
-  if (resError) throw new Error(resError.message);
-
-  // 3. Unificar (mapeando reservas a estructura de movimientos)
-  const unifiedMovements: FinanceMovement[] = [
-    ...((movements || []) as FinanceMovement[]).filter(m => !(m.tipo === 'ingreso' && m.reserva_id)), // Filtrar ingresos manuales vinculados a reserva
-    ...(reservations || []).map(res => ({
-      id: `reserva-${res.id}`,
-      tipo: "ingreso" as const,
-      categoria: (res.servicio as any)?.nombre || "Reserva",
-      concepto: `Reserva - ${res.nombre}`,
-      descripcion: null,
-      importe: Number(res.importe_pagado ?? 0),
-      fecha: res.fecha_reserva,
-      metodo_pago: "Cobro Reserva",
-      reserva_id: res.id,
-      cliente_id: null,
-      servicio_id: null,
-      recurrente: false,
-      notas: "Pago automático desde reserva",
-      created_at: res.created_at
-    }))
-  ];
-
-  // Ordenar por fecha desc
-  return unifiedMovements.sort((a, b) => {
-    const dateA = new Date(a.fecha).getTime();
-    const dateB = new Date(b.fecha).getTime();
-    if (dateA !== dateB) return dateB - dateA;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  // Orden: fecha desc y, a igual fecha, creación desc.
+  return [...manual, ...fromReservations].sort((a, b) => {
+    const byDate = compareIsoDates(b.fecha, a.fecha);
+    if (byDate !== 0) return byDate;
+    return compareIsoDates(b.created_at ?? "", a.created_at ?? "");
   });
 }
 
-export async function createFinanceMovement(formData: FormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autorizado");
+// ── Validación de escritura ───────────────────────────────────
 
-  const tipo = formData.get("tipo") as string;
-  const categoria = formData.get("categoria") as string;
-  const concepto = formData.get("concepto") as string;
-  const descripcion = formData.get("descripcion") as string || null;
-  const importe = parseFloat(formData.get("importe") as string);
-  const fecha = formData.get("fecha") as string;
-  const metodo_pago = formData.get("metodo_pago") as string || null;
-  const reserva_id = formData.get("reserva_id") as string || null;
-  const cliente_id = formData.get("cliente_id") as string || null;
-  const servicio_id = formData.get("servicio_id") as string || null;
-  const notas = formData.get("notas") as string || null;
-
-  if (importe <= 0) return { error: "El importe debe ser mayor a 0" };
-
-  const { error } = await supabase.from("finanza_movimiento").insert({
-    tipo,
-    categoria,
-    concepto,
-    descripcion,
-    importe,
-    fecha,
-    metodo_pago,
-    reserva_id,
-    cliente_id,
-    servicio_id,
-    notas
-  });
-
-  if (error) return { error: error.message };
-
-  await createAuditLog({
-    accion: "creación",
-    entidad: "finanza",
-    descripcion: `Movimiento ${tipo}: ${concepto} (${importe}€)`,
-    metadata: { tipo, categoria, importe, reserva_id: reserva_id || undefined },
-  });
-
-  revalidatePath("/admin/finanzas");
-  return { success: true };
+interface MovementInput {
+  tipo: "ingreso" | "gasto";
+  categoria: string;
+  concepto: string;
+  descripcion: string | null;
+  importe: number;
+  fecha: string;
+  metodo_pago: string | null;
+  reserva_id: string | null;
+  cliente_id: string | null;
+  servicio_id: string | null;
+  notas: string | null;
 }
 
-export async function updateFinanceMovement(id: string, formData: FormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autorizado");
+function readText(formData: FormData, key: string): string {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
 
-  const tipo = formData.get("tipo") as string;
-  const categoria = formData.get("categoria") as string;
-  const concepto = formData.get("concepto") as string;
-  const descripcion = formData.get("descripcion") as string || null;
-  const importe = parseFloat(formData.get("importe") as string);
-  const fecha = formData.get("fecha") as string;
-  const metodo_pago = formData.get("metodo_pago") as string || null;
-  const reserva_id = formData.get("reserva_id") as string || null;
-  const cliente_id = formData.get("cliente_id") as string || null;
-  const servicio_id = formData.get("servicio_id") as string || null;
-  const notas = formData.get("notas") as string || null;
+function parseMovementForm(
+  formData: FormData
+): { ok: true; value: MovementInput } | { ok: false; error: string } {
+  const tipo = readText(formData, "tipo");
+  if (tipo !== "ingreso" && tipo !== "gasto") {
+    return { ok: false, error: "El tipo debe ser ingreso o gasto." };
+  }
 
-  if (importe <= 0) return { error: "El importe debe ser mayor a 0" };
+  const importeRaw = readText(formData, "importe").replace(",", ".");
+  const importe = importeRaw === "" ? NaN : Number(importeRaw);
+  if (!Number.isFinite(importe) || importe <= 0) {
+    return { ok: false, error: "El importe debe ser un número mayor que 0." };
+  }
+  if (importe > MAX_IMPORTE) {
+    return { ok: false, error: "El importe es demasiado grande." };
+  }
 
-  const { error } = await supabase
-    .from("finanza_movimiento")
-    .update({
+  const fecha = readText(formData, "fecha");
+  if (!isValidIsoDate(fecha)) {
+    return { ok: false, error: "La fecha no es válida." };
+  }
+
+  const concepto = readText(formData, "concepto");
+  if (!concepto) return { ok: false, error: "El concepto es obligatorio." };
+  if (concepto.length > 120) return { ok: false, error: "El concepto no puede superar los 120 caracteres." };
+
+  const categoria = readText(formData, "categoria");
+  if (!categoria) return { ok: false, error: "La categoría es obligatoria." };
+  if (categoria.length > 60) return { ok: false, error: "La categoría no puede superar los 60 caracteres." };
+
+  const metodoRaw = readText(formData, "metodo_pago");
+  if (metodoRaw && !(METODOS_PAGO as readonly string[]).includes(metodoRaw)) {
+    return { ok: false, error: "El método de pago no es válido." };
+  }
+
+  const ids: Record<"reserva_id" | "cliente_id" | "servicio_id", string | null> = {
+    reserva_id: null,
+    cliente_id: null,
+    servicio_id: null,
+  };
+  for (const key of ["reserva_id", "cliente_id", "servicio_id"] as const) {
+    const raw = readText(formData, key);
+    if (raw && !UUID_RE.test(raw)) {
+      return { ok: false, error: "Alguna de las referencias (reserva, cliente o servicio) no es válida." };
+    }
+    ids[key] = raw || null;
+  }
+
+  const descripcion = readText(formData, "descripcion") || null;
+  const notas = readText(formData, "notas") || null;
+  if ((descripcion?.length ?? 0) > 1000 || (notas?.length ?? 0) > 1000) {
+    return { ok: false, error: "Las notas no pueden superar los 1000 caracteres." };
+  }
+
+  return {
+    ok: true,
+    value: {
       tipo,
       categoria,
       concepto,
       descripcion,
-      importe,
+      importe: Math.round(importe * 100) / 100,
       fecha,
-      metodo_pago,
-      reserva_id,
-      cliente_id,
-      servicio_id,
+      metodo_pago: metodoRaw || null,
+      ...ids,
       notas,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", id)
-    .is("deleted_at", null);
+    },
+  };
+}
 
-  if (error) return { error: error.message };
+// ── Escritura ─────────────────────────────────────────────────
+
+export async function createFinanceMovement(formData: FormData): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return actionError("No autorizado");
+
+  const parsed = parseMovementForm(formData);
+  if (!parsed.ok) return actionError(parsed.error);
+  const mov = parsed.value;
+
+  const { error } = await supabase.from("finanza_movimiento").insert(mov);
+
+  if (error) {
+    console.error("[finanzas] Error creando movimiento:", error.message);
+    return actionError("No se pudo guardar el movimiento. Inténtalo de nuevo.");
+  }
+
+  await createAuditLog({
+    accion: "creación",
+    entidad: "finanza",
+    descripcion: `Movimiento ${mov.tipo}: ${mov.concepto} (${mov.importe}€)`,
+    metadata: { tipo: mov.tipo, categoria: mov.categoria, importe: mov.importe, reserva_id: mov.reserva_id || undefined },
+  });
+
+  revalidatePath("/admin/finanzas");
+  revalidatePath("/admin/dashboard");
+  return actionOk();
+}
+
+export async function updateFinanceMovement(id: string, formData: FormData): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return actionError("No autorizado");
+
+  if (!UUID_RE.test(id)) return actionError("Movimiento no válido.");
+
+  const parsed = parseMovementForm(formData);
+  if (!parsed.ok) return actionError(parsed.error);
+  const mov = parsed.value;
+
+  const { data, error } = await supabase
+    .from("finanza_movimiento")
+    .update({ ...mov, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("deleted_at", null)
+    .select("id");
+
+  if (error) {
+    console.error("[finanzas] Error actualizando movimiento:", error.message);
+    return actionError("No se pudo actualizar el movimiento. Inténtalo de nuevo.");
+  }
+  if (!data || data.length === 0) {
+    return actionError("El movimiento no existe o ya fue eliminado.");
+  }
 
   await createAuditLog({
     accion: "edición",
     entidad: "finanza",
     entidad_id: id,
-    descripcion: `Movimiento editado: ${concepto} (${importe}€)`,
-    metadata: { tipo, categoria, importe },
+    descripcion: `Movimiento editado: ${mov.concepto} (${mov.importe}€)`,
+    metadata: { tipo: mov.tipo, categoria: mov.categoria, importe: mov.importe },
   });
 
   revalidatePath("/admin/finanzas");
-  return { success: true };
+  revalidatePath("/admin/dashboard");
+  return actionOk();
 }
 
-export async function deleteFinanceMovement(id: string) {
+export async function deleteFinanceMovement(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autorizado");
+  if (!user) return actionError("No autorizado");
 
-  const { error } = await supabase
+  if (!UUID_RE.test(id)) return actionError("Movimiento no válido.");
+
+  const { data, error } = await supabase
     .from("finanza_movimiento")
     .update({ deleted_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .is("deleted_at", null)
+    .select("id");
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("[finanzas] Error eliminando movimiento:", error.message);
+    return actionError("No se pudo eliminar el movimiento. Inténtalo de nuevo.");
+  }
+  if (!data || data.length === 0) {
+    return actionError("El movimiento no existe o ya fue eliminado.");
+  }
 
   await createAuditLog({
     accion: "eliminación",
@@ -261,77 +426,8 @@ export async function deleteFinanceMovement(id: string) {
   });
 
   revalidatePath("/admin/finanzas");
-  return { success: true };
-}
-
-export async function getFinanceStatsByYear(year: number) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autorizado");
-
-  const startDate = `${year}-01-01`;
-  const endDate = `${year}-12-31`;
-
-  // Movimientos manuales
-  const { data: movements, error: movError } = await supabase
-    .from("finanza_movimiento")
-    .select("tipo, importe, fecha, categoria, reserva_id")
-    .gte("fecha", startDate)
-    .lte("fecha", endDate)
-    .is("deleted_at", null);
-
-  if (movError) throw new Error(movError.message);
-
-  // Ingresos de reservas
-  const { data: reservations, error: resError } = await supabase
-    .from("reserva")
-    .select("importe_pagado, fecha_reserva, servicio:servicio_id(nombre)")
-    .gte("fecha_reserva", startDate)
-    .lte("fecha_reserva", endDate)
-    .in("estado_pago", ["parcial", "pagado"])
-    .not("estado", "in", "(cancelada,rechazada)")
-    .gt("importe_pagado", 0)
-    .is("deleted_at", null);
-
-  if (resError) throw new Error(resError.message);
-
-  const monthlyStats = Array.from({ length: 12 }, () => ({ ingresos: 0, gastos: 0, beneficio: 0 }));
-  const categoryStats: Record<string, number> = {};
-
-  movements?.forEach(mov => {
-    const monthStr = mov.fecha?.split("-")[1];
-    if (!monthStr) return;
-    const month = parseInt(monthStr) - 1;
-    const amount = Number(mov.importe ?? 0);
-    
-    if (!monthlyStats[month]) return;
-
-    if (mov.tipo === "gasto") {
-      monthlyStats[month].gastos += amount;
-      monthlyStats[month].beneficio -= amount;
-      categoryStats[mov.categoria] = (categoryStats[mov.categoria] || 0) + amount;
-    } else if (mov.tipo === "ingreso" && !mov.reserva_id) {
-      monthlyStats[month].ingresos += amount;
-      monthlyStats[month].beneficio += amount;
-      categoryStats[mov.categoria] = (categoryStats[mov.categoria] || 0) + amount;
-    }
-  });
-
-  reservations?.forEach(res => {
-    const monthStr = res.fecha_reserva.split("-")[1];
-    if (!monthStr) return;
-    const month = parseInt(monthStr) - 1;
-    const amount = Number(res.importe_pagado ?? 0);
-    const cat = (res.servicio as any)?.nombre || "Reserva";
-
-    if (monthlyStats[month]) {
-      monthlyStats[month].ingresos += amount;
-      monthlyStats[month].beneficio += amount;
-    }
-    categoryStats[cat] = (categoryStats[cat] || 0) + amount;
-  });
-
-  return { monthlyStats, categoryStats };
+  revalidatePath("/admin/dashboard");
+  return actionOk();
 }
 
 export async function checkFinanceMovementExistsForReservation(reserva_id: string) {
@@ -355,10 +451,8 @@ export async function checkFinanceMovementExistsForReservation(reserva_id: strin
  */
 export async function getPendingPaymentReservations() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autorizado");
+  await requireUser(supabase);
 
-  // Buscamos reservas confirmadas o completadas con pago pendiente o parcial
   const { data: reservas, error } = await supabase
     .from("reserva")
     .select("*, servicio(nombre)")
@@ -367,192 +461,152 @@ export async function getPendingPaymentReservations() {
     .is("deleted_at", null)
     .order("fecha_reserva", { ascending: false });
 
-  if (error) throw new Error(error.message);
-  
-  return reservas;
+  if (error) {
+    console.error("[finanzas] Error consultando pagos pendientes:", error.message);
+    return [];
+  }
+
+  return reservas ?? [];
 }
 
-/**
- * Obtiene el resumen financiero de un año completo
- */
-export async function getFinanceYearlySummary(year: number) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autorizado");
+// ── Vista anual ───────────────────────────────────────────────
 
-  const startDate = `${year}-01-01`;
-  const endDate = `${year}-12-31`;
+export interface FinanceMonthStat {
+  mes: number;
+  ingresos: number;
+  gastos: number;
+  beneficio: number;
+}
 
-  // 1. Movimientos manuales
-  const { data: movements, error: movError } = await supabase
-    .from("finanza_movimiento")
-    .select("tipo, importe, fecha, reserva_id")
-    .gte("fecha", startDate)
-    .lte("fecha", endDate)
-    .is("deleted_at", null);
+export interface FinanceYearlySummary {
+  ingresosTotal: number;
+  gastosTotal: number;
+  beneficioTotal: number;
+  movimientosCount: number;
+  ticketMedio: number;
+  evolution: FinanceMonthStat[];
+  /** Mes con más ingresos, o null si el año no tiene ingresos. */
+  bestMonth: FinanceMonthStat | null;
+  /** Mes con menos ingresos (>0), o null si el año no tiene ingresos. */
+  worstMonth: FinanceMonthStat | null;
+}
 
-  if (movError) throw new Error(movError.message);
+export type FinanceTopEntry = [string, number] | null;
 
-  // 2. Ingresos de reservas
-  const { data: reservations, error: resError } = await supabase
-    .from("reserva")
-    .select("importe_pagado, fecha_reserva")
-    .gte("fecha_reserva", startDate)
-    .lte("fecha_reserva", endDate)
-    .in("estado_pago", ["parcial", "pagado"])
-    .not("estado", "in", "(cancelada,rechazada)")
-    .gt("importe_pagado", 0)
-    .is("deleted_at", null);
+export interface FinanceAnnualInsights {
+  topService: FinanceTopEntry;
+  topSpendingCategory: FinanceTopEntry;
+  topClient: FinanceTopEntry;
+  mostUsedPaymentMethod: FinanceTopEntry;
+}
 
-  if (resError) throw new Error(resError.message);
-
-  let ingresosTotal = 0;
-  let gastosTotal = 0;
-  let numIngresos = 0;
-  
-  const evolution = Array.from({ length: 12 }, (_, i) => ({
-    mes: i + 1,
-    ingresos: 0,
-    gastos: 0,
-    beneficio: 0,
-  }));
-
-  movements?.forEach(mov => {
-    const monthStr = mov.fecha?.split("-")[1];
-    if (!monthStr) return;
-    const month = parseInt(monthStr) - 1;
-    const amount = Number(mov.importe ?? 0);
-
-    if (evolution[month]) {
-      if (mov.tipo === "ingreso" && !mov.reserva_id) {
-        ingresosTotal += amount;
-        evolution[month].ingresos += amount;
-        numIngresos++;
-      } else if (mov.tipo === "gasto") {
-        gastosTotal += amount;
-        evolution[month].gastos += amount;
-      }
-    }
-  });
-
-  reservations?.forEach(res => {
-    const monthStr = res.fecha_reserva.split("-")[1];
-    if (!monthStr) return;
-    const month = parseInt(monthStr) - 1;
-    const amount = Number(res.importe_pagado ?? 0);
-    if (evolution[month]) {
-      ingresosTotal += amount;
-      evolution[month].ingresos += amount;
-      numIngresos++;
-    }
-  });
-
-  evolution.forEach(m => {
-    m.beneficio = m.ingresos - m.gastos;
-  });
-
-  const bestMonth = evolution.reduce((prev, current) => 
-    (current.ingresos > prev.ingresos) ? current : prev
-  , evolution[0]);
-
-  const worstMonth = evolution.reduce((prev, current) => 
-    (current.ingresos < prev.ingresos && current.ingresos > 0) ? current : prev
-  , evolution[0]);
-
+function emptyYearOverview(): { summary: FinanceYearlySummary; insights: FinanceAnnualInsights } {
   return {
-    ingresosTotal,
-    gastosTotal,
-    beneficioTotal: ingresosTotal - gastosTotal,
-    movimientosCount: (movements?.length || 0) + (reservations?.length || 0),
-    ticketMedio: numIngresos > 0 ? ingresosTotal / numIngresos : 0,
-    evolution,
-    bestMonth,
-    worstMonth
+    summary: {
+      ingresosTotal: 0,
+      gastosTotal: 0,
+      beneficioTotal: 0,
+      movimientosCount: 0,
+      ticketMedio: 0,
+      evolution: Array.from({ length: 12 }, (_, i) => ({ mes: i + 1, ingresos: 0, gastos: 0, beneficio: 0 })),
+      bestMonth: null,
+      worstMonth: null,
+    },
+    insights: { topService: null, topSpendingCategory: null, topClient: null, mostUsedPaymentMethod: null },
   };
 }
 
+function getTop(obj: Record<string, number>): FinanceTopEntry {
+  const entries = Object.entries(obj);
+  if (entries.length === 0) return null;
+  return entries.sort((a, b) => b[1] - a[1])[0];
+}
+
 /**
- * Obtiene insights avanzados de un año
+ * Resumen financiero e insights de un año completo, calculados con una
+ * única lectura de datos.
  */
-export async function getFinanceAnnualInsights(year: number) {
+export async function getFinanceYearOverview(year: number) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autorizado");
+  await requireUser(supabase);
 
-  const startDate = `${year}-01-01`;
-  const endDate = `${year}-12-31`;
+  const overview = emptyYearOverview();
+  const { start, end } = monthRange(year, null);
+  const data = await fetchFinanceData(supabase, start, end);
+  if (!data) return overview;
 
-  // Movimientos manuales
-  const { data: movements, error: movError } = await supabase
-    .from("finanza_movimiento")
-    .select("*, servicio:servicio_id(nombre), cliente:cliente_id(nombre)")
-    .gte("fecha", startDate)
-    .lte("fecha", endDate)
-    .is("deleted_at", null);
-
-  if (movError) throw new Error(movError.message);
-
-  // Reservas
-  const { data: reservations, error: resError } = await supabase
-    .from("reserva")
-    .select("importe_pagado, fecha_reserva, servicio:servicio_id(nombre), cliente:cliente_id(nombre)")
-    .gte("fecha_reserva", startDate)
-    .lte("fecha_reserva", endDate)
-    .in("estado_pago", ["parcial", "pagado"])
-    .not("estado", "in", "(cancelada,rechazada)")
-    .gt("importe_pagado", 0)
-    .is("deleted_at", null);
-
-  if (resError) throw new Error(resError.message);
+  const { summary } = overview;
+  let numIngresos = 0;
 
   const serviceStats: Record<string, number> = {};
   const categorySpending: Record<string, number> = {};
   const clientValue: Record<string, number> = {};
   const paymentMethods: Record<string, number> = {};
 
-  movements?.forEach(mov => {
-    const amount = Number(mov.importe);
-    
+  for (const mov of data.movements) {
+    const month = summary.evolution[monthIndex(mov.fecha)];
+    if (!month) continue;
+    const amount = toAmount(mov.importe);
+
     if (mov.tipo === "gasto") {
+      summary.gastosTotal += amount;
+      month.gastos += amount;
       categorySpending[mov.categoria] = (categorySpending[mov.categoria] || 0) + amount;
-    } else if (mov.tipo === "ingreso" && !mov.reserva_id) {
-      if (mov.servicio) {
+    } else if (mov.tipo === "ingreso") {
+      summary.ingresosTotal += amount;
+      month.ingresos += amount;
+      numIngresos++;
+      if (mov.servicio?.nombre) {
         serviceStats[mov.servicio.nombre] = (serviceStats[mov.servicio.nombre] || 0) + amount;
       }
-      if (mov.cliente) {
+      if (mov.cliente?.nombre) {
         clientValue[mov.cliente.nombre] = (clientValue[mov.cliente.nombre] || 0) + amount;
       }
     }
+    summary.movimientosCount++;
 
     if (mov.metodo_pago) {
       paymentMethods[mov.metodo_pago] = (paymentMethods[mov.metodo_pago] || 0) + 1;
     }
-  });
+  }
 
-  reservations?.forEach(res => {
-    const amount = Number(res.importe_pagado ?? 0);
-    const sName = (res.servicio as any)?.nombre || "Reserva";
-    const cName = (res.cliente as any)?.nombre || "Desconocido";
+  for (const res of data.reservations) {
+    const month = summary.evolution[monthIndex(res.fecha_reserva)];
+    if (!month) continue;
+    const amount = toAmount(res.importe_pagado);
 
+    summary.ingresosTotal += amount;
+    month.ingresos += amount;
+    numIngresos++;
+    summary.movimientosCount++;
+
+    const sName = res.servicio?.nombre || "Reserva";
+    const cName = res.cliente?.nombre || "Desconocido";
     serviceStats[sName] = (serviceStats[sName] || 0) + amount;
     clientValue[cName] = (clientValue[cName] || 0) + amount;
-    
-    // Para reservas el método de pago se registra como fijo por ahora
-    const pMethod = "Cobro Reserva";
-    paymentMethods[pMethod] = (paymentMethods[pMethod] || 0) + 1;
-  });
+    paymentMethods["Cobro Reserva"] = (paymentMethods["Cobro Reserva"] || 0) + 1;
+  }
 
-  const getTop = (obj: Record<string, number>) => {
-    const entries = Object.entries(obj);
-    if (entries.length === 0) return null;
-    return entries.sort((a, b) => b[1] - a[1])[0];
-  };
+  for (const m of summary.evolution) m.beneficio = m.ingresos - m.gastos;
+
+  const withIncome = summary.evolution.filter((m) => m.ingresos > 0);
+  summary.bestMonth = withIncome.length
+    ? withIncome.reduce((prev, cur) => (cur.ingresos > prev.ingresos ? cur : prev))
+    : null;
+  summary.worstMonth = withIncome.length
+    ? withIncome.reduce((prev, cur) => (cur.ingresos < prev.ingresos ? cur : prev))
+    : null;
+  summary.beneficioTotal = summary.ingresosTotal - summary.gastosTotal;
+  summary.ticketMedio = numIngresos > 0 ? summary.ingresosTotal / numIngresos : 0;
 
   return {
-    topService: getTop(serviceStats),
-    topSpendingCategory: getTop(categorySpending),
-    topClient: getTop(clientValue),
-    mostUsedPaymentMethod: getTop(paymentMethods),
+    summary,
+    insights: {
+      topService: getTop(serviceStats),
+      topSpendingCategory: getTop(categorySpending),
+      topClient: getTop(clientValue),
+      mostUsedPaymentMethod: getTop(paymentMethods),
+    },
   };
 }
 
@@ -564,36 +618,15 @@ export async function getMonthlyRevenue() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return 0;
 
-  const now = new Date();
-  const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  const { year, month } = getZonedParts();
+  const { start, end } = monthRange(year, month);
+  const data = await fetchFinanceData(supabase, start, end);
+  if (!data) return 0;
 
-  // 1. Ingresos manuales sin reserva_id
-  const { data: manual, error: manError } = await supabase
-    .from("finanza_movimiento")
-    .select("importe")
-    .eq("tipo", "ingreso")
-    .is("reserva_id", null)
-    .gte("fecha", startDate)
-    .lte("fecha", endDate)
-    .is("deleted_at", null);
+  const manual = data.movements
+    .filter((m) => m.tipo === "ingreso")
+    .reduce((sum, m) => sum + toAmount(m.importe), 0);
+  const reservas = data.reservations.reduce((sum, r) => sum + toAmount(r.importe_pagado), 0);
 
-  if (manError) return 0;
-
-  // 2. Ingresos de reservas
-  const { data: reservations, error: resError } = await supabase
-    .from("reserva")
-    .select("importe_pagado")
-    .gte("fecha_reserva", startDate)
-    .lte("fecha_reserva", endDate)
-    .in("estado_pago", ["parcial", "pagado"])
-    .not("estado", "in", "(cancelada,rechazada)")
-    .is("deleted_at", null);
-
-  if (resError) return 0;
-
-  const totalManual = manual?.reduce((sum, m) => sum + Number(m.importe || 0), 0) || 0;
-  const totalReservas = reservations?.reduce((sum, r) => sum + Number(r.importe_pagado || 0), 0) || 0;
-
-  return totalManual + totalReservas;
+  return manual + reservas;
 }

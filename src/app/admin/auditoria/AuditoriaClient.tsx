@@ -1,20 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Search, Filter, Calendar, List, ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import StatusBadge from "@/components/admin/StatusBadge";
-
-interface AuditLogEntry {
-  id: string;
-  admin_id: string | null;
-  accion: string;
-  entidad: string;
-  entidad_id: string | null;
-  descripcion: string | null;
-  metadata: Record<string, unknown> | null;
-  created_at: string;
-}
+import type { AuditLogRow } from "@/app/actions/auditoria";
+import { formatDateTimeEs } from "@/lib/dates";
 
 const ENTIDADES = [
   "todos", "reserva", "cliente", "finanza", "servicio", "galeria", "bloqueo_horario", "cliente_nota", "otros"
@@ -24,7 +14,7 @@ const ACCIONES = [
   "todos", "creación", "edición", "eliminación", "cambio_estado", "reprogramación", "pago", "login", "otros"
 ];
 
-export default function AuditoriaClient({ initialLogs }: { initialLogs: any[] }) {
+export default function AuditoriaClient({ initialLogs }: { initialLogs: AuditLogRow[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
@@ -38,10 +28,15 @@ export default function AuditoriaClient({ initialLogs }: { initialLogs: any[] })
     order: searchParams.get("order") || "desc",
   });
 
-  const updateFilters = (newFilters: Partial<typeof filters>) => {
-    const updated = { ...filters, ...newFilters };
-    setFilters(updated);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  const pushFilters = (updated: typeof filters) => {
     const params = new URLSearchParams();
     if (updated.query) params.set("query", updated.query);
     if (updated.entidad !== "todos") params.set("entidad", updated.entidad);
@@ -54,25 +49,39 @@ export default function AuditoriaClient({ initialLogs }: { initialLogs: any[] })
     });
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString("es-ES", {
+  const updateFilters = (newFilters: Partial<typeof filters>) => {
+    const updated = { ...filters, ...newFilters };
+    setFilters(updated);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    // La búsqueda de texto espera 300 ms tras la última pulsación;
+    // el resto de filtros navegan al instante.
+    if ("query" in newFilters) {
+      debounceRef.current = setTimeout(() => pushFilters(updated), 300);
+    } else {
+      pushFilters(updated);
+    }
+  };
+
+  const formatDate = (date: string) =>
+    formatDateTimeEs(date, {
       day: "2-digit",
       month: "short",
       year: "numeric",
       hour: "2-digit",
-      minute: "2-digit"
+      minute: "2-digit",
     });
-  };
 
   return (
     <div className="space-y-6">
       {/* Filtros */}
       <div className="grid gap-4 bg-card-bg p-4 rounded-xl border border-card-border shadow-xl sm:grid-cols-2 lg:grid-cols-5 items-end">
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
+          <label htmlFor="audit-query" className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
             <Search className="w-3 h-3" /> Buscar
           </label>
-          <input 
+          <input id="audit-query" 
             type="text"
             value={filters.query}
             onChange={(e) => updateFilters({ query: e.target.value })}
@@ -82,10 +91,10 @@ export default function AuditoriaClient({ initialLogs }: { initialLogs: any[] })
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
+          <label htmlFor="audit-entidad" className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
             <Filter className="w-3 h-3" /> Entidad
           </label>
-          <select 
+          <select id="audit-entidad" 
             value={filters.entidad}
             onChange={(e) => updateFilters({ entidad: e.target.value })}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent/50 appearance-none capitalize"
@@ -95,10 +104,10 @@ export default function AuditoriaClient({ initialLogs }: { initialLogs: any[] })
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
+          <label htmlFor="audit-accion" className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
             <List className="w-3 h-3" /> Acción
           </label>
-          <select 
+          <select id="audit-accion" 
             value={filters.accion}
             onChange={(e) => updateFilters({ accion: e.target.value })}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent/50 appearance-none capitalize"
@@ -108,10 +117,10 @@ export default function AuditoriaClient({ initialLogs }: { initialLogs: any[] })
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
+          <label htmlFor="audit-fecha" className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
             <Calendar className="w-3 h-3" /> Fecha
           </label>
-          <select 
+          <select id="audit-fecha" 
             value={filters.fecha}
             onChange={(e) => updateFilters({ fecha: e.target.value })}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent/50 appearance-none"
@@ -124,10 +133,10 @@ export default function AuditoriaClient({ initialLogs }: { initialLogs: any[] })
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
+          <label htmlFor="audit-orden" className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
             Orden
           </label>
-          <select 
+          <select id="audit-orden" 
             value={filters.order}
             onChange={(e) => updateFilters({ order: e.target.value })}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent/50 appearance-none"
@@ -198,11 +207,11 @@ export default function AuditoriaClient({ initialLogs }: { initialLogs: any[] })
               <table className="w-full text-xs text-left">
                 <thead className="bg-black/20 text-muted uppercase font-black tracking-widest text-[10px] border-b border-white/5">
                   <tr>
-                    <th className="px-4 py-4">Fecha / Hora</th>
-                    <th className="px-4 py-4">Acción</th>
-                    <th className="px-4 py-4">Entidad</th>
-                    <th className="px-4 py-4">Descripción</th>
-                    <th className="px-4 py-4 text-right">Detalles</th>
+                    <th scope="col" className="px-4 py-4">Fecha / Hora</th>
+                    <th scope="col" className="px-4 py-4">Acción</th>
+                    <th scope="col" className="px-4 py-4">Entidad</th>
+                    <th scope="col" className="px-4 py-4">Descripción</th>
+                    <th scope="col" className="px-4 py-4 text-right">Detalles</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -228,7 +237,7 @@ export default function AuditoriaClient({ initialLogs }: { initialLogs: any[] })
                       <td className="px-4 py-3 text-right">
                         {log.metadata && (
                           <button 
-                            onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
+                            aria-label={expandedId === log.id ? "Ocultar metadatos" : "Ver metadatos"} aria-expanded={expandedId === log.id} onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
                             className="p-1.5 rounded hover:bg-white/10 text-muted hover:text-accent transition-colors"
                           >
                             {expandedId === log.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -246,7 +255,7 @@ export default function AuditoriaClient({ initialLogs }: { initialLogs: any[] })
               <div className="hidden md:block fixed bottom-8 right-8 w-96 bg-zinc-950 border border-accent/20 rounded-xl shadow-2xl z-50 p-4">
                 <div className="flex justify-between items-center mb-3 border-b border-white/5 pb-2">
                   <h4 className="text-[10px] font-black text-accent uppercase tracking-widest">Metadata Detallada</h4>
-                  <button onClick={() => setExpandedId(null)} className="text-muted hover:text-white"><List className="w-4 h-4" /></button>
+                  <button type="button" aria-label="Cerrar metadatos" onClick={() => setExpandedId(null)} className="text-muted hover:text-white"><List className="w-4 h-4" /></button>
                 </div>
                 <pre className="text-[10px] text-muted overflow-y-auto max-h-96 scrollbar-hide">
                   {JSON.stringify(initialLogs.find(l => l.id === expandedId)?.metadata, null, 2)}

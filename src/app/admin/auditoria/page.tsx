@@ -22,12 +22,17 @@ export default async function AuditoriaPage({
 
   const params = await searchParams;
 
+  const first = (value: string | string[] | undefined): string | undefined =>
+    Array.isArray(value) ? value[0] : value;
+
+  const fechaParam = first(params.fecha);
   const filters: AuditLogFilters = {
-    query: params.query as string,
-    entidad: params.entidad as string,
-    accion: params.accion as string,
-    fecha: params.fecha as any,
-    order: params.order as any || "desc",
+    query: first(params.query),
+    entidad: first(params.entidad),
+    accion: first(params.accion),
+    fecha:
+      fechaParam === "hoy" || fechaParam === "7dias" || fechaParam === "este_mes" ? fechaParam : "todo",
+    order: first(params.order) === "asc" ? "asc" : "desc",
   };
 
   const logs = await getAuditLogs(filters);
