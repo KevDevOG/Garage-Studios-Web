@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Calendar as CalendarIcon, ChevronRight } from "lucide-react";
+import type { ReservationRow } from "@/app/actions/calendario";
+import { formatTime } from "@/lib/schedule";
 
 interface UpcomingAppointmentsProps {
-  reservations: any[];
+  reservations: ReservationRow[];
 }
 
 export default function UpcomingAppointments({ reservations }: UpcomingAppointmentsProps) {
@@ -41,7 +43,7 @@ export default function UpcomingAppointments({ reservations }: UpcomingAppointme
                   <div className="min-w-0">
                     <div className="font-bold text-white text-sm truncate">{res.nombre}</div>
                     <div className="text-[10px] text-muted truncate">
-                      {res.hora_inicio?.slice(0, 5)} • {res.servicio?.nombre}
+                      {formatTime(res.hora_inicio)} • {res.servicio?.nombre}
                     </div>
                   </div>
                 </div>

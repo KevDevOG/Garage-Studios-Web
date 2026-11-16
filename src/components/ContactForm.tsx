@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import { submitContactAction } from "@/app/actions/contact";
 import { validateRequired, validateEmail, validatePhone } from "@/lib/validation";
-import { useTurnstile, TurnstileWidget } from "@/components/ui/Turnstile";
+import { useTurnstile } from "@/components/ui/Turnstile";
 import FormAlert from "@/components/ui/FormAlert";
 import { CheckCircle, MessageCircle } from "lucide-react";
 
@@ -322,7 +322,7 @@ export default function ContactForm() {
         )}
       </div>
 
-      <TurnstileWidget controller={turnstile} />
+      {turnstile.widget}
 
       <FormAlert message={formError} />
 

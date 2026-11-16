@@ -20,6 +20,33 @@ const LABELS: Record<string, string> = {
 
 const DESTRUCTIVE: ReservationState[] = ["cancelada", "rechazada"];
 
+function ActionButton({
+  status,
+  Icon,
+  tone,
+  disabled,
+  onClick,
+}: {
+  status: ReservationState;
+  Icon: typeof Check;
+  tone: string;
+  disabled: boolean;
+  onClick: (status: ReservationState) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(status)}
+      disabled={disabled}
+      title={LABELS[status]}
+      aria-label={LABELS[status]}
+      className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors disabled:opacity-50 ${tone}`}
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" />
+    </button>
+  );
+}
+
 /**
  * Botones rápidos de estado. Las acciones destructivas piden una segunda
  * pulsación en línea en vez de usar `confirm()` nativo.
@@ -84,32 +111,21 @@ export default function QuickActionButtons({ id, currentStatus }: QuickActionBut
     );
   }
 
-  const Button = ({ status, Icon, tone }: { status: ReservationState; Icon: typeof Check; tone: string }) => (
-    <button
-      type="button"
-      onClick={() => handleAction(status)}
-      disabled={isPending}
-      title={LABELS[status]}
-      aria-label={LABELS[status]}
-      className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors disabled:opacity-50 ${tone}`}
-    >
-      <Icon className="h-4 w-4" aria-hidden="true" />
-    </button>
-  );
+  const common = { disabled: isPending, onClick: handleAction };
 
   return (
     <div className="flex items-center gap-2">
       {currentStatus === "pendiente" && (
         <>
-          <Button status="confirmada" Icon={Check} tone="bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20" />
-          <Button status="rechazada" Icon={Ban} tone="bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20" />
+          <ActionButton {...common} status="confirmada" Icon={Check} tone="bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20" />
+          <ActionButton {...common} status="rechazada" Icon={Ban} tone="bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20" />
         </>
       )}
 
       {currentStatus === "confirmada" && (
         <>
-          <Button status="completada" Icon={CheckCircle2} tone="bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20" />
-          <Button status="cancelada" Icon={X} tone="bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20" />
+          <ActionButton {...common} status="completada" Icon={CheckCircle2} tone="bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20" />
+          <ActionButton {...common} status="cancelada" Icon={X} tone="bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20" />
         </>
       )}
     </div>

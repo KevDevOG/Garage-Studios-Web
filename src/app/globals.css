@@ -1,15 +1,24 @@
 @import "tailwindcss";
 
+/* ── Tokens de diseño ──────────────────────────────────────
+   Identidad Garage Studios: fondo negro profundo, ámbar como único acento,
+   superficies grafito. Cualquier color nuevo debe partir de estos tokens. */
 :root {
   --background: #050505;
   --foreground: #ffffff;
   --card-bg: #0f0f0f;
   --card-border: #1f1f1f;
-  --muted: #888888;
-  --primary: #f59e0b;       /* Amber-500 for primary actions */
-  --primary-hover: #d97706; /* Amber-600 hover */
-  --accent: #f59e0b;        /* Same as primary for consistency in this branding */
+  --muted: #8a8a8a;         /* ≥ 4.5:1 sobre #050505 y #0f0f0f */
+  --primary: #f59e0b;       /* Amber-500: acciones principales */
+  --primary-hover: #d97706; /* Amber-600 */
+  --accent: #f59e0b;
   --accent-hover: #d97706;
+  --accent-ring: rgba(245, 158, 11, 0.45);
+  --danger: #f87171;
+  --success: #4ade80;
+
+  --radius-card: 0.75rem;
+  --shadow-glow: 0 0 30px rgba(245, 158, 11, 0.35);
 }
 
 @theme inline {
@@ -22,17 +31,51 @@
   --color-primary-hover: var(--primary-hover);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
 }
 
 html {
   scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "Inter", Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), "Inter", Arial, Helvetica, sans-serif;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Accesibilidad: foco visible coherente con la marca ──────
+   Solo para navegación por teclado (focus-visible); el ratón no lo muestra. */
+:where(a, button, [role="button"], input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 0.25rem;
+}
+
+/* Enlace "saltar al contenido" (oculto hasta recibir foco) */
+.skip-link {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 10000;
+  transform: translateY(-200%);
+  background: var(--accent);
+  color: #000;
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  transition: transform 0.2s ease;
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline-offset: 2px;
 }
 
 /* ── Formularios ──────────────────────────────────────── */
@@ -46,34 +89,56 @@ textarea {
   padding: 0.625rem 0.875rem;
   width: 100%;
   font-size: 0.9375rem;
+  min-height: 2.75rem; /* objetivo táctil ≥ 44px */
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  min-height: 0;
+  padding: 0;
 }
 
 input:focus,
 select:focus,
 textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15); /* Usando el azul de hover para el glow del input */
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+/* Los campos ya tienen su propio anillo de foco: evitamos duplicar el outline */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
 }
 
 /* ── Estado de error (aria-invalid) ──────────────────── */
 input[aria-invalid="true"],
 select[aria-invalid="true"],
 textarea[aria-invalid="true"] {
-  border-color: #f87171;
+  border-color: var(--danger);
 }
 
 input[aria-invalid="true"]:focus,
 select[aria-invalid="true"]:focus,
 textarea[aria-invalid="true"]:focus {
-  border-color: #f87171;
-  box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.15);
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.25);
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #525252;
+  color: #6b6b6b;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* ── Select mejorado ─────────────────────────────────── */
@@ -86,6 +151,12 @@ select option {
   color: #f5f5f5;
 }
 
+/* Calendario nativo del input date en modo oscuro */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.7);
+  cursor: pointer;
+}
+
 /* ── Placeholder de imágenes ──────────────────────────── */
 .img-placeholder {
   background: linear-gradient(135deg, #1a1a1a 0%, #262626 100%);
@@ -96,7 +167,15 @@ select option {
   font-size: 2rem;
 }
 
-/* ── Animaciones Reusables ────────────────────────────── */
+/* ── Utilidades ──────────────────────────────────────── */
+.scrollbar-hide {
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Animaciones reutilizables (solo transform y opacity) ── */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -118,10 +197,31 @@ select option {
 }
 
 .animate-slide-up {
-  animation: slideUp 0.8s ease-out forwards;
+  animation: slideUp 0.8s cubic-bezier(0.21, 0.47, 0.32, 0.98) forwards;
 }
 
 .delay-100 { animation-delay: 100ms; }
 .delay-200 { animation-delay: 200ms; }
 .delay-300 { animation-delay: 300ms; }
 
+/* ── Movimiento reducido: sin animaciones ni desplazamientos ── */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-fade-in,
+  .animate-slide-up {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

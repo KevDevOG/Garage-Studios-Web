@@ -3,23 +3,30 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import { createManualReservation } from "@/app/actions/calendario";
 import type { DBService } from "@/app/actions/services";
 import ClienteSearch from "@/components/admin/ClienteSearch";
+import FormAlert from "@/components/ui/FormAlert";
+import { todayInStudio } from "@/lib/dates";
 
-export default function NuevaReservaForm({
-  servicesList,
-}: {
-  servicesList: DBService[];
-}) {
+interface ClienteSeleccion {
+  id: string;
+  nombre: string;
+  email: string | null;
+  telefono: string | null;
+}
+
+export default function NuevaReservaForm({ servicesList }: { servicesList: DBService[] }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const [selectedServiceId, setSelectedServiceId] = useState("");
-  const [precio, setPrecio] = useState(0);
+  const [precio, setPrecio] = useState<string>("");
+  const [duracion, setDuracion] = useState<string>("60");
 
-  // Client auto-fill state
+  // Autorrelleno desde cliente existente
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -29,23 +36,16 @@ export default function NuevaReservaForm({
     setSelectedServiceId(id);
     const service = servicesList.find((s) => s.id === id);
     if (service) {
-      setPrecio(Number(service.precio));
+      setPrecio(String(service.precio));
+      if (service.duracion_minutos) setDuracion(String(service.duracion_minutos));
     }
   };
 
-  const handleClienteSelect = (
-    cliente: {
-      id: string;
-      nombre: string;
-      email: string | null;
-      telefono: string | null;
-    } | null
-  ) => {
-    if (cliente) {
-      setNombre(cliente.nombre);
-      setEmail(cliente.email || "");
-      setTelefono(cliente.telefono || "");
-    }
+  const handleClienteSelect = (cliente: ClienteSeleccion | null) => {
+    if (!cliente) return;
+    setNombre(cliente.nombre);
+    setEmail(cliente.email || "");
+    setTelefono(cliente.telefono || "");
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -54,11 +54,16 @@ export default function NuevaReservaForm({
     const formData = new FormData(e.currentTarget);
 
     startTransition(async () => {
-      const result = await createManualReservation(formData);
-      if (result?.error) {
-        setError(result.error);
-      } else {
+      try {
+        const result = await createManualReservation(formData);
+        if ("error" in result) {
+          setError(result.error);
+          return;
+        }
+        toast.success("Reserva creada como pendiente.");
         router.push("/admin/calendario");
+      } catch {
+        setError("No se pudo crear la reserva. Inténtalo de nuevo.");
       }
     });
   };
@@ -66,19 +71,23 @@ export default function NuevaReservaForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-xl border border-card-border bg-card-bg p-6"
+      aria-busy={isPending}
+      className="space-y-5 rounded-xl border border-card-border bg-card-bg p-6"
     >
       {/* Buscar cliente existente */}
       <ClienteSearch onSelect={handleClienteSelect} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium">Servicio *</label>
+          <label htmlFor="nr-servicio" className="mb-1 block text-sm font-medium">
+            Servicio <span className="text-accent" aria-hidden="true">*</span>
+          </label>
           <select
+            id="nr-servicio"
             name="servicio_id"
             required
+            value={selectedServiceId}
             onChange={handleServiceChange}
-            className="w-full border-card-border bg-card-bg rounded-md p-2"
           >
             <option value="">Seleccionar...</option>
             {servicesList.map((s) => (
@@ -89,37 +98,44 @@ export default function NuevaReservaForm({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Estado</label>
+          <span className="mb-1 block text-sm font-medium">Estado</span>
           <input type="hidden" name="estado" value="pendiente" />
-          <div className="flex items-center gap-2 w-full border border-card-border bg-card-bg rounded-md p-2 text-amber-400 text-sm font-medium">
-            <span className="inline-block h-2 w-2 rounded-full bg-amber-400"></span>
+          <div className="flex min-h-[44px] w-full items-center gap-2 rounded-md border border-card-border bg-card-bg px-3 text-sm font-medium text-amber-400">
+            <span className="inline-block h-2 w-2 rounded-full bg-amber-400" aria-hidden="true" />
             Pendiente
           </div>
-          <p className="mt-1 text-[10px] text-muted">Las reservas siempre se crean como pendientes. Confirma después para enviar el email al cliente.</p>
+          <p className="mt-1 text-xs text-muted">
+            Las reservas siempre se crean como pendientes. Confírmala después para enviar el email al cliente.
+          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium">
-            Nombre del cliente *
+          <label htmlFor="nr-nombre" className="mb-1 block text-sm font-medium">
+            Nombre del cliente <span className="text-accent" aria-hidden="true">*</span>
           </label>
           <input
+            id="nr-nombre"
             name="nombre"
             type="text"
             required
-            className="w-full"
+            minLength={2}
+            maxLength={120}
+            autoComplete="off"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Email *</label>
+          <label htmlFor="nr-email" className="mb-1 block text-sm font-medium">
+            Email <span className="text-accent" aria-hidden="true">*</span>
+          </label>
           <input
+            id="nr-email"
             name="email"
             type="email"
             required
-            className="w-full"
             placeholder="cliente@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -129,96 +145,98 @@ export default function NuevaReservaForm({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium">Teléfono *</label>
+          <label htmlFor="nr-telefono" className="mb-1 block text-sm font-medium">
+            Teléfono <span className="text-accent" aria-hidden="true">*</span>
+          </label>
           <input
+            id="nr-telefono"
             name="telefono"
             type="tel"
+            inputMode="tel"
             required
-            className="w-full"
             placeholder="+34 600 000 000"
             value={telefono}
             onChange={(e) => setTelefono(e.target.value)}
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">
-            Precio Final (€) *
+          <label htmlFor="nr-precio" className="mb-1 block text-sm font-medium">
+            Precio final (€) <span className="text-accent" aria-hidden="true">*</span>
           </label>
           <input
+            id="nr-precio"
             name="precio"
             type="number"
+            inputMode="decimal"
             step="0.01"
+            min="0"
             required
             value={precio}
-            onChange={(e) => setPrecio(parseFloat(e.target.value))}
-            className="w-full border-accent/30 focus:border-accent"
+            onChange={(e) => setPrecio(e.target.value)}
+            className="border-accent/30 focus:border-accent"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
-          <label className="mb-1 block text-sm font-medium">Fecha *</label>
-          <input
-            name="fecha_reserva"
-            type="date"
-            required
-            className="w-full"
-          />
+          <label htmlFor="nr-fecha" className="mb-1 block text-sm font-medium">
+            Fecha <span className="text-accent" aria-hidden="true">*</span>
+          </label>
+          <input id="nr-fecha" name="fecha_reserva" type="date" required defaultValue={todayInStudio()} />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">
-            Hora inicio *
+          <label htmlFor="nr-hora" className="mb-1 block text-sm font-medium">
+            Hora inicio <span className="text-accent" aria-hidden="true">*</span>
           </label>
-          <input
-            name="hora_inicio"
-            type="time"
-            required
-            className="w-full"
-            step="1800"
-          />
+          <input id="nr-hora" name="hora_inicio" type="time" required step="1800" />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">
-            Duración (min) *
+          <label htmlFor="nr-duracion" className="mb-1 block text-sm font-medium">
+            Duración (min) <span className="text-accent" aria-hidden="true">*</span>
           </label>
           <input
+            id="nr-duracion"
             name="duracion_minutos"
             type="number"
+            inputMode="numeric"
             required
             min="30"
+            max="1440"
             step="30"
-            defaultValue="60"
-            className="w-full"
+            value={duracion}
+            onChange={(e) => setDuracion(e.target.value)}
           />
         </div>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">Observaciones</label>
-        <textarea name="observaciones" rows={2} className="w-full" />
+        <label htmlFor="nr-observaciones" className="mb-1 block text-sm font-medium">
+          Observaciones
+        </label>
+        <textarea id="nr-observaciones" name="observaciones" rows={2} maxLength={1000} />
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">
+        <label htmlFor="nr-notas" className="mb-1 block text-sm font-medium">
           Notas internas (solo admin)
         </label>
-        <textarea name="notas_admin" rows={2} className="w-full" />
+        <textarea id="nr-notas" name="notas_admin" rows={2} maxLength={2000} />
       </div>
 
-      {error && <p className="text-sm font-medium text-red-500">{error}</p>}
+      <FormAlert message={error} />
 
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <button
           type="submit"
           disabled={isPending}
           className="flex-1 rounded-lg bg-accent px-4 py-2.5 font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isPending ? "Guardando..." : "Crear Reserva"}
+          {isPending ? "Guardando..." : "Crear reserva"}
         </button>
         <Link
           href="/admin/calendario"
-          className="rounded-lg border border-card-border px-4 py-2.5 text-sm font-medium text-muted transition-colors hover:text-white"
+          className="inline-flex items-center justify-center rounded-lg border border-card-border px-4 py-2.5 text-sm font-medium text-muted transition-colors hover:text-white"
         >
           Cancelar
         </Link>

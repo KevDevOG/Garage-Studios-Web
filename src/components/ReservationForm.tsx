@@ -14,7 +14,7 @@ import {
 } from "@/lib/validation";
 import { todayInStudio } from "@/lib/dates";
 import { minutesToTime, timeToMinutes, formatTime, STUDIO_HOURS } from "@/lib/schedule";
-import { useTurnstile, TurnstileWidget } from "@/components/ui/Turnstile";
+import { useTurnstile } from "@/components/ui/Turnstile";
 import FormAlert from "@/components/ui/FormAlert";
 import { Send, CalendarCheck, Clock } from "lucide-react";
 
@@ -77,39 +77,41 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
   const turnstile = useTurnstile("dark");
   const successRef = useRef<HTMLDivElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
+  const slotsRequest = useRef(0);
   const today = todayInStudio();
 
-  // Cargar slots disponibles cuando cambian servicio + fecha
-  useEffect(() => {
-    if (!formData.service || !formData.date) {
+  /**
+   * Carga los horarios disponibles para servicio + fecha. Se invoca desde los
+   * manejadores de cambio (no desde un efecto) y descarta respuestas antiguas.
+   */
+  function loadSlots(service: string, date: string) {
+    const requestId = ++slotsRequest.current;
+    if (!service || !date) {
       setAvailableSlots([]);
       setSlotsMessage(undefined);
       return;
     }
 
-    let cancelled = false;
     setLoadingSlots(true);
     setAvailableSlots([]);
     setSlotsMessage(undefined);
 
-    getAvailableSlots(formData.service, formData.date)
+    getAvailableSlots(service, date)
       .then((result) => {
-        if (cancelled) return;
+        if (requestId !== slotsRequest.current) return;
         setAvailableSlots(result.slots);
         setServiceDuration(result.duracion);
         setSlotsMessage(result.mensaje);
       })
       .catch(() => {
-        if (!cancelled) setSlotsMessage("Error al cargar horarios. Inténtalo de nuevo.");
+        if (requestId === slotsRequest.current) {
+          setSlotsMessage("Error al cargar horarios. Inténtalo de nuevo.");
+        }
       })
       .finally(() => {
-        if (!cancelled) setLoadingSlots(false);
+        if (requestId === slotsRequest.current) setLoadingSlots(false);
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [formData.service, formData.date]);
+  }
 
   // Llevar el foco al mensaje de éxito o de error para lectores de pantalla
   useEffect(() => {
@@ -151,12 +153,13 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const { name, value } = e.target;
-    setFormData((prev) => {
-      const next = { ...prev, [name]: value };
-      // Cambiar servicio o fecha invalida la hora elegida
-      if (name === "service" || name === "date") next.timeSlot = "";
-      return next;
-    });
+    const next = { ...formData, [name]: value };
+    // Cambiar servicio o fecha invalida la hora elegida y recarga horarios
+    if (name === "service" || name === "date") {
+      next.timeSlot = "";
+      loadSlots(next.service, next.date);
+    }
+    setFormData(next);
     if (errors[name as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
@@ -195,11 +198,7 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
         // Si el horario se ocupó mientras tanto, recargamos la disponibilidad
         if (/horario|hora/i.test(result.error)) {
           setFormData((prev) => ({ ...prev, timeSlot: "" }));
-          setAvailableSlots([]);
-          getAvailableSlots(formData.service, formData.date).then((r) => {
-            setAvailableSlots(r.slots);
-            setSlotsMessage(r.mensaje);
-          });
+          loadSlots(formData.service, formData.date);
         }
         turnstile.reset();
         return;
@@ -534,7 +533,7 @@ export default function ReservationForm({ servicesList }: ReservationFormProps) 
         Esta es una solicitud de reserva: te contactaremos para confirmar disponibilidad y detalles.
       </p>
 
-      <TurnstileWidget controller={turnstile} />
+      {turnstile.widget}
 
       <div ref={errorRef}>
         <FormAlert message={formError} />

@@ -3,11 +3,12 @@ import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import PlansLightningBackground from "@/components/PlansLightningBackground";
-import ServiceCard from "@/components/ServiceCard";
 import GalleryCard from "@/components/GalleryCard";
 import ScrollReveal from "@/components/ScrollReveal";
-import { createClient } from "@/lib/supabase/server";
+import ServiceIcon from "@/components/ui/ServiceIcon";
+import Hero from "@/components/Hero";
 import { getActiveServices } from "@/app/actions/services";
+import { getPublicGalleryImages } from "@/app/actions/gallery-public";
 import IntroLoader from "@/components/IntroLoader";
 
 export const metadata: Metadata = {
@@ -42,25 +43,21 @@ export const metadata: Metadata = {
 
 
 // Importación dinámica de componentes pesados que están "below the fold"
-const SpotifyShowcase = dynamic(() => import("@/components/SpotifyShowcase"), { ssr: true });
-const FAQ = dynamic(() => import("@/components/FAQ"), { ssr: true });
-const ContactForm = dynamic(() => import("@/components/ContactForm"), { ssr: true });
-import { MapPin, Clock, Mail, Video, Camera, ChevronRight } from "lucide-react";
+const SpotifyShowcase = dynamic(() => import("@/components/SpotifyShowcase"));
+const FAQ = dynamic(() => import("@/components/FAQ"));
+const ContactForm = dynamic(() => import("@/components/ContactForm"));
+import { MapPin, Clock, Mail, ChevronRight } from "lucide-react";
 
-// Revalidar la página cada hora (Incremental Static Regeneration)
+// Página estática con revalidación cada hora (ISR). Las lecturas no usan
+// cookies, así que Next puede prerenderizarla; el panel admin la invalida
+// con revalidatePath("/") al cambiar servicios o galería.
 export const revalidate = 3600;
 
 export default async function HomePage() {
-  const supabase = await createClient();
-
   // Ejecutamos ambas consultas en paralelo para mejorar el tiempo de respuesta del servidor
-  const [dbServices, { data: previewGallery }] = await Promise.all([
+  const [dbServices, previewGallery] = await Promise.all([
     getActiveServices(),
-    supabase
-      .from("imagen")
-      .select("id, titulo, descripcion, url_imagen")
-      .order("created_at", { ascending: false })
-      .limit(4)
+    getPublicGalleryImages(4),
   ]);
 
   // Filtramos explícitamente los 3 planes principales y la hora extra
@@ -105,77 +102,9 @@ export default async function HomePage() {
   return (
     <>
       <IntroLoader />
-      <main className="relative min-h-screen bg-black">
+      <div className="relative min-h-screen bg-black">
         {/* ── 1. Hero ──────────────────────────────────────────── */}
-        <section className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 pt-4 pb-20 text-center sm:pt-6 sm:pb-32">
-          {/* Imagen de fondo */}
-          <div className="absolute inset-0 z-[-2]">
-            <Image
-              src="https://yzhyucbotumzybntdcpd.supabase.co/storage/v1/object/public/galeria/1776941347466-cf14b757-064e-4743-83b4-ce1b9763b829.jpg"
-              alt="Garage Studios - Estudio de Grabación en Las Palmas"
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center opacity-50"
-            />
-          </div>
-
-          {/* Overlay oscuro para garantizar legibilidad del texto siempre */}
-          <div className="absolute inset-0 z-[-1] bg-black/40"></div>
-          {/* Overlay de degradado para fusionar suavemente con el fondo de la página */}
-          <div className="absolute inset-0 z-[-1] bg-gradient-to-b from-transparent via-transparent to-background"></div>
-
-          {/* Contenido (con animaciones de entrada) */}
-          <div className="relative z-10 max-w-4xl animate-slide-up opacity-0">
-            {/* Logo Real */}
-            <div className="mb-4 flex justify-center">
-              <Image
-                src="/images/logo-sin-fondo.png"
-                alt="Garage Studios Logo"
-                width={1000}
-                height={400}
-                className="h-auto w-full max-w-[240px] object-contain sm:max-w-[380px] md:max-w-[500px]"
-                priority
-              />
-            </div>
-
-            {/* Ubicación */}
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 text-xs font-bold tracking-widest text-accent uppercase">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75"></span>
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-accent"></span>
-              </span>
-              Las Palmas de Gran Canaria
-            </div>
-
-            {/* Título */}
-            <h1 className="text-4xl font-black tracking-tighter sm:text-5xl lg:text-6xl drop-shadow-2xl uppercase italic">
-              Estudio de grabación en <span className="text-accent drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">Las Palmas de Gran Canaria</span>
-            </h1>
-
-            {/* Descripción */}
-            <p className="mx-auto mt-6 max-w-2xl text-lg font-medium text-gray-200 sm:text-xl drop-shadow">
-              Para artistas que buscan un estudio musical con sonido profesional, producción musical completa y videoclips de la mejor calidad.
-            </p>
-
-            {/* Botones CTA */}
-            <div className="mt-10 flex flex-col items-center justify-center gap-6 sm:flex-row">
-              <Link
-                href="/reservas"
-                className="group relative flex items-center justify-center gap-2 overflow-hidden rounded-full bg-accent px-10 py-5 text-lg font-bold text-black transition-all hover:scale-105 hover:bg-accent-hover hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]"
-              >
-                <span>RESERVAR AHORA</span>
-                <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-              </Link>
-              <Link
-                href="/servicios"
-                className="rounded-full border-2 border-white/20 bg-white/5 px-10 py-5 text-lg font-bold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
-              >
-                VER SERVICIOS
-              </Link>
-            </div>
-          </div>
-        </section>
+        <Hero />
 
       {/* ── Secciones Centrales ──────────────────────────────── */}
 
@@ -201,17 +130,14 @@ export default async function HomePage() {
               <ScrollReveal key={s.id} delay={index * 0.1}>
                 <div className={`group flex flex-col h-full justify-between rounded-xl border bg-card-bg p-6 transition-all duration-300 hover:-translate-y-1 ${style.border} ${style.shadow} ${style.ring}`}>
                   <div className="flex flex-col flex-1">
-                    <div className={`mb-6 flex h-24 w-24 items-center justify-center rounded-2xl border transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 border-white/5 ${style.iconBg} ${style.iconText}`}>
-                      {s.icono_url ? (
-                        <img 
-                          src={s.icono_url} 
-                          alt={s.nombre} 
-                          loading="lazy"
-                          className="w-16 h-16 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]"
-                        />
-                      ) : (
-                        <span className="text-5xl filter drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">{s.icono}</span>
-                      )}
+                    <div className={`mb-6 flex h-24 w-24 items-center justify-center rounded-2xl border transition-all duration-500 motion-safe:group-hover:scale-110 motion-safe:group-hover:rotate-3 border-white/5 ${style.iconBg} ${style.iconText}`}>
+                      <ServiceIcon
+                        iconUrl={s.icono_url}
+                        fallback={s.icono}
+                        name={s.nombre}
+                        size={64}
+                        className={s.icono_url ? "drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]" : "text-5xl drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]"}
+                      />
                     </div>
                     <h3 className="text-xl font-black uppercase tracking-tight text-white min-h-[56px] flex items-center">{s.nombre}</h3>
                     <p className="mt-2 text-sm leading-relaxed text-gray-400 font-medium min-h-[80px]">{s.descripcion}</p>
@@ -241,11 +167,7 @@ export default async function HomePage() {
             <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors hover:bg-white/[0.04]">
               <div className="flex items-center gap-4 text-center sm:text-left">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/5 text-2xl filter drop-shadow-md border border-white/5">
-                  {extraHour.icono_url ? (
-                    <img src={extraHour.icono_url} alt={extraHour.nombre} className="w-6 h-6 object-contain" />
-                  ) : (
-                    <span>{extraHour.icono}</span>
-                  )}
+                  <ServiceIcon iconUrl={extraHour.icono_url} fallback={extraHour.icono} name={extraHour.nombre} size={24} />
                 </div>
                 <div>
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-accent mb-1">Extra disponible</h4>
@@ -376,7 +298,7 @@ export default async function HomePage() {
               Un vistazo al ambiente de nuestro estudio de grabación en Las Palmas de Gran Canaria.
             </p>
           </ScrollReveal>
-          {previewGallery && previewGallery.length > 0 ? (
+          {previewGallery.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {previewGallery.map((item, idx) => (
                 <ScrollReveal key={item.id} delay={idx * 0.1}>
@@ -499,7 +421,7 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
-    </main>
+      </div>
     </>
   );
 }

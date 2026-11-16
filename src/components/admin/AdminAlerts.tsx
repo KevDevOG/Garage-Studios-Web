@@ -1,4 +1,4 @@
-import { AlertCircle, Calendar, MessageSquare, Clock, MailWarning } from "lucide-react";
+import { Calendar, MessageSquare, Clock, MailWarning } from "lucide-react";
 import Link from "next/link";
 
 interface AdminAlertsProps {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import AdminNav from "@/components/admin/AdminNav";
 import { getAdminVisualsImages, VisualImage } from "@/app/actions/visuals";
 import { Camera, Plus, CheckCircle2, XCircle, Film, FolderHeart } from "lucide-react";
@@ -40,10 +41,12 @@ export default async function AdminVisualsPage() {
               >
                 {/* Imagen real */}
                 <div className="relative aspect-square overflow-hidden bg-black/20">
-                  <img
+                  <Image
                     src={img.url_imagen}
                     alt={img.titulo || "Imagen de Visuals"}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                   <div className="absolute top-2 left-2 flex gap-1">
                     {img.destacado && (

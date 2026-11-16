@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Script from "next/script";
 
 const TURNSTILE_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
@@ -10,17 +10,16 @@ export interface TurnstileController {
   siteKey: string | undefined;
   /** Token actual o null si no se ha resuelto / ha caducado. */
   token: string | null;
-  /** Contenedor donde se pinta el widget. */
-  containerRef: React.RefObject<HTMLDivElement | null>;
-  /** Pinta (o repinta) el widget. Lo llama <TurnstileWidget> al cargar el script. */
-  render: () => void;
   /** Reinicia el widget para pedir un nuevo token tras un error de envío. */
   reset: () => void;
+  /** Elemento a renderizar en el formulario (script + contenedor). Null si está desactivado. */
+  widget: ReactNode;
 }
 
 /**
  * Hook compartido por los formularios públicos para gestionar Cloudflare
- * Turnstile sin duplicar lógica. Limpia el widget al desmontar.
+ * Turnstile sin duplicar lógica. Devuelve el propio widget como nodo React
+ * para que el formulario solo tenga que insertarlo donde quiera.
  */
 export function useTurnstile(theme: "light" | "dark" = "dark"): TurnstileController {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
@@ -80,19 +79,12 @@ export function useTurnstile(theme: "light" | "dark" = "dark"): TurnstileControl
     render();
   }, [render]);
 
-  return { siteKey, token, containerRef, render, reset };
-}
-
-/**
- * Carga el script de Turnstile y reserva el hueco del widget.
- * No renderiza nada si el captcha está desactivado.
- */
-export function TurnstileWidget({ controller }: { controller: TurnstileController }) {
-  if (!controller.siteKey) return null;
-  return (
+  const widget = siteKey ? (
     <>
-      <Script src={TURNSTILE_SRC} strategy="lazyOnload" onLoad={controller.render} />
-      <div ref={controller.containerRef} className="flex justify-center min-h-[65px]" />
+      <Script src={TURNSTILE_SRC} strategy="lazyOnload" onLoad={render} />
+      <div ref={containerRef} className="flex min-h-[65px] justify-center" />
     </>
-  );
+  ) : null;
+
+  return { siteKey, token, reset, widget };
 }

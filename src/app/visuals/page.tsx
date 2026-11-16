@@ -9,13 +9,26 @@ import VisualsGallery from "@/components/visuals/VisualsGallery";
 import VideoShowcase from "@/components/visuals/VideoShowcase";
 import CinematicSectionBackground from "@/components/visuals/CinematicSectionBackground";
 import ScrollReveal from "@/components/ScrollReveal";
+import ServiceIcon from "@/components/ui/ServiceIcon";
 
 export const metadata: Metadata = {
-  title: "Garage Visuals",
-  description: "Contenido visual para artistas, marcas y creadores. Fotografía, videoclips y piezas audiovisuales.",
+  title: "Garage Visuals: Fotografía y Videoclips en Las Palmas",
+  description: "Contenido visual para artistas, marcas y creadores en Las Palmas de Gran Canaria. Fotografía, videoclips y piezas audiovisuales con estética cuidada.",
+  alternates: { canonical: "/visuals" },
+  openGraph: {
+    title: "Garage Visuals: Fotografía y Videoclips en Las Palmas",
+    description: "Contenido visual para artistas, marcas y creadores. Fotografía, videoclips y piezas audiovisuales.",
+    url: "https://garagestudios.es/visuals",
+    siteName: "Garage Studios",
+    locale: "es_ES",
+    type: "website",
+    images: [{ url: "/og-garage-studios.png", width: 1200, height: 630, alt: "Garage Visuals" }],
+  },
 };
 
-export const dynamic = "force-dynamic";
+// Estática con revalidación horaria; las acciones de /admin/visuals y
+// /admin/servicios invalidan esta ruta con revalidatePath("/visuals").
+export const revalidate = 3600;
 
 interface ServiceDisplay {
   id: string;
@@ -59,12 +72,8 @@ function VisualsServiceCard({ service }: { service: ServiceDisplay }) {
   return (
     <div className="group flex flex-col justify-between rounded-2xl border border-gray-250/60 bg-white p-6 sm:p-8 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:border-accent/30">
       <div>
-        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white border border-gray-200/80 shadow-sm transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 overflow-hidden">
-          <img
-            src={service.gifUrl}
-            alt={`Icono de ${service.name}`}
-            className="h-16 w-16 object-contain"
-          />
+        <div className="mb-6 flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm transition-all duration-500 motion-safe:group-hover:scale-110 motion-safe:group-hover:rotate-3">
+          <ServiceIcon iconUrl={service.gifUrl} name={service.name} size={64} />
         </div>
         <h3 className="text-xl font-black uppercase tracking-tight text-gray-950">{service.name}</h3>
         <p className="mt-3 text-sm leading-relaxed text-gray-600 font-medium">{service.description}</p>
@@ -91,8 +100,7 @@ function VisualsServiceCard({ service }: { service: ServiceDisplay }) {
 }
 
 export default async function VisualsPage() {
-  const dbServices = await getActiveServices();
-  const imagenes = await getVisualsImages();
+  const [dbServices, imagenes] = await Promise.all([getActiveServices(), getVisualsImages()]);
 
   // Mapear servicios de base de datos
   const mappedServices = dbServices.map(s => ({
@@ -151,10 +159,9 @@ export default async function VisualsPage() {
   const extraVisualService = mappedServices.find(s => isEdicionFoto(s.name));
 
   return (
-    BrandTransition ? (
       <BrandTransition>
-        <main className="min-h-screen bg-[#FAFAFA] text-[#111111]">
-          
+        <div className="min-h-screen bg-[#FAFAFA] text-[#111111]">
+
           {/* ── 1. HERO VISUALS ───────────────────────────────────────── */}
           <section className="relative flex min-h-[calc(100vh-80px)] flex-col items-center justify-center overflow-hidden bg-black px-4 pt-4 pb-20 text-center sm:pt-6 sm:pb-32 border-b border-white/10">
             {/* Fondo de Video */}
@@ -163,8 +170,9 @@ export default async function VisualsPage() {
               muted
               loop
               playsInline
+              preload="metadata"
               aria-hidden="true"
-              className="absolute inset-0 h-full w-full object-cover z-0"
+              className="absolute inset-0 z-0 h-full w-full object-cover motion-reduce:hidden"
             >
               <source src="/videos/video_hero_visuals.webm" type="video/webm" />
             </video>
@@ -280,12 +288,8 @@ export default async function VisualsPage() {
                     <div className="max-w-2xl mx-auto mt-12">
                       <div className="rounded-2xl border border-gray-250/60 bg-white p-5 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all hover:border-accent/30 hover:shadow-md">
                         <div className="flex items-center gap-4 text-center sm:text-left flex-col sm:flex-row">
-                          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white border border-gray-200/80 shadow-sm overflow-hidden">
-                            <img
-                              src={extraVisualService.gifUrl}
-                              alt={`Icono de ${extraVisualService.name}`}
-                              className="h-12 w-12 object-contain"
-                            />
+                          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm">
+                            <ServiceIcon iconUrl={extraVisualService.gifUrl} name={extraVisualService.name} size={48} />
                           </div>
                           <div>
                             <h4 className="text-[10px] font-black uppercase tracking-widest text-accent mb-1">Extra disponible</h4>
@@ -357,8 +361,7 @@ export default async function VisualsPage() {
             </div>
           </section>
 
-        </main>
+        </div>
       </BrandTransition>
-    ) : null
   );
 }

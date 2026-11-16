@@ -1,20 +1,31 @@
 import type { Metadata } from "next";
 import GalleryCard from "@/components/GalleryCard";
-import { createClient } from "@/lib/supabase/server";
+import ScrollReveal from "@/components/ScrollReveal";
+import { getPublicGalleryImages } from "@/app/actions/gallery-public";
 
 export const metadata: Metadata = {
-  title: "Galería — Garage Studios",
+  title: "Galería del Estudio de Grabación en Las Palmas | Garage Studios",
   description:
-    "Explora nuestro estudio musical: salas de grabación, equipamiento profesional y sesiones en vivo.",
+    "Explora Garage Studios por dentro: sala de grabación, equipamiento profesional y el ambiente donde grabamos en Las Palmas de Gran Canaria.",
+  alternates: { canonical: "/galeria" },
+  openGraph: {
+    title: "Galería del Estudio | Garage Studios",
+    description:
+      "Explora Garage Studios por dentro: sala de grabación, equipamiento profesional y el ambiente donde grabamos en Las Palmas de Gran Canaria.",
+    url: "https://garagestudios.es/galeria",
+    siteName: "Garage Studios",
+    locale: "es_ES",
+    type: "website",
+    images: [{ url: "/og-garage-studios.png", width: 1200, height: 630, alt: "Garage Studios" }],
+  },
 };
 
-export default async function GaleriaPage() {
-  const supabase = await createClient();
+// Página estática con revalidación cada hora; las subidas desde el panel
+// llaman a revalidatePath("/galeria").
+export const revalidate = 3600;
 
-  const { data: imagenes } = await supabase
-    .from("imagen")
-    .select("id, titulo, descripcion, url_imagen")
-    .order("created_at", { ascending: false });
+export default async function GaleriaPage() {
+  const imagenes = await getPublicGalleryImages();
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
@@ -28,17 +39,19 @@ export default async function GaleriaPage() {
       </div>
 
       {/* Grid de imágenes */}
-      {!imagenes || imagenes.length === 0 ? (
+      {imagenes.length === 0 ? (
         <div className="py-16 text-center">
-          <p className="text-4xl">📷</p>
+          <p className="text-4xl" aria-hidden="true">📷</p>
           <p className="mt-4 text-muted">
             Estamos preparando nuestra galería. ¡Vuelve pronto!
           </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {imagenes.map((item) => (
-            <GalleryCard key={item.id} item={item} />
+          {imagenes.map((item, idx) => (
+            <ScrollReveal key={item.id} delay={Math.min(idx, 7) * 0.05} distance={24} duration={0.6}>
+              <GalleryCard item={item} priority={idx < 4} />
+            </ScrollReveal>
           ))}
         </div>
       )}

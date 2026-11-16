@@ -3,10 +3,8 @@
 import { CommercialStats } from "@/app/actions/clientes";
 import { 
   Euro, 
-  Clock, 
-  CheckCircle2, 
-  XCircle, 
-  Calendar, 
+  Clock,
+  Calendar,
   Star,
   AlertCircle,
   TrendingUp

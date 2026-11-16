@@ -4,13 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAuditLog } from "@/lib/audit";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 const BUCKET_NAME = "galeria";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 // Reutilizamos el mismo helper que en servicios
-async function ensureAdminExists(supabase: any, user: any) {
+async function ensureAdminExists(supabase: SupabaseClient, user: User) {
   const { data: admin } = await supabase
     .from("administrador")
     .select("id")
@@ -108,6 +109,7 @@ export async function uploadImageAction(formData: FormData) {
 
   revalidatePath("/admin/galeria");
   revalidatePath("/galeria");
+  revalidatePath("/"); // la home muestra una previsualización de la galería
 
   await createAuditLog({
     accion: "subida",
@@ -148,6 +150,7 @@ export async function updateImageAction(id: string, formData: FormData) {
 
   revalidatePath("/admin/galeria");
   revalidatePath("/galeria");
+  revalidatePath("/"); // la home muestra una previsualización de la galería
   redirect("/admin/galeria");
 }
 
@@ -200,6 +203,7 @@ export async function deleteImageAction(id: string) {
 
   revalidatePath("/admin/galeria");
   revalidatePath("/galeria");
+  revalidatePath("/"); // la home muestra una previsualización de la galería
 
   await createAuditLog({
     accion: "eliminación",

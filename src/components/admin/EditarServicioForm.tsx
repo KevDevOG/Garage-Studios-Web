@@ -3,7 +3,19 @@
 import { useState, useTransition } from "react";
 import { updateServiceAction } from "@/app/actions/servicios";
 
-export default function EditarServicioForm({ servicio }: { servicio: any }) {
+interface ServicioRow {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  precio: number | string;
+  duracion_minutos: number;
+  categoria: string;
+  subcategoria: string | null;
+  icono: string | null;
+  es_pack: boolean;
+}
+
+export default function EditarServicioForm({ servicio }: { servicio: ServicioRow }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 

@@ -26,7 +26,7 @@ export default function ClienteNotas({ clienteId, initialNotas }: ClienteNotasPr
         setNotas([added, ...notas]);
         setNewNota("");
         toast.success("Nota añadida");
-      } catch (error) {
+      } catch {
         toast.error("Error al añadir la nota");
       }
     });
@@ -40,7 +40,7 @@ export default function ClienteNotas({ clienteId, initialNotas }: ClienteNotasPr
         await deleteClienteNota(id);
         setNotas(notas.filter(n => n.id !== id));
         toast.success("Nota eliminada");
-      } catch (error) {
+      } catch {
         toast.error("Error al eliminar la nota");
       }
     });
@@ -55,7 +55,7 @@ export default function ClienteNotas({ clienteId, initialNotas }: ClienteNotasPr
         setNotas(notas.map(n => n.id === id ? updated : n));
         setEditingId(null);
         toast.success("Nota actualizada");
-      } catch (error) {
+      } catch {
         toast.error("Error al actualizar la nota");
       }
     });

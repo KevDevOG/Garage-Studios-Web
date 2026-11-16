@@ -36,12 +36,15 @@ export default function ClienteTagsEditor({ clienteId, initialTags }: ClienteTag
   };
 
   const saveTags = (updatedTags: string[]) => {
+    const previous = tags;
     setTags(updatedTags);
     startTransition(async () => {
       try {
         await updateClienteEtiquetas(clienteId, updatedTags);
         toast.success("Etiquetas actualizadas");
-      } catch (error) {
+      } catch {
+        // Revertir la actualización optimista si el servidor falla
+        setTags(previous);
         toast.error("Error al guardar etiquetas");
       }
     });

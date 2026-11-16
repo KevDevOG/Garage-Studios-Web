@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Camera, ChevronLeft, ChevronRight, X, Film, Library } from "lucide-react";
 import { VisualImage } from "@/app/actions/visuals";
 import VisualsGalleryCarousel from "./VisualsGalleryCarousel";
@@ -53,21 +54,29 @@ export default function VisualsGallery({ imagenes }: VisualsGalleryProps) {
     setActiveImageIndex((activeImageIndex - 1 + list.length) % list.length);
   };
 
-  // Escuchar eventos de teclado (Escape, Flechas)
+  // Escuchar eventos de teclado (Escape, Flechas) mientras el lightbox está abierto
+  const lightboxOpen = activeImageIndex !== null;
+  const activeListLength =
+    activeCategory === "fotos" ? fotos.length
+    : activeCategory === "grabaciones" ? grabaciones.length
+    : activeCategory === "rodajes" ? rodajes.length
+    : 0;
+
   useEffect(() => {
+    if (!lightboxOpen || activeListLength === 0) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (activeImageIndex === null) return;
       if (e.key === "Escape") {
-        closeLightbox();
+        setActiveCategory(null);
+        setActiveImageIndex(null);
       } else if (e.key === "ArrowRight") {
-        handleNext();
+        setActiveImageIndex((i) => (i === null ? i : (i + 1) % activeListLength));
       } else if (e.key === "ArrowLeft") {
-        handlePrev();
+        setActiveImageIndex((i) => (i === null ? i : (i - 1 + activeListLength) % activeListLength));
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeImageIndex, activeCategory]);
+  }, [lightboxOpen, activeListLength]);
 
   const activeList = getActiveList();
   const activeImage = activeImageIndex !== null ? activeList[activeImageIndex] : null;
@@ -178,11 +187,15 @@ export default function VisualsGallery({ imagenes }: VisualsGalleryProps) {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Imagen ampliada */}
-            <div className="relative flex-1 flex items-center justify-center overflow-hidden rounded-2xl bg-black/20 w-full">
-              <img
+            <div className="relative flex h-[70vh] w-full flex-1 items-center justify-center overflow-hidden rounded-2xl bg-black/20 sm:h-[75vh]">
+              <Image
+                key={activeImage.id}
                 src={activeImage.url_imagen}
                 alt={activeImage.titulo || "Imagen de Garage Visuals"}
-                className="max-h-[70vh] sm:max-h-[75vh] max-w-full object-contain rounded-2xl shadow-2xl animate-fade-in"
+                fill
+                sizes="100vw"
+                priority
+                className="animate-fade-in rounded-2xl object-contain shadow-2xl"
               />
             </div>
 

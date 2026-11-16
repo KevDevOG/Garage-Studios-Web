@@ -10,6 +10,14 @@ import Link from "next/link";
 
 const SHORT_DATE: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit", year: "numeric" };
 
+function SectionTitle({ icon: Icon, children }: { icon: typeof User; children: React.ReactNode }) {
+  return (
+    <h3 className="mb-2 flex items-center gap-2 px-3 text-[10px] font-black uppercase tracking-widest text-muted">
+      <Icon className="h-3 w-3" aria-hidden="true" /> {children}
+    </h3>
+  );
+}
+
 export default function AdminGlobalSearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults | null>(null);
@@ -38,11 +46,7 @@ export default function AdminGlobalSearch() {
 
   useEffect(() => {
     const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setResults(null);
-      setIsOpen(false);
-      return;
-    }
+    if (trimmed.length < 2) return;
 
     const currentRequest = ++requestId.current;
     const delayDebounceFn = setTimeout(async () => {
@@ -77,12 +81,6 @@ export default function AdminGlobalSearch() {
     setIsOpen(false);
   };
 
-  const SectionTitle = ({ icon: Icon, children }: { icon: typeof User; children: React.ReactNode }) => (
-    <h3 className="mb-2 flex items-center gap-2 px-3 text-[10px] font-black uppercase tracking-widest text-muted">
-      <Icon className="h-3 w-3" aria-hidden="true" /> {children}
-    </h3>
-  );
-
   return (
     <div className="relative mb-8" ref={containerRef} role="search">
       <div className="group relative">
@@ -94,11 +92,19 @@ export default function AdminGlobalSearch() {
           type="search"
           aria-label="Buscar clientes, reservas, finanzas, mensajes y servicios"
           aria-controls={listboxId}
-          aria-expanded={isOpen}
           placeholder="Buscar clientes, reservas, mensajes..."
           className="w-full rounded-2xl border border-card-border bg-card-bg py-3.5 pl-12 pr-12 text-sm text-white placeholder-muted/60 outline-none transition-all focus:border-accent/40 focus:ring-4 focus:ring-accent/5"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            setQuery(value);
+            if (value.trim().length < 2) {
+              requestId.current++;
+              setResults(null);
+              setIsOpen(false);
+              setLoading(false);
+            }
+          }}
           onFocus={() => query.trim().length >= 2 && results && setIsOpen(true)}
         />
         {loading ? (

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 
 export interface DBService {
   id: string;
@@ -16,15 +16,25 @@ export interface DBService {
   orden: number;
 }
 
+/**
+ * Servicios activos para la web pública.
+ *
+ * Usa el cliente sin cookies para que las páginas que lo llaman (inicio,
+ * servicios, reservas, visuals) puedan prerenderizarse y revalidarse (ISR).
+ * Las mutaciones del panel llaman a `revalidatePath` sobre esas rutas.
+ */
 export async function getActiveServices(): Promise<DBService[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
+  if (!supabase) {
+    console.warn("[Services] Supabase no configurado: catálogo vacío.");
+    return [];
+  }
 
-  // Obtener solo los servicios activos desde la base de datos
   const { data, error } = await supabase
     .from("servicio")
     .select("id, nombre, descripcion, precio, duracion_minutos, categoria, subcategoria, icono, icono_url, es_pack, orden")
     .eq("activo", true)
-    .order("orden",      { ascending: true })
+    .order("orden", { ascending: true })
     .order("created_at", { ascending: true });
 
   if (error) {

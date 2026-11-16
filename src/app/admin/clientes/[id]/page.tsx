@@ -8,7 +8,7 @@ import ClienteNotas from "@/components/admin/ClienteNotas";
 import ClienteStatsCards from "@/components/admin/ClienteStatsCards";
 import ClienteQuickActions from "@/components/admin/ClienteQuickActions";
 import Link from "next/link";
-import { ChevronLeft, History, User, CreditCard } from "lucide-react";
+import { ChevronLeft, History, User } from "lucide-react";
 import VincularReservasBtn from "@/components/admin/VincularReservasBtn";
 
 export default async function ClienteDetallePage({

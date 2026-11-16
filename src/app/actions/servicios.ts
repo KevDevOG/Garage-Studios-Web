@@ -4,8 +4,21 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAuditLog } from "@/lib/audit";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 
-async function ensureAdminExists(supabase: any, user: any) {
+/**
+ * Las páginas públicas que muestran el catálogo son estáticas (ISR), así que
+ * cualquier cambio en servicios debe invalidarlas explícitamente.
+ */
+function revalidateCatalog() {
+  revalidatePath("/admin/servicios");
+  revalidatePath("/");
+  revalidatePath("/servicios");
+  revalidatePath("/reservas");
+  revalidatePath("/visuals");
+}
+
+async function ensureAdminExists(supabase: SupabaseClient, user: User) {
   // Verificamos si existe en la tabla administrador
   const { data: admin } = await supabase
     .from("administrador")
@@ -46,7 +59,7 @@ export async function toggleServiceActiveAction(id: string, activo: boolean) {
     descripcion: `Servicio ${id.slice(0, 8)}… ${activo ? "activado" : "desactivado"}`,
   });
 
-  revalidatePath("/admin/servicios");
+  revalidateCatalog();
 }
 
 export async function createServiceAction(formData: FormData) {
@@ -112,8 +125,7 @@ export async function createServiceAction(formData: FormData) {
     metadata: { nombre, categoria, precio },
   });
 
-  revalidatePath("/admin/servicios");
-  revalidatePath("/reservas"); // Porque el select de reservas se nutre de aquí
+  revalidateCatalog();
   redirect("/admin/servicios");
 }
 
@@ -178,8 +190,7 @@ export async function updateServiceAction(id: string, formData: FormData) {
     metadata: { nombre, categoria, precio },
   });
 
-  revalidatePath("/admin/servicios");
-  revalidatePath("/reservas");
+  revalidateCatalog();
   redirect("/admin/servicios");
 }
 
@@ -225,6 +236,5 @@ export async function deleteServiceAction(id: string) {
     descripcion: `Servicio ${id.slice(0, 8)}… eliminado`,
   });
 
-  revalidatePath("/admin/servicios");
-  revalidatePath("/reservas");
+  revalidateCatalog();
 }

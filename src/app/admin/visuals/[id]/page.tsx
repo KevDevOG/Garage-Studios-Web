@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { getVisualsImageById, updateVisualsImage, deleteVisualsImage, toggleVisualsImageActive, VisualImage } from "@/app/actions/visuals";
 import { ArrowLeft, Save, Trash2, Power, PowerOff, UploadCloud } from "lucide-react";
 
@@ -32,8 +33,9 @@ export default function EditarVisualImagenPage() {
           setImagen(data);
           setPreviewUrl(data.url_imagen);
         }
-      } catch (err: any) {
-        setError(err.message || "Error al cargar la imagen");
+      } catch (err) {
+        console.error("[Visuals] Error al cargar la imagen:", err);
+        setError("No se pudo cargar la imagen. Vuelve al listado e inténtalo de nuevo.");
       } finally {
         setLoading(false);
       }
@@ -175,7 +177,11 @@ export default function EditarVisualImagenPage() {
 
         <div className="mb-6 flex items-center justify-between border-b border-card-border pb-6">
           <div className="flex items-center gap-4">
-            <img src={imagen?.url_imagen} alt="Preview" className="w-16 h-16 rounded object-cover border border-white/10 bg-black/20" />
+            {imagen?.url_imagen && (
+              <div className="relative h-16 w-16 overflow-hidden rounded border border-white/10 bg-black/20">
+                <Image src={imagen.url_imagen} alt="" fill sizes="64px" className="object-cover" />
+              </div>
+            )}
             <div>
               <p className="font-semibold text-sm text-white">
                 {imagen?.titulo || <span className="text-gray-500 italic font-normal">Sin título</span>}
@@ -323,6 +329,8 @@ export default function EditarVisualImagenPage() {
 
               {previewUrl && (
                 <div className="relative mt-4 aspect-video rounded-xl overflow-hidden border border-white/10 bg-black/20 max-w-sm">
+                  {/* Vista previa local (blob:) que next/image no puede optimizar */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={previewUrl} alt="Vista previa" className="h-full w-full object-cover" />
                   <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white uppercase backdrop-blur-sm">
                     Vista Previa

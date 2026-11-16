@@ -269,6 +269,7 @@ export default function NuevaVisualImagenPage() {
                             className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/30 p-2 relative group"
                           >
                             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-white/10 bg-black/50">
+                              {/* eslint-disable-next-line @next/next/no-img-element -- vista previa blob: local */}
                               <img src={item.previewUrl} alt={item.file.name} className="h-full w-full object-cover" />
                             </div>
                             <div className="min-w-0 flex-1">
@@ -311,6 +312,7 @@ export default function NuevaVisualImagenPage() {
 
                   {manualUrlPreview && (
                     <div className="relative aspect-video rounded-xl overflow-hidden border border-white/10 bg-black/20 max-w-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- URL externa arbitraria introducida por el admin */}
                       <img src={manualUrlPreview} alt="Vista previa manual" className="h-full w-full object-cover" />
                       <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white uppercase backdrop-blur-sm">
                         Vista Previa

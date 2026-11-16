@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -11,11 +11,21 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
 });
+
+export const viewport: Viewport = {
+  themeColor: "#050505",
+  colorScheme: "dark",
+  width: "device-width",
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://garagestudios.es"),
   title: "Estudio de Grabación y Producción Musical en Las Palmas | Garage Studios",
+  applicationName: "Garage Studios",
+  alternates: { canonical: "/" },
   description:
     "Garage Studios: tu estudio musical en Las Palmas de Gran Canaria. Grabación profesional, producción musical, mezcla, masterización y videoclips de alta calidad.",
   keywords: [
@@ -133,10 +143,15 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="flex min-h-full flex-col font-[var(--font-inter)]">
-        <Toaster position="top-right" richColors theme="dark" />
+      <body className="flex min-h-full flex-col">
+        <a href="#contenido" className="skip-link">
+          Saltar al contenido
+        </a>
+        <Toaster position="top-right" richColors theme="dark" closeButton />
         <Navbar />
-        <main className="flex-1">{children}</main>
+        <main id="contenido" tabIndex={-1} className="flex-1 outline-none">
+          {children}
+        </main>
         <Footer />
         <Analytics />
         <SpeedInsights />

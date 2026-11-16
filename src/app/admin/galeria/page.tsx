@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import AdminNav from "@/components/admin/AdminNav";
 import DeleteImageButton from "@/components/admin/DeleteImageButton";
@@ -39,10 +40,12 @@ export default async function AdminGaleriaPage() {
               >
                 {/* Imagen real */}
                 <div className="relative aspect-square overflow-hidden bg-black/20">
-                  <img
+                  <Image
                     src={img.url_imagen}
                     alt={img.titulo}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                 </div>
 

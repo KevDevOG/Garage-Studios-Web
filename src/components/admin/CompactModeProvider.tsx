@@ -1,6 +1,45 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useSyncExternalStore } from "react";
+
+const STORAGE_KEY = "admin-compact-mode";
+const BODY_CLASS = "compact-mode";
+
+// ── Almacén externo (localStorage + clase en <body>) ───────────
+// useSyncExternalStore evita el setState dentro de useEffect y mantiene el
+// servidor (siempre "normal") y el cliente coherentes durante la hidratación.
+const listeners = new Set<() => void>();
+
+function readCompact(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function applyBodyClass(value: boolean) {
+  document.body.classList.toggle(BODY_CLASS, value);
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  // Sincroniza la clase del body con la preferencia guardada al suscribirse
+  applyBodyClass(readCompact());
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function setCompact(value: boolean) {
+  try {
+    localStorage.setItem(STORAGE_KEY, String(value));
+  } catch {
+    /* almacenamiento no disponible */
+  }
+  applyBodyClass(value);
+  listeners.forEach((listener) => listener());
+}
 
 interface CompactModeContextType {
   isCompact: boolean;
@@ -10,28 +49,11 @@ interface CompactModeContextType {
 const CompactModeContext = createContext<CompactModeContextType | undefined>(undefined);
 
 export function CompactModeProvider({ children }: { children: React.ReactNode }) {
-  const [isCompact, setIsCompact] = useState(false);
+  const isCompact = useSyncExternalStore(subscribe, readCompact, () => false);
 
-  useEffect(() => {
-    // Cargar preferencia inicial
-    const saved = localStorage.getItem("admin-compact-mode");
-    if (saved === "true") {
-      setIsCompact(true);
-      document.body.classList.add("compact-mode");
-    }
+  const toggleCompact = useCallback(() => {
+    setCompact(!readCompact());
   }, []);
-
-  const toggleCompact = () => {
-    const newVal = !isCompact;
-    setIsCompact(newVal);
-    localStorage.setItem("admin-compact-mode", String(newVal));
-    
-    if (newVal) {
-      document.body.classList.add("compact-mode");
-    } else {
-      document.body.classList.remove("compact-mode");
-    }
-  };
 
   return (
     <CompactModeContext.Provider value={{ isCompact, toggleCompact }}>

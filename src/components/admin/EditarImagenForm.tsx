@@ -1,9 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Image from "next/image";
 import { updateImageAction } from "@/app/actions/galeria";
 
-export default function EditarImagenForm({ imagen }: { imagen: any }) {
+interface ImagenRow {
+  id: string;
+  titulo: string;
+  descripcion: string | null;
+  url_imagen: string;
+}
+
+export default function EditarImagenForm({ imagen }: { imagen: ImagenRow }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -26,11 +34,13 @@ export default function EditarImagenForm({ imagen }: { imagen: any }) {
       className="space-y-4 rounded-xl border border-card-border bg-card-bg p-6"
     >
       {/* Imagen actual como referencia */}
-      <div className="overflow-hidden rounded-lg border border-card-border">
-        <img
+      <div className="relative h-64 overflow-hidden rounded-lg border border-card-border bg-black/40">
+        <Image
           src={imagen.url_imagen}
           alt={imagen.titulo}
-          className="mx-auto max-h-64 object-contain"
+          fill
+          sizes="(max-width: 768px) 100vw, 640px"
+          className="object-contain"
         />
       </div>
 

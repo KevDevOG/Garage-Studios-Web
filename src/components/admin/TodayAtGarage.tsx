@@ -1,8 +1,10 @@
 import { Phone, Mail } from "lucide-react";
 import QuickActionButtons from "./QuickActionButtons";
+import type { ReservationRow } from "@/app/actions/calendario";
+import { formatTime } from "@/lib/schedule";
 
 interface TodayAtGarageProps {
-  reservations: any[];
+  reservations: ReservationRow[];
 }
 
 export default function TodayAtGarage({ reservations }: TodayAtGarageProps) {
@@ -30,8 +32,8 @@ export default function TodayAtGarage({ reservations }: TodayAtGarageProps) {
             >
               <div className="flex items-center gap-4">
                 <div className="flex flex-col items-center justify-center min-w-[70px] py-2 px-3 rounded-lg bg-accent/10 border border-accent/20">
-                  <span className="text-lg font-black text-accent">{res.hora_inicio?.slice(0, 5)}</span>
-                  <span className="text-[10px] font-bold text-muted/80 uppercase">{res.hora_fin?.slice(0, 5)}</span>
+                  <span className="text-lg font-black text-accent">{formatTime(res.hora_inicio)}</span>
+                  <span className="text-[10px] font-bold text-muted uppercase">{formatTime(res.hora_fin)}</span>
                 </div>
                 <div className="min-w-0">
                   <div className="font-bold text-white text-base truncate">{res.nombre}</div>

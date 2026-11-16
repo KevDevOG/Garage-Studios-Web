@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Trash2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { deleteBloqueo } from "@/app/actions/bloqueos";
 
 interface DeleteBloqueoButtonProps {
@@ -17,8 +18,9 @@ export default function DeleteBloqueoButton({ id }: DeleteBloqueoButtonProps) {
       try {
         await deleteBloqueo(id);
         setShowConfirm(false);
-      } catch (error) {
-        alert("No se pudo eliminar el bloqueo");
+        toast.success("Bloqueo eliminado");
+      } catch {
+        toast.error("No se pudo eliminar el bloqueo");
       }
     });
   };

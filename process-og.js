@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+// Script puntual de optimización de la imagen OG. Requiere instalar `sharp`
+// de forma temporal (no es dependencia del proyecto): `npx sharp` no basta;
+// ejecútalo solo en local con `npm i -D sharp --no-save && node process-og.js`.
 const sharp = require('sharp');
 const fs = require('fs');
 

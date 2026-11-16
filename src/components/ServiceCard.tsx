@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ServiceIcon from "@/components/ui/ServiceIcon";
 
 export interface ServiceDisplay {
   id: string;
@@ -20,20 +21,21 @@ interface ServiceCardProps {
 
 export default function ServiceCard({ service, featured = false }: ServiceCardProps) {
   return (
-    <div className={`group flex flex-col justify-between rounded-xl border bg-card-bg p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(0,0,0,0.6)] ${featured ? "border-accent/40 shadow-[0_0_25px_rgba(245,158,11,0.15)] ring-1 ring-accent/20 hover:border-accent" : "border-card-border hover:border-accent/40"}`}>
+    <article className={`group flex h-full flex-col justify-between rounded-xl border bg-card-bg p-6 transition-all duration-300 motion-safe:hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(0,0,0,0.6)] ${featured ? "border-accent/40 shadow-[0_0_25px_rgba(245,158,11,0.15)] ring-1 ring-accent/20 hover:border-accent" : "border-card-border hover:border-accent/40"}`}>
       {/* Icono y nombre */}
       <div>
-        <div className={`mb-6 flex ${featured ? "h-24 w-24" : "h-20 w-20"} items-center justify-center rounded-2xl border transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 ${featured ? "border-accent/30 bg-accent/10 text-accent shadow-[0_0_30px_rgba(245,158,11,0.2)]" : "border-white/5 bg-white/5 text-white/80 group-hover:border-accent/30 group-hover:bg-accent/5 group-hover:text-accent"}`}>
-          {service.iconUrl ? (
-            <img 
-              src={service.iconUrl} 
-              alt={service.name} 
-              loading="lazy"
-              className={`${featured ? "w-16 h-16" : "w-14 h-14"} object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]`}
-            />
-          ) : (
-            <span className={`${featured ? "text-5xl" : "text-4xl"} filter drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]`}>{service.icon}</span>
-          )}
+        <div className={`mb-6 flex ${featured ? "h-24 w-24" : "h-20 w-20"} items-center justify-center rounded-2xl border transition-all duration-500 motion-safe:group-hover:scale-110 motion-safe:group-hover:rotate-3 ${featured ? "border-accent/30 bg-accent/10 text-accent shadow-[0_0_30px_rgba(245,158,11,0.2)]" : "border-white/5 bg-white/5 text-white/80 group-hover:border-accent/30 group-hover:bg-accent/5 group-hover:text-accent"}`}>
+          <ServiceIcon
+            iconUrl={service.iconUrl}
+            fallback={service.icon}
+            name={service.name}
+            size={featured ? 64 : 56}
+            className={
+              service.iconUrl
+                ? "drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+                : `${featured ? "text-5xl" : "text-4xl"} drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]`
+            }
+          />
         </div>
         <h3 className="text-lg font-bold tracking-tight text-white">{service.name}</h3>
         <p className="mt-2 text-sm leading-relaxed text-muted font-medium">{service.description}</p>
@@ -47,11 +49,12 @@ export default function ServiceCard({ service, featured = false }: ServiceCardPr
         </div>
         <Link
           href={`/reservas?servicio=${service.id}`}
-          className="mt-4 block rounded-lg bg-accent px-4 py-2.5 text-center text-sm font-bold text-black transition-all hover:bg-accent-hover hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+          aria-label={`Reservar ${service.name}`}
+          className="mt-4 block rounded-lg bg-accent px-4 py-2.5 text-center text-sm font-bold text-black transition-all hover:bg-accent-hover hover:shadow-[0_0_20px_rgba(245,158,11,0.3)] motion-safe:hover:scale-[1.02]"
         >
           RESERVAR
         </Link>
       </div>
-    </div>
+    </article>
   );
 }

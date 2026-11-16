@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
+import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { VisualImage } from "@/app/actions/visuals";
+import { usePrefersReducedMotion } from "@/lib/use-media-query";
 
 interface VisualsGalleryCarouselProps {
   title: string;
@@ -28,16 +30,9 @@ export default function VisualsGalleryCarousel({
   const [isHovered, setIsHovered] = useState(false);
   const [isInteracting, setIsInteracting] = useState(false);
   const [isPageVisible, setIsPageVisible] = useState(true);
-  const [reducedMotion, setReducedMotion] = useState(false);
 
-  // 1. Detectar prefers-reduced-motion
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReducedMotion(mediaQuery.matches);
-    const listener = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    mediaQuery.addEventListener("change", listener);
-    return () => mediaQuery.removeEventListener("change", listener);
-  }, []);
+  // 1. Detectar prefers-reduced-motion (suscripción externa, sin setState en efecto)
+  const reducedMotion = usePrefersReducedMotion();
 
   // 2. Detectar visibilidad de pestaña
   useEffect(() => {
@@ -194,11 +189,12 @@ export default function VisualsGalleryCarousel({
                     : "border-gray-250/60"
                 }`}
               >
-                <img
+                <Image
                   src={item.url_imagen}
                   alt={item.titulo || "Imagen de Garage Visuals"}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  fill
+                  sizes="(max-width: 640px) 260px, 320px"
+                  className="object-cover transition-transform duration-700 motion-safe:group-hover:scale-105"
                 />
                 
                 {/* Gradiente sutil inferior con hover */}

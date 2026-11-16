@@ -6,6 +6,14 @@ import crypto from "crypto";
 import { createAuditLog } from "@/lib/audit";
 import { createPublicClient } from "@/lib/supabase/public";
 
+function errorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (err && typeof err === "object" && "message" in err && typeof (err as { message: unknown }).message === "string") {
+    return (err as { message: string }).message;
+  }
+  return fallback;
+}
+
 export interface VisualImage {
   id: string;
   titulo: string;
@@ -123,7 +131,7 @@ async function uploadToStorage(file: File): Promise<string> {
   // Convertir file a buffer para subirlo robustamente en server action
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from("garage-visuals")
     .upload(path, buffer, {
       contentType: file.type,
@@ -168,8 +176,8 @@ export async function createVisualsImage(formData: FormData): Promise<{ success:
     if (file && file.size > 0) {
       try {
         url_imagen = await uploadToStorage(file);
-      } catch (uploadError: any) {
-        return { success: false, error: uploadError.message };
+      } catch (uploadError) {
+        return { success: false, error: errorMessage(uploadError, "Error al subir la imagen") };
       }
     }
 
@@ -206,9 +214,9 @@ export async function createVisualsImage(formData: FormData): Promise<{ success:
     revalidatePath("/visuals");
     revalidatePath("/admin/visuals");
     return { success: true };
-  } catch (err: any) {
+  } catch (err) {
     console.error("Error en createVisualsImage:", err);
-    return { success: false, error: err.message || "Error al crear imagen" };
+    return { success: false, error: errorMessage(err, "Error al crear imagen") };
   }
 }
 
@@ -284,7 +292,7 @@ export async function createVisualsImages(formData: FormData): Promise<{ success
           urls.push(publicUrlData.publicUrl);
           fileNames.push(file.name);
         }
-      } catch (uploadError: any) {
+      } catch (uploadError) {
         // Limpiar archivos subidos en caso de error
         if (uploadedPaths.length > 0) {
           try {
@@ -293,7 +301,7 @@ export async function createVisualsImages(formData: FormData): Promise<{ success
             console.error("Error al limpiar archivos tras fallo:", cleanupErr);
           }
         }
-        return { success: false, error: uploadError.message };
+        return { success: false, error: errorMessage(uploadError, "Error al subir las imágenes") };
       }
 
       // 4. Crear los registros en la base de datos
@@ -342,7 +350,7 @@ export async function createVisualsImages(formData: FormData): Promise<{ success
 
     } else {
       // 5. Caso URL Manual
-      let url_imagen = formData.get("url_imagen") as string;
+      const url_imagen = formData.get("url_imagen") as string;
       if (!url_imagen || !url_imagen.trim()) {
         return { success: false, error: "Debes seleccionar uno o más archivos o introducir una URL manual" };
       }
@@ -377,9 +385,9 @@ export async function createVisualsImages(formData: FormData): Promise<{ success
     revalidatePath("/visuals");
     revalidatePath("/admin/visuals");
     return { success: true };
-  } catch (err: any) {
+  } catch (err) {
     console.error("Error en createVisualsImages:", err);
-    return { success: false, error: err.message || "Error al subir lote de imágenes" };
+    return { success: false, error: errorMessage(err, "Error al subir lote de imágenes") };
   }
 }
 
@@ -409,8 +417,8 @@ export async function updateVisualsImage(id: string, formData: FormData): Promis
     if (file && file.size > 0) {
       try {
         url_imagen = await uploadToStorage(file);
-      } catch (uploadError: any) {
-        return { success: false, error: uploadError.message };
+      } catch (uploadError) {
+        return { success: false, error: errorMessage(uploadError, "Error al subir la imagen") };
       }
     }
 
@@ -449,9 +457,9 @@ export async function updateVisualsImage(id: string, formData: FormData): Promis
     revalidatePath("/visuals");
     revalidatePath("/admin/visuals");
     return { success: true };
-  } catch (err: any) {
+  } catch (err) {
     console.error("Error en updateVisualsImage:", err);
-    return { success: false, error: err.message || "Error al actualizar imagen" };
+    return { success: false, error: errorMessage(err, "Error al actualizar imagen") };
   }
 }
 
@@ -499,9 +507,9 @@ export async function toggleVisualsImageActive(id: string): Promise<{ success: b
     revalidatePath("/visuals");
     revalidatePath("/admin/visuals");
     return { success: true };
-  } catch (err: any) {
+  } catch (err) {
     console.error("Error en toggleVisualsImageActive:", err);
-    return { success: false, error: err.message || "Error al cambiar estado" };
+    return { success: false, error: errorMessage(err, "Error al cambiar estado") };
   }
 }
 
@@ -534,8 +542,8 @@ export async function deleteVisualsImage(id: string): Promise<{ success: boolean
     revalidatePath("/visuals");
     revalidatePath("/admin/visuals");
     return { success: true };
-  } catch (err: any) {
+  } catch (err) {
     console.error("Error en deleteVisualsImage:", err);
-    return { success: false, error: err.message || "Error al eliminar imagen" };
+    return { success: false, error: errorMessage(err, "Error al eliminar imagen") };
   }
 }

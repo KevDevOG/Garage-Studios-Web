@@ -70,6 +70,8 @@ export default function NuevaImagenPage() {
         {/* Previsualización */}
         {preview && (
           <div className="overflow-hidden rounded-lg border border-card-border">
+            {/* Vista previa local (blob:) que next/image no puede optimizar */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={preview}
               alt="Previsualización"

@@ -1,26 +1,68 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { validateSlotAvailable } from "@/app/actions/availability";
-import { minutesToTime, timeToMinutes } from "@/lib/schedule";
+import { minutesToTime, timeToMinutes, formatTime } from "@/lib/schedule";
 import { findOrCreateClientePublic, updateClienteStats } from "@/app/actions/clientes";
-import { 
-  sendReservationConfirmationEmail, 
-  sendReservationCancelledEmail, 
-  sendReservationCompletedEmail 
+import {
+  sendReservationConfirmationEmail,
+  sendReservationCancelledEmail,
+  sendReservationCompletedEmail,
 } from "@/lib/email";
 import { createAuditLog } from "@/lib/audit";
+import { requireAdmin } from "@/lib/auth";
+import { formatIsoDateEs, isValidIsoDate, isValidTime } from "@/lib/dates";
+import { isUuid, isValidEmail, isValidPhone } from "@/lib/reservation-rules";
+import { isPaymentState, isReservationState } from "@/lib/reservation-states";
 
 // ── Helpers ──
 
 async function requireAuth() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autorizado");
+  const { supabase } = await requireAdmin();
   return supabase;
+}
+
+/** Lee un campo de texto del FormData ya recortado. */
+function field(formData: FormData, name: string): string {
+  const value = formData.get(name);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/** Valida los datos comunes de una reserva creada o editada desde el panel. */
+function validateAdminReservationFields(formData: FormData): { error: string } | null {
+  const nombre = field(formData, "nombre");
+  if (nombre.length < 2 || nombre.length > 120) return { error: "El nombre es obligatorio (2-120 caracteres)." };
+
+  const email = field(formData, "email");
+  if (email && !isValidEmail(email)) return { error: "El email no es válido." };
+
+  const telefono = field(formData, "telefono");
+  if (telefono && !isValidPhone(telefono)) return { error: "El teléfono no es válido (mínimo 9 dígitos)." };
+
+  const servicioId = field(formData, "servicio_id");
+  if (!isUuid(servicioId)) return { error: "Selecciona un servicio válido." };
+
+  const fecha = field(formData, "fecha_reserva");
+  if (!isValidIsoDate(fecha)) return { error: "La fecha no es válida." };
+
+  const horaInicio = field(formData, "hora_inicio");
+  if (horaInicio && !isValidTime(horaInicio)) return { error: "La hora de inicio no es válida." };
+
+  const duracion = Number.parseInt(field(formData, "duracion_minutos"), 10);
+  if (horaInicio && (!Number.isFinite(duracion) || duracion <= 0 || duracion > 24 * 60)) {
+    return { error: "La duración debe estar entre 1 y 1440 minutos." };
+  }
+  if (horaInicio && Number.isFinite(duracion) && timeToMinutes(horaInicio) + duracion > 24 * 60) {
+    return { error: "La sesión no puede terminar después de medianoche." };
+  }
+
+  const precioRaw = field(formData, "precio");
+  if (precioRaw) {
+    const precio = Number.parseFloat(precioRaw);
+    if (!Number.isFinite(precio) || precio < 0) return { error: "El precio debe ser un número positivo." };
+  }
+
+  return null;
 }
 
 function revalidateAll(id?: string) {
@@ -122,20 +164,23 @@ export async function getReservation(id: string): Promise<ReservationRow | null>
 export async function createManualReservation(formData: FormData) {
   const supabase = await requireAuth();
 
-  const servicioId = formData.get("servicio_id") as string;
-  const nombre = formData.get("nombre") as string;
-  const email = formData.get("email") as string;
-  const telefono = formData.get("telefono") as string;
-  const fecha = formData.get("fecha_reserva") as string;
-  const horaInicio = formData.get("hora_inicio") as string;
-  const duracionStr = formData.get("duracion_minutos") as string;
-  const observaciones = formData.get("observaciones") as string;
-  const notasAdmin = formData.get("notas_admin") as string;
-  const precio = parseFloat(formData.get("precio") as string);
+  const invalid = validateAdminReservationFields(formData);
+  if (invalid) return invalid;
+
+  const servicioId = field(formData, "servicio_id");
+  const nombre = field(formData, "nombre");
+  const email = field(formData, "email");
+  const telefono = field(formData, "telefono");
+  const fecha = field(formData, "fecha_reserva");
+  const horaInicio = field(formData, "hora_inicio");
+  const observaciones = field(formData, "observaciones");
+  const notasAdmin = field(formData, "notas_admin");
+  const precio = Number.parseFloat(field(formData, "precio"));
   const estado = "pendiente"; // Siempre se crea como pendiente para que el flujo de email funcione al confirmar
 
-  const duracion = parseInt(duracionStr, 10);
-  if (isNaN(duracion) || duracion <= 0) {
+  if (!horaInicio) return { error: "La hora de inicio es obligatoria." };
+  const duracion = Number.parseInt(field(formData, "duracion_minutos"), 10);
+  if (!Number.isFinite(duracion) || duracion <= 0) {
     return { error: "Duración inválida" };
   }
 
@@ -176,6 +221,9 @@ export async function createManualReservation(formData: FormData) {
 
   if (error) {
     console.error("Error al crear reserva manual:", error);
+    if (error.code === "23P01" || error.message?.includes("reserva_no_overlap")) {
+      return { error: "Ya hay una reserva en ese horario. Elige otro." };
+    }
     return { error: "Error al guardar la reserva." };
   }
 
@@ -195,24 +243,33 @@ export async function createManualReservation(formData: FormData) {
 // ── Actualizar reserva ──
 
 export async function updateReservation(id: string, formData: FormData) {
+  if (!isUuid(id)) return { error: "Reserva no válida." };
   const supabase = await requireAuth();
 
-  const nombre = formData.get("nombre") as string;
-  const email = formData.get("email") as string;
-  const telefono = formData.get("telefono") as string;
-  const fecha = formData.get("fecha_reserva") as string;
-  const horaInicio = formData.get("hora_inicio") as string;
-  const duracionStr = formData.get("duracion_minutos") as string;
-  const observaciones = formData.get("observaciones") as string;
-  const notasAdmin = formData.get("notas_admin") as string;
-  const estado = formData.get("estado") as string;
-  const servicioId = formData.get("servicio_id") as string;
-  const precio = parseFloat(formData.get("precio") as string);
-  const estadoPago = formData.get("estado_pago") as "pendiente" | "parcial" | "pagado";
-  const importePagado = parseFloat(formData.get("importe_pagado") as string);
+  const invalid = validateAdminReservationFields(formData);
+  if (invalid) return invalid;
 
-  const duracion = parseInt(duracionStr, 10);
-  const horaFin = minutesToTime(timeToMinutes(horaInicio) + duracion);
+  const nombre = field(formData, "nombre");
+  const email = field(formData, "email");
+  const telefono = field(formData, "telefono");
+  const fecha = field(formData, "fecha_reserva");
+  const horaInicio = field(formData, "hora_inicio");
+  const observaciones = field(formData, "observaciones");
+  const notasAdmin = field(formData, "notas_admin");
+  const estado = field(formData, "estado");
+  const servicioId = field(formData, "servicio_id");
+  const precio = Number.parseFloat(field(formData, "precio"));
+  const estadoPago = field(formData, "estado_pago");
+  const importePagado = Number.parseFloat(field(formData, "importe_pagado"));
+
+  if (!isReservationState(estado)) return { error: "Estado de reserva no válido." };
+  if (!isPaymentState(estadoPago)) return { error: "Estado de pago no válido." };
+  if (!Number.isNaN(importePagado) && importePagado < 0) return { error: "El importe pagado no puede ser negativo." };
+
+  const duracion = Number.parseInt(field(formData, "duracion_minutos"), 10);
+  const horaFin = horaInicio && Number.isFinite(duracion)
+    ? minutesToTime(timeToMinutes(horaInicio) + duracion)
+    : "";
 
   // 1. Obtener la reserva actual antes de actualizar
   const { data: currentRes } = await supabase
@@ -271,7 +328,7 @@ export async function updateReservation(id: string, formData: FormData) {
 
   if (error) {
     console.error("Error al actualizar reserva:", error);
-    if ((error as any).code === "23P01" || error.message?.includes("reserva_no_overlap")) {
+    if (error.code === "23P01" || error.message?.includes("reserva_no_overlap")) {
       return { error: "Ese horario se solapa con otra reserva." };
     }
     return { error: "Error al guardar los cambios." };
@@ -287,18 +344,17 @@ export async function updateReservation(id: string, formData: FormData) {
     await updateClienteStats(supabase, resData.cliente_id);
   }
 
+  const servicioJoin = currentRes.servicio as { nombre: string } | { nombre: string }[] | null;
+  const servicioNombre =
+    (Array.isArray(servicioJoin) ? servicioJoin[0]?.nombre : servicioJoin?.nombre) || "Sesión en Garage Studios";
+
   const commonEmailData = {
     nombre,
-    servicioNombre: (Array.isArray(currentRes.servicio) ? (currentRes.servicio as any)[0]?.nombre : (currentRes.servicio as any)?.nombre) || "Sesión en Garage Studios",
-    precio: isNaN(precio) ? currentRes.precio : precio,
-    fecha: new Date(fecha + "T00:00:00").toLocaleDateString("es-ES", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }),
-    horaInicio: horaInicio || "--:--",
-    horaFin: horaFin || "--:--",
+    servicioNombre,
+    precio: Number.isNaN(precio) ? currentRes.precio : precio,
+    fecha: formatIsoDateEs(fecha),
+    horaInicio: formatTime(horaInicio || null),
+    horaFin: formatTime(horaFin || null),
   };
 
   // 4. Lógica de emails

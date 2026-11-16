@@ -1,37 +1,77 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * PlansLightningBackground — Fondo ambiental de rayos sutiles para la sección de Planes.
  *
- * Renderiza un único vídeo rayos.webm centrado, solo visible en desktop grande (xl+).
- * Respeta la preferencia de movimiento reducido del usuario.
+ * El vídeo rayos.webm pesa ~9 MB, así que solo se monta cuando:
+ * - la pantalla es grande (≥ 1280 px),
+ * - el usuario no ha pedido movimiento reducido,
+ * - y la sección está a punto de entrar en el viewport (IntersectionObserver).
+ * Antes, el vídeo se descargaba también en móvil aunque estuviera oculto con CSS.
  */
 export default function PlansLightningBackground() {
-  const [visible, setVisible] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
 
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (!mq.matches) setVisible(true);
-  }, []);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const largeScreen = window.matchMedia("(min-width: 1280px)");
+    const node = containerRef.current;
+    if (!node) return;
 
-  if (!visible) return null;
+    let observer: IntersectionObserver | null = null;
+
+    const evaluate = () => {
+      if (reduceMotion.matches || !largeScreen.matches) {
+        observer?.disconnect();
+        observer = null;
+        return;
+      }
+      if (observer || shouldLoad) return;
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            setShouldLoad(true);
+            observer?.disconnect();
+            observer = null;
+          }
+        },
+        { rootMargin: "400px 0px" }
+      );
+      observer.observe(node);
+    };
+
+    evaluate();
+    largeScreen.addEventListener("change", evaluate);
+    reduceMotion.addEventListener("change", evaluate);
+
+    return () => {
+      observer?.disconnect();
+      largeScreen.removeEventListener("change", evaluate);
+      reduceMotion.removeEventListener("change", evaluate);
+    };
+  }, [shouldLoad]);
 
   return (
     <div
+      ref={containerRef}
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 z-0 hidden overflow-hidden xl:block"
     >
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        className="absolute inset-0 h-full w-full object-cover opacity-[0.18] mix-blend-screen"
-      >
-        <source src="/videos/rayos.webm" type="video/webm" />
-      </video>
+      {shouldLoad && (
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="none"
+          className="absolute inset-0 h-full w-full object-cover opacity-[0.18] mix-blend-screen"
+        >
+          <source src="/videos/rayos.webm" type="video/webm" />
+        </video>
+      )}
 
       {/* Overlay de oscurecimiento sutil */}
       <div className="absolute inset-0 bg-black/55" />
