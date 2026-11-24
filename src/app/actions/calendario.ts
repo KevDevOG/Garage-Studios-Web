@@ -14,6 +14,7 @@ import { requireAdmin } from "@/lib/auth";
 import { formatIsoDateEs, isValidIsoDate, isValidTime } from "@/lib/dates";
 import { isUuid, isValidEmail, isValidPhone } from "@/lib/reservation-rules";
 import { isPaymentState, isReservationState } from "@/lib/reservation-states";
+import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 
 // ── Helpers ──
 
@@ -123,24 +124,29 @@ export interface ReservationRow {
 export async function getReservations(
   startDate: string,
   endDate: string
-): Promise<ReservationRow[]> {
-  const supabase = await requireAuth();
+): Promise<ActionResult<ReservationRow[]>> {
+  try {
+    const supabase = await requireAuth();
 
-  const { data, error } = await supabase
-    .from("reserva")
-    .select("*, servicio(nombre), cliente:cliente_id(total_reservas)")
-    .gte("fecha_reserva", startDate)
-    .lte("fecha_reserva", endDate)
-    .is("deleted_at", null)
-    .order("fecha_reserva", { ascending: true })
-    .order("hora_inicio", { ascending: true });
+    const { data, error } = await supabase
+      .from("reserva")
+      .select("*, servicio(nombre), cliente:cliente_id(total_reservas)")
+      .gte("fecha_reserva", startDate)
+      .lte("fecha_reserva", endDate)
+      .is("deleted_at", null)
+      .order("fecha_reserva", { ascending: true })
+      .order("hora_inicio", { ascending: true });
 
-  if (error) {
-    console.error("Error al obtener reservas:", error);
-    return [];
+    if (error) {
+      console.error("[calendario] Error al obtener reservas:", error.message);
+      return actionError("No se pudieron cargar las reservas.");
+    }
+
+    return actionOk((data as ReservationRow[]) || []);
+  } catch (err) {
+    console.error("[calendario] Error inesperado al obtener reservas:", err);
+    return actionError("Error al consultar las reservas.");
   }
-
-  return (data as ReservationRow[]) || [];
 }
 
 // ── Obtener reserva individual ──

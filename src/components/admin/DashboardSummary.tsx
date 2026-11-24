@@ -6,16 +6,25 @@ interface SummaryStats {
   hoy: number;
   mensajes: number;
   pendientesPago: number;
-  ingresosMes: number;
+  ingresosMes: number | null;
   emailErrors: number;
 }
 
 export default function DashboardSummary({ stats }: { stats: SummaryStats }) {
+  const isRevenueUnavailable = stats.ingresosMes === null;
+
   const items = [
-    { label: "Citas de Hoy", value: stats.hoy, icon: Calendar, color: "text-blue-400", bg: "bg-blue-400/5" },
-    { label: "Mensajes", value: stats.mensajes, icon: MessageSquare, color: "text-amber-400", bg: "bg-amber-400/5" },
-    { label: "Pagos Pendientes", value: stats.pendientesPago, icon: Wallet, color: "text-red-400", bg: "bg-red-400/5" },
-    { label: "Ingresos Mes", value: `${stats.ingresosMes}€`, icon: TrendingUp, color: "text-green-400", bg: "bg-green-400/5" },
+    { label: "Citas de Hoy", value: stats.hoy, icon: Calendar, color: "text-blue-400", bg: "bg-blue-400/5", unavailable: false },
+    { label: "Mensajes", value: stats.mensajes, icon: MessageSquare, color: "text-amber-400", bg: "bg-amber-400/5", unavailable: false },
+    { label: "Pagos Pendientes", value: stats.pendientesPago, icon: Wallet, color: "text-red-400", bg: "bg-red-400/5", unavailable: false },
+    {
+      label: "Ingresos Mes",
+      value: isRevenueUnavailable ? "No disponible" : `${stats.ingresosMes}€`,
+      icon: TrendingUp,
+      color: isRevenueUnavailable ? "text-amber-400" : "text-green-400",
+      bg: isRevenueUnavailable ? "bg-amber-400/5" : "bg-green-400/5",
+      unavailable: isRevenueUnavailable,
+    },
   ];
 
   return (
@@ -27,7 +36,9 @@ export default function DashboardSummary({ stats }: { stats: SummaryStats }) {
           </div>
           <div>
             <div className="text-[10px] font-black uppercase tracking-widest text-muted">{item.label}</div>
-            <div className="text-xl font-black text-white">{item.value}</div>
+            <div className={item.unavailable ? "text-sm font-bold text-amber-400" : "text-xl font-black text-white"}>
+              {item.value}
+            </div>
           </div>
         </div>
       ))}

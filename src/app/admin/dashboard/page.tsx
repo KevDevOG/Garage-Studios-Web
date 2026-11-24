@@ -9,14 +9,12 @@ import UpcomingAppointments from "@/components/admin/UpcomingAppointments";
 import DashboardQuickActions from "@/components/admin/DashboardQuickActions";
 import DashboardSummary from "@/components/admin/DashboardSummary";
 import StatusBadge from "@/components/admin/StatusBadge";
+import { todayInStudio } from "@/lib/dates";
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
   
-  const todayStr = new Date().toISOString().split('T')[0];
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0,0,0,0);
+  const todayStr = todayInStudio();
   
   // Reservas de hoy
   const { data: hoyReservas } = await supabase
@@ -49,24 +47,34 @@ export default async function AdminDashboardPage() {
     .eq("leido", false);
 
   // Reservas con pagos pendientes
-  const { getPendingPaymentReservations, getMonthlyRevenue } = await import("@/app/actions/finanzas");
+  const { getPendingPaymentReservations, getMonthlyRevenueResult } = await import("@/app/actions/finanzas");
   const pendingPaymentReservations = await getPendingPaymentReservations();
   
   // Ingresos del mes (usando la nueva lógica de ingresos reales)
-  const currentMonthRevenue = await getMonthlyRevenue();
+  const currentMonthRevenueRes = await getMonthlyRevenueResult();
+  if (!currentMonthRevenueRes.ok) {
+    console.error("[dashboard] Error al obtener ingresos del mes:", currentMonthRevenueRes.error);
+  }
 
-  // Últimas 30 reservas para los bloques de estado
-  const { data: reservas } = await supabase
+  // Reservas pendientes de revisión (activas, ordenadas por fecha de creación: más antiguas primero)
+  const {
+    data: reservasPendientes,
+    count: totalPendientesCount,
+    error: pendientesError,
+  } = await supabase
     .from("reserva")
-    .select("*, servicio(nombre), cliente:cliente_id(total_reservas)")
+    .select("*, servicio(nombre), cliente:cliente_id(total_reservas)", { count: "exact" })
+    .eq("estado", "pendiente")
     .is("deleted_at", null)
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: true })
     .limit(30);
 
-  const groups = {
-    pendiente: reservas?.filter((r) => r.estado === "pendiente") || [],
-    confirmada: reservas?.filter((r) => r.estado === "confirmada") || [],
-  };
+  if (pendientesError) {
+    console.error("Error al obtener reservas pendientes:", pendientesError);
+  }
+
+  const hasPendientesError = Boolean(pendientesError || !reservasPendientes);
+  const pendingCount = totalPendientesCount ?? reservasPendientes?.length ?? 0;
 
   const { data: contactos } = await supabase
     .from("contacto")
@@ -78,7 +86,7 @@ export default async function AdminDashboardPage() {
     hoy: hoyReservas?.length || 0,
     mensajes: unreadCount || 0,
     pendientesPago: pendingPaymentReservations.length,
-    ingresosMes: currentMonthRevenue,
+    ingresosMes: currentMonthRevenueRes.ok ? currentMonthRevenueRes.data : null,
     emailErrors: emailErrorsCount || 0,
   };
 
@@ -114,15 +122,19 @@ export default async function AdminDashboardPage() {
           <div className="bg-card-bg border border-amber-400/20 rounded-2xl overflow-hidden shadow-2xl">
             <div className="bg-amber-400/5 p-6 border-b border-amber-400/10 flex justify-between items-center">
               <h3 className="text-lg font-black text-amber-400 uppercase tracking-tighter">Pendientes de Revisar</h3>
-              <span className="bg-amber-400 text-black text-[10px] font-black px-2 py-0.5 rounded-full">{groups.pendiente.length}</span>
+              <span className="bg-amber-400 text-black text-[10px] font-black px-2 py-0.5 rounded-full">
+                {hasPendientesError ? "!" : pendingCount}
+              </span>
             </div>
             
             <div className="p-4 sm:p-6">
-              {groups.pendiente.length === 0 ? (
+              {pendientesError || !reservasPendientes ? (
+                <p className="text-sm text-red-400 italic">Error al cargar las reservas pendientes. Intenta recargar la página.</p>
+              ) : reservasPendientes.length === 0 ? (
                 <p className="text-sm text-muted italic">Todo al día. No hay reservas pendientes.</p>
               ) : (
                 <div className="space-y-4">
-                  {groups.pendiente.map((res) => (
+                  {reservasPendientes.map((res) => (
                     <div key={res.id} className="bg-white/[0.02] border border-white/5 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -142,6 +154,11 @@ export default async function AdminDashboardPage() {
                       </div>
                     </div>
                   ))}
+                  {totalPendientesCount !== null && totalPendientesCount > reservasPendientes.length && (
+                    <p className="text-xs text-muted text-center pt-2">
+                      Mostrando las {reservasPendientes.length} más antiguas de {totalPendientesCount} pendientes.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

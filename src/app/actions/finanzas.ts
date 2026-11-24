@@ -71,7 +71,14 @@ async function fetchAllRows<T>(
   const rows: T[] = [];
   for (let page = 0; page < MAX_PAGES; page++) {
     const from = page * PAGE_SIZE;
-    const { data, error } = await run(from, from + PAGE_SIZE - 1);
+    let result: { data: unknown[] | null; error: { message: string } | null };
+    try {
+      result = await run(from, from + PAGE_SIZE - 1);
+    } catch (err) {
+      console.error(`[finanzas] Error inesperado consultando ${label}:`, err);
+      return null;
+    }
+    const { data, error } = result;
     if (error) {
       console.error(`[finanzas] Error consultando ${label}:`, error.message);
       return null;
@@ -153,14 +160,26 @@ function toAmount(value: unknown): number {
 
 // ── Resumen mensual ───────────────────────────────────────────
 
-export async function getFinanceSummary(month: number, year: number) {
+export interface FinanceSummary {
+  ingresos: number;
+  gastos: number;
+  beneficio: number;
+  count: number;
+  ticketMedio: number;
+}
+
+export async function getFinanceSummary(
+  month: number,
+  year: number
+): Promise<ActionResult<FinanceSummary>> {
   const supabase = await createClient();
   await requireUser(supabase);
 
-  const empty = { ingresos: 0, gastos: 0, beneficio: 0, count: 0, ticketMedio: 0 };
   const { start, end } = monthRange(year, month);
   const data = await fetchFinanceData(supabase, start, end);
-  if (!data) return empty;
+  if (!data) {
+    return actionError("No se pudo cargar el resumen financiero del mes.");
+  }
 
   let ingresos = 0;
   let gastos = 0;
@@ -179,22 +198,27 @@ export async function getFinanceSummary(month: number, year: number) {
     numIngresos++;
   }
 
-  return {
+  return actionOk({
     ingresos,
     gastos,
     beneficio: ingresos - gastos,
     count: data.movements.length + data.reservations.length,
     ticketMedio: numIngresos > 0 ? ingresos / numIngresos : 0,
-  };
+  });
 }
 
-export async function getFinanceMovements(month: number, year: number): Promise<FinanceMovement[]> {
+export async function getFinanceMovementsResult(
+  month: number,
+  year: number
+): Promise<ActionResult<FinanceMovement[]>> {
   const supabase = await createClient();
   await requireUser(supabase);
 
   const { start, end } = monthRange(year, month);
   const data = await fetchFinanceData(supabase, start, end);
-  if (!data) return [];
+  if (!data) {
+    return actionError("No se pudieron cargar los movimientos financieros del mes.");
+  }
 
   const manual: FinanceMovement[] = data.movements.map((m) => ({
     id: m.id,
@@ -231,11 +255,18 @@ export async function getFinanceMovements(month: number, year: number): Promise<
   }));
 
   // Orden: fecha desc y, a igual fecha, creación desc.
-  return [...manual, ...fromReservations].sort((a, b) => {
-    const byDate = compareIsoDates(b.fecha, a.fecha);
-    if (byDate !== 0) return byDate;
-    return compareIsoDates(b.created_at ?? "", a.created_at ?? "");
-  });
+  return actionOk(
+    [...manual, ...fromReservations].sort((a, b) => {
+      const byDate = compareIsoDates(b.fecha, a.fecha);
+      if (byDate !== 0) return byDate;
+      return compareIsoDates(b.created_at ?? "", a.created_at ?? "");
+    })
+  );
+}
+
+export async function getFinanceMovements(month: number, year: number): Promise<FinanceMovement[]> {
+  const result = await getFinanceMovementsResult(month, year);
+  return result.ok ? result.data : [];
 }
 
 // ── Validación de escritura ───────────────────────────────────
@@ -520,18 +551,27 @@ function getTop(obj: Record<string, number>): FinanceTopEntry {
   return entries.sort((a, b) => b[1] - a[1])[0];
 }
 
+export interface FinanceYearOverview {
+  summary: FinanceYearlySummary;
+  insights: FinanceAnnualInsights;
+}
+
 /**
  * Resumen financiero e insights de un año completo, calculados con una
  * única lectura de datos.
  */
-export async function getFinanceYearOverview(year: number) {
+export async function getFinanceYearOverview(
+  year: number
+): Promise<ActionResult<FinanceYearOverview>> {
   const supabase = await createClient();
   await requireUser(supabase);
 
   const overview = emptyYearOverview();
   const { start, end } = monthRange(year, null);
   const data = await fetchFinanceData(supabase, start, end);
-  if (!data) return overview;
+  if (!data) {
+    return actionError("No se pudo cargar el resumen financiero anual.");
+  }
 
   const { summary } = overview;
   let numIngresos = 0;
@@ -597,7 +637,7 @@ export async function getFinanceYearOverview(year: number) {
   summary.beneficioTotal = summary.ingresosTotal - summary.gastosTotal;
   summary.ticketMedio = numIngresos > 0 ? summary.ingresosTotal / numIngresos : 0;
 
-  return {
+  return actionOk({
     summary,
     insights: {
       topService: getTop(serviceStats),
@@ -605,25 +645,36 @@ export async function getFinanceYearOverview(year: number) {
       topClient: getTop(clientValue),
       mostUsedPaymentMethod: getTop(paymentMethods),
     },
-  };
+  });
 }
 
 /**
- * Obtiene los ingresos reales del mes actual
+ * Obtiene los ingresos reales del mes actual con resultado explícito para
+ * distinguir 0 € reales de un fallo de lectura o autorización.
  */
-export async function getMonthlyRevenue() {
+export async function getMonthlyRevenueResult(): Promise<ActionResult<number>> {
   const { supabase, user } = await getAdminSession();
-  if (!user) return 0;
+  if (!user) return actionError("No autorizado");
 
   const { year, month } = getZonedParts();
   const { start, end } = monthRange(year, month);
   const data = await fetchFinanceData(supabase, start, end);
-  if (!data) return 0;
+  if (!data) {
+    return actionError("No se pudieron cargar los ingresos del mes.");
+  }
 
   const manual = data.movements
     .filter((m) => m.tipo === "ingreso")
     .reduce((sum, m) => sum + toAmount(m.importe), 0);
   const reservas = data.reservations.reduce((sum, r) => sum + toAmount(r.importe_pagado), 0);
 
-  return manual + reservas;
+  return actionOk(manual + reservas);
+}
+
+/**
+ * Obtiene los ingresos reales del mes actual
+ */
+export async function getMonthlyRevenue(): Promise<number> {
+  const result = await getMonthlyRevenueResult();
+  return result.ok ? result.data : 0;
 }
