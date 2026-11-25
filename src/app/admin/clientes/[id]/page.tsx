@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import AdminNav from "@/components/admin/AdminNav";
 import { getClienteById, getClienteCommercialStats, getClienteNotas } from "@/app/actions/clientes";
 import { createClient } from "@/lib/supabase/server";
@@ -7,9 +8,13 @@ import ClienteTagsEditor from "@/components/admin/ClienteTagsEditor";
 import ClienteNotas from "@/components/admin/ClienteNotas";
 import ClienteStatsCards from "@/components/admin/ClienteStatsCards";
 import ClienteQuickActions from "@/components/admin/ClienteQuickActions";
-import Link from "next/link";
-import { ChevronLeft, History, User } from "lucide-react";
 import VincularReservasBtn from "@/components/admin/VincularReservasBtn";
+import StatusBadge from "@/components/admin/StatusBadge";
+import { EmptyState, Notice, Page, Panel, cx, table, textLink } from "@/components/admin/ui";
+import { formatEUR, plural } from "@/lib/format";
+
+const formatFecha = (iso: string) =>
+  new Date(iso + "T00:00:00").toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
 
 export default async function ClienteDetallePage({
   params,
@@ -17,148 +22,150 @@ export default async function ClienteDetallePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const cliente = await getClienteById(id);
+  const supabase = await createClient();
+
+  // Lecturas independientes en paralelo
+  const [cliente, commercialStats, notas, reservasRes] = await Promise.all([
+    getClienteById(id),
+    getClienteCommercialStats(id),
+    getClienteNotas(id),
+    supabase
+      .from("reserva")
+      .select("*, servicio(nombre)")
+      .eq("cliente_id", id)
+      .is("deleted_at", null)
+      .order("fecha_reserva", { ascending: false })
+      .limit(50),
+  ]);
   if (!cliente) notFound();
 
-  const [commercialStats, notas] = await Promise.all([
-    getClienteCommercialStats(id),
-    getClienteNotas(id)
-  ]);
-
-  // Obtener historial de reservas del cliente
-  const supabase = await createClient();
-  const { data: reservas } = await supabase
-    .from("reserva")
-    .select("*, servicio(nombre)")
-    .eq("cliente_id", id)
-    .is("deleted_at", null)
-    .order("fecha_reserva", { ascending: false })
-    .limit(50);
+  const reservas = reservasRes.data;
+  const reservasError = reservasRes.error;
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <div className="mb-8">
-        <Link 
-          href="/admin/clientes" 
-          className="flex items-center gap-2 text-muted hover:text-white transition-colors text-xs font-bold uppercase tracking-widest mb-4"
-        >
-          <ChevronLeft className="w-4 h-4" /> Volver a Clientes
-        </Link>
-        <AdminNav title={cliente.nombre} />
-      </div>
+    <Page width="wide">
+      <AdminNav
+        title={cliente.nombre}
+        description={`${cliente.estado.charAt(0).toUpperCase()}${cliente.estado.slice(1)}, origen: ${cliente.origen}`}
+        actions={
+          <ClienteQuickActions
+            nombre={cliente.nombre}
+            email={cliente.email}
+            telefono={cliente.telefono}
+            instagram={cliente.instagram}
+          />
+        }
+      />
 
-      <div className="grid gap-8 lg:grid-cols-12">
-        
-        {/* COLUMNA IZQUIERDA: Stats y CRM */}
-        <div className="lg:col-span-8 space-y-8">
-          
-          {/* Métricas Principales */}
+      <div className="grid gap-5 lg:grid-cols-12">
+        {/* Columna principal: cifras y reservas */}
+        <div className="min-w-0 space-y-5 lg:col-span-8">
           <ClienteStatsCards stats={commercialStats} />
 
-          {/* Acciones Rápidas */}
-          <div className="bg-card-bg p-6 rounded-2xl border border-card-border shadow-xl">
-            <h3 className="text-xs font-black uppercase tracking-widest text-white mb-4 flex items-center gap-2">
-              <User className="w-4 h-4 text-accent" /> Gestión de Cliente
-            </h3>
-            <ClienteQuickActions 
-              nombre={cliente.nombre}
-              email={cliente.email}
-              telefono={cliente.telefono}
-              instagram={cliente.instagram}
-            />
-            <div className="mt-4 pt-4 border-t border-white/5">
-              <VincularReservasBtn clienteId={cliente.id} />
-            </div>
-          </div>
-
-          {/* Historial de Reservas */}
-          <div className="bg-card-bg rounded-2xl border border-card-border overflow-hidden shadow-xl">
-            <div className="p-6 border-b border-white/5 flex items-center justify-between">
-              <h3 className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-2">
-                <History className="w-4 h-4 text-accent" /> Historial de Reservas
-              </h3>
-            </div>
-            
-            <div className="divide-y divide-white/5">
-              {!reservas || reservas.length === 0 ? (
-                <div className="p-12 text-center">
-                  <p className="text-sm text-muted italic">No hay reservas registradas.</p>
+          <Panel
+            title="Reservas"
+            meta={reservas ? plural(reservas.length, "reserva", "reservas") : undefined}
+            action={<VincularReservasBtn clienteId={cliente.id} />}
+            flush
+          >
+            {reservasError ? (
+              <div className="p-4">
+                <Notice title="No se pudieron cargar las reservas">Recarga la página para intentarlo de nuevo.</Notice>
+              </div>
+            ) : !reservas || reservas.length === 0 ? (
+              <EmptyState
+                title="Este cliente aún no tiene reservas"
+                hint="Crea una con «Nueva reserva» o vincula las reservas antiguas que coincidan con sus datos."
+              />
+            ) : (
+              <>
+                <div className="hidden overflow-x-auto md:block">
+                  <table className={table.table}>
+                    <caption className="sr-only">Historial de reservas del cliente</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col" className={table.th}>Fecha</th>
+                        <th scope="col" className={table.th}>Servicio</th>
+                        <th scope="col" className={table.th}>Estado</th>
+                        <th scope="col" className={table.th}>Pago</th>
+                        <th scope="col" className={cx(table.th, table.num)}>Importe</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reservas.map((res) => (
+                        <tr key={res.id} className={table.tr}>
+                          <td className={cx(table.td, "whitespace-nowrap")}>
+                            <Link href={`/admin/calendario/${res.id}`} className={textLink}>
+                              {formatFecha(res.fecha_reserva)}
+                            </Link>
+                            {res.hora_inicio && (
+                              <span className="ml-2 text-gs-faint tabular-nums">{res.hora_inicio.slice(0, 5)}</span>
+                            )}
+                          </td>
+                          <td className={cx(table.td, "max-w-[16rem] truncate")}>
+                            {res.servicio?.nombre || "Servicio desconocido"}
+                          </td>
+                          <td className={table.td}>
+                            <StatusBadge type="reserva" value={res.estado} plain />
+                          </td>
+                          <td className={table.td}>
+                            <StatusBadge type="pago" value={res.estado_pago} plain />
+                          </td>
+                          <td className={cx(table.td, table.num)}>{formatEUR(res.precio || 0)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ) : (
-                reservas.map((res) => (
-                  <Link
-                    key={res.id}
-                    href={`/admin/calendario/${res.id}`}
-                    className="flex items-center justify-between p-4 hover:bg-white/[0.03] transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="bg-white/5 p-2 rounded-lg text-center min-w-[60px]">
-                        <p className="text-[10px] font-black text-accent uppercase leading-none">
-                          {new Date(res.fecha_reserva + "T00:00:00").toLocaleString("es-ES", { month: 'short' })}
-                        </p>
-                        <p className="text-lg font-black text-white leading-none mt-1">
-                          {new Date(res.fecha_reserva + "T00:00:00").getDate()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-white line-clamp-1">
-                          {res.servicio?.nombre || "Servicio desconocido"}
-                        </p>
-                        <p className="text-[10px] text-muted font-bold uppercase tracking-tighter">
-                          {res.hora_inicio?.slice(0, 5)} — {res.estado}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-black text-white">
-                        {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(res.precio || 0)}
-                      </p>
-                      <p className={`text-[9px] font-black uppercase tracking-widest ${res.estado_pago === 'pagado' ? 'text-green-400' : 'text-amber-400'}`}>
-                        {res.estado_pago}
-                      </p>
-                    </div>
-                  </Link>
-                ))
-              )}
-            </div>
-          </div>
+
+                <ul className="divide-y divide-gs-line md:hidden">
+                  {reservas.map((res) => (
+                    <li key={res.id}>
+                      <Link href={`/admin/calendario/${res.id}`} className="block min-h-14 px-4 py-3 hover:bg-gs-raised">
+                        <span className="flex items-baseline justify-between gap-3">
+                          <span className="min-w-0 truncate text-[14px] font-medium text-gs-paper">
+                            {res.servicio?.nombre || "Servicio desconocido"}
+                          </span>
+                          <span className="shrink-0 text-[14px] tabular-nums text-gs-paper">
+                            {formatEUR(res.precio || 0)}
+                          </span>
+                        </span>
+                        <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-gs-faint">
+                          <span>
+                            {formatFecha(res.fecha_reserva)}
+                            {res.hora_inicio ? ` · ${res.hora_inicio.slice(0, 5)}` : ""}
+                          </span>
+                          <StatusBadge type="reserva" value={res.estado} plain />
+                          <StatusBadge type="pago" value={res.estado_pago} plain />
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </Panel>
         </div>
 
-        {/* COLUMNA DERECHA: Datos, Etiquetas y Notas */}
-        <div className="lg:col-span-4 space-y-8">
-          
-          {/* Editor de Etiquetas */}
-          <ClienteTagsEditor 
-            clienteId={cliente.id} 
-            initialTags={cliente.etiquetas || []} 
-          />
+        {/* Columna lateral: etiquetas, notas y datos */}
+        <div className="min-w-0 space-y-5 lg:col-span-4">
+          <ClienteTagsEditor clienteId={cliente.id} initialTags={cliente.etiquetas || []} />
+          <ClienteNotas clienteId={cliente.id} initialNotas={notas} />
 
-          {/* Notas de CRM */}
-          <ClienteNotas 
-            clienteId={cliente.id} 
-            initialNotas={notas} 
-          />
+          <Panel title="Datos del cliente">
+            <EditarClienteForm cliente={cliente} />
+          </Panel>
 
-          {/* Formulario de Datos Básicos (Colapsable o secundario) */}
-          <div className="bg-card-bg rounded-2xl border border-card-border overflow-hidden">
-            <div className="p-4 border-b border-white/5">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Editar Datos Básicos</h3>
-            </div>
-            <div className="p-2">
-               <EditarClienteForm cliente={cliente} />
-            </div>
-          </div>
-
-          {/* Auditoría */}
-          <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] text-[10px] text-muted space-y-1">
-            <p className="font-bold uppercase tracking-widest text-white/20 mb-2">Registro de Auditoría</p>
-            <p>ID: {cliente.id}</p>
-            <p>Creado: {new Date(cliente.created_at).toLocaleString("es-ES")}</p>
-            <p>Actualizado: {new Date(cliente.updated_at).toLocaleString("es-ES")}</p>
-          </div>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 px-1 text-[12px] text-gs-faint">
+            <dt>Creado</dt>
+            <dd>{new Date(cliente.created_at).toLocaleString("es-ES")}</dd>
+            <dt>Actualizado</dt>
+            <dd>{new Date(cliente.updated_at).toLocaleString("es-ES")}</dd>
+            <dt>ID</dt>
+            <dd className="break-all">{cliente.id}</dd>
+          </dl>
         </div>
-
       </div>
-    </section>
+    </Page>
   );
 }

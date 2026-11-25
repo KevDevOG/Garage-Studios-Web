@@ -1,26 +1,28 @@
 import AdminNav from "@/components/admin/AdminNav";
-import { 
-  getClientes, 
-  getClientesMetrics, 
-  getTopClientesByRevenue, 
+import { Page } from "@/components/admin/ui";
+import {
+  getClientes,
+  getClientesMetrics,
+  getTopClientesByRevenue,
   getTopClientesByReservations,
-  getClientesYearEvolution 
+  getClientesYearEvolution,
 } from "@/app/actions/clientes";
 import ClientesClient from "./ClientesClient";
+import ClientesPeriodo from "@/components/admin/clientes/ClientesPeriodo";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAdminSession } from "@/lib/auth";
 import { parsePeriod } from "@/lib/dates";
+import { plural } from "@/lib/format";
 
 export const metadata = {
   title: "Clientes - Admin",
 };
 
-export default async function ClientesPage(props: { 
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }> 
+export default async function ClientesPage(props: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
+  // Sesión + lista de administradores, validada una vez por petición.
+  const { user } = await getAdminSession();
   if (!user) {
     redirect("/admin/login");
   }
@@ -39,23 +41,27 @@ export default async function ClientesPage(props: {
     getTopClientesByRevenue(selectedMonth, year),
     getTopClientesByReservations(selectedMonth, year),
     getClientes(query),
-    view === "yearly" ? getClientesYearEvolution(year) : Promise.resolve([])
+    view === "yearly" ? getClientesYearEvolution(year) : Promise.resolve([]),
   ]);
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <AdminNav title="Clientes" />
-      
-      <ClientesClient initialQuery={query} 
+    <Page width="wide">
+      <AdminNav
+        title="Clientes"
+        description={`${plural(allClientes.length, "cliente", "clientes")}${query ? " con esa búsqueda" : " en total"}`}
+        actions={<ClientesPeriodo view={view} month={month} year={year} query={query} />}
+      />
+      <ClientesClient
+        initialQuery={query}
         view={view}
-        month={month} 
-        year={year} 
+        month={month}
+        year={year}
         metrics={metrics}
         topByRevenue={topRevenue}
         topByReservations={topReservations}
         clientes={allClientes}
         evolution={evolution}
       />
-    </section>
+    </Page>
   );
 }

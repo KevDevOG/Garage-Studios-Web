@@ -1,200 +1,365 @@
-import { createClient } from "@/lib/supabase/server";
-import ReservationStatusSelect from "@/components/ReservationStatusSelect";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 import ContactStatusButton from "@/components/ContactStatusButton";
-import AdminNav from "@/components/admin/AdminNav";
-import DeleteReservationButton from "@/components/admin/DeleteReservationButton";
 import AdminGlobalSearch from "@/components/admin/AdminGlobalSearch";
-import TodayAtGarage from "@/components/admin/TodayAtGarage";
-import UpcomingAppointments from "@/components/admin/UpcomingAppointments";
+import AdminNav from "@/components/admin/AdminNav";
+import CalendarReservationCard from "@/components/admin/CalendarReservationCard";
 import DashboardQuickActions from "@/components/admin/DashboardQuickActions";
 import DashboardSummary from "@/components/admin/DashboardSummary";
 import StatusBadge from "@/components/admin/StatusBadge";
-import { todayInStudio } from "@/lib/dates";
+import TodayAtGarage from "@/components/admin/TodayAtGarage";
+import UpcomingAppointments from "@/components/admin/UpcomingAppointments";
+import {
+  PACK_BLOCK_SELECT,
+  SESSION_SELECT,
+  amountDue,
+  manualBlockToEvent,
+  occupiesSlot,
+  packBlocksToRows,
+  reservationToEvent,
+  withClienteStats,
+  type ManualBlock,
+  type PackBlockRow,
+  type SessionRowData,
+} from "@/components/admin/agenda/events";
+import { Badge, EmptyState, LinkButton, Notice, Page, Panel, textLink } from "@/components/admin/ui";
+import { getMonthlyRevenueResult } from "@/app/actions/finanzas";
+import { getAdminSession } from "@/lib/auth";
+import { formatDateTimeEs, formatIsoDateEs, nowMinutesInStudio, todayInStudio } from "@/lib/dates";
+import { capitalizeFirst, formatEUR, plural } from "@/lib/format";
+
+interface PendingPaymentRow {
+  id: string;
+  nombre: string;
+  fecha_reserva: string;
+  precio: number | null;
+  importe_pagado: number | null;
+  estado_pago: string;
+  servicio: { nombre: string } | null;
+}
+
+interface ContactRow {
+  id: string;
+  nombre: string;
+  email: string;
+  telefono: string | null;
+  asunto: string;
+  mensaje: string;
+  leido: boolean;
+  created_at: string;
+}
+
+const SHORT_DAY: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+const MESSAGE_DATE: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" };
+const MAX_PENDING_PAYMENTS = 6;
 
 export default async function AdminDashboardPage() {
-  const supabase = await createClient();
-  
+  // Una sola validación de sesión para toda la página (deduplicada por petición).
+  const { supabase, user } = await getAdminSession();
+  if (!user) redirect("/admin/login");
+
   const todayStr = todayInStudio();
-  
-  // Reservas de hoy
-  const { data: hoyReservas } = await supabase
-    .from("reserva")
-    .select("*, servicio(nombre)")
-    .eq("fecha_reserva", todayStr)
-    .is("deleted_at", null)
-    .order("hora_inicio", { ascending: true });
 
-  // Próximas reservas
-  const { data: proximasReservas } = await supabase
-    .from("reserva")
-    .select("*, servicio(nombre)")
-    .gt("fecha_reserva", todayStr)
-    .is("deleted_at", null)
-    .order("fecha_reserva", { ascending: true })
-    .order("hora_inicio", { ascending: true })
-    .limit(10);
+  // Todas las lecturas son independientes: una sola ronda en paralelo.
+  const [
+    hoyRes,
+    bloquesHoyRes,
+    bloqueosHoyRes,
+    proximasRes,
+    pendientesRes,
+    porCobrarRes,
+    revenueRes,
+    emailErrorsRes,
+    unreadRes,
+    contactosRes,
+  ] = await Promise.all([
+    // Reservas de hoy
+    supabase
+      .from("reserva")
+      .select(SESSION_SELECT)
+      .eq("fecha_reserva", todayStr)
+      .is("deleted_at", null)
+      .order("hora_inicio", { ascending: true }),
+    // Sesiones de pack de hoy
+    supabase.from("reserva_bloque").select(PACK_BLOCK_SELECT).eq("fecha", todayStr),
+    // Horas bloqueadas de hoy
+    supabase
+      .from("bloqueo_horario")
+      .select("id, motivo, fecha, hora_inicio, hora_fin")
+      .eq("fecha", todayStr)
+      .is("deleted_at", null),
+    // Próximas sesiones que siguen en pie
+    supabase
+      .from("reserva")
+      .select(SESSION_SELECT)
+      .gt("fecha_reserva", todayStr)
+      .in("estado", ["pendiente", "confirmada"])
+      .is("deleted_at", null)
+      .order("fecha_reserva", { ascending: true })
+      .order("hora_inicio", { ascending: true })
+      .limit(8),
+    // Reservas por confirmar (las más antiguas primero)
+    supabase
+      .from("reserva")
+      .select(SESSION_SELECT, { count: "exact" })
+      .eq("estado", "pendiente")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true })
+      .limit(30),
+    // Cobros pendientes: mismo criterio que Finanzas (confirmadas o completadas sin cobrar del todo)
+    supabase
+      .from("reserva")
+      .select("id, nombre, fecha_reserva, precio, importe_pagado, estado_pago, servicio(nombre)")
+      .in("estado", ["confirmada", "completada"])
+      .in("estado_pago", ["pendiente", "parcial"])
+      .is("deleted_at", null)
+      .order("fecha_reserva", { ascending: false }),
+    // Ingresos reales del mes (misma lógica que Finanzas)
+    getMonthlyRevenueResult(),
+    // Correos que no se pudieron enviar
+    supabase
+      .from("reserva")
+      .select("id", { count: "exact", head: true })
+      .or("confirmacion_error.not.is.null,email_estado_error.not.is.null"),
+    // Mensajes sin leer
+    supabase.from("contacto").select("id", { count: "exact", head: true }).eq("leido", false),
+    // Últimos mensajes
+    supabase
+      .from("contacto")
+      .select("id, nombre, email, telefono, asunto, mensaje, leido, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
 
-  // Errores de email
-  const { count: emailErrorsCount } = await supabase
-    .from("reserva")
-    .select("*", { count: 'exact', head: true })
-    .or("confirmacion_error.not.is.null,email_estado_error.not.is.null");
+  if (hoyRes.error) console.error("[dashboard] Error al obtener las reservas de hoy:", hoyRes.error.message);
+  if (bloquesHoyRes.error) console.error("[dashboard] Error al obtener bloques de pack de hoy:", bloquesHoyRes.error.message);
+  if (bloqueosHoyRes.error) console.error("[dashboard] Error al obtener bloqueos de hoy:", bloqueosHoyRes.error.message);
+  if (proximasRes.error) console.error("[dashboard] Error al obtener próximas reservas:", proximasRes.error.message);
+  if (pendientesRes.error) console.error("[dashboard] Error al obtener reservas pendientes:", pendientesRes.error.message);
+  if (porCobrarRes.error) console.error("[dashboard] Error al obtener cobros pendientes:", porCobrarRes.error.message);
+  if (!revenueRes.ok) console.error("[dashboard] Error al obtener ingresos del mes:", revenueRes.error);
+  if (emailErrorsRes.error) console.error("[dashboard] Error al contar errores de correo:", emailErrorsRes.error.message);
+  if (unreadRes.error) console.error("[dashboard] Error al contar mensajes sin leer:", unreadRes.error.message);
+  if (contactosRes.error) console.error("[dashboard] Error al obtener mensajes:", contactosRes.error.message);
 
-  // Mensajes sin leer
-  const { count: unreadCount } = await supabase
-    .from("contacto")
-    .select("*", { count: 'exact', head: true })
-    .eq("leido", false);
+  // ── Hoy ──
+  const todayFailed = Boolean(hoyRes.error || bloquesHoyRes.error || bloqueosHoyRes.error);
+  const reservasHoy = ((hoyRes.data ?? []) as unknown as SessionRowData[]).map(withClienteStats);
+  const packHoy = packBlocksToRows((bloquesHoyRes.data ?? []) as unknown as PackBlockRow[]);
+  const bloqueosHoy = (bloqueosHoyRes.data ?? []) as unknown as ManualBlock[];
+  const sesionesHoy = [...reservasHoy, ...packHoy].sort((a, b) =>
+    (a.hora_inicio || "99:99").localeCompare(b.hora_inicio || "99:99"),
+  );
+  const eventosHoy = [...sesionesHoy.map(reservationToEvent), ...bloqueosHoy.map(manualBlockToEvent)];
 
-  // Reservas con pagos pendientes
-  const { getPendingPaymentReservations, getMonthlyRevenueResult } = await import("@/app/actions/finanzas");
-  const pendingPaymentReservations = await getPendingPaymentReservations();
-  
-  // Ingresos del mes (usando la nueva lógica de ingresos reales)
-  const currentMonthRevenueRes = await getMonthlyRevenueResult();
-  if (!currentMonthRevenueRes.ok) {
-    console.error("[dashboard] Error al obtener ingresos del mes:", currentMonthRevenueRes.error);
-  }
+  // ── Próximas y por confirmar ──
+  const proximas = ((proximasRes.data ?? []) as unknown as SessionRowData[]).map(withClienteStats);
+  const pendientesFailed = Boolean(pendientesRes.error || !pendientesRes.data);
+  const pendientes = ((pendientesRes.data ?? []) as unknown as SessionRowData[]).map(withClienteStats);
+  const pendingCount = pendientesRes.count ?? pendientes.length;
 
-  // Reservas pendientes de revisión (activas, ordenadas por fecha de creación: más antiguas primero)
-  const {
-    data: reservasPendientes,
-    count: totalPendientesCount,
-    error: pendientesError,
-  } = await supabase
-    .from("reserva")
-    .select("*, servicio(nombre), cliente:cliente_id(total_reservas)", { count: "exact" })
-    .eq("estado", "pendiente")
-    .is("deleted_at", null)
-    .order("created_at", { ascending: true })
-    .limit(30);
+  // ── Cobros ──
+  const porCobrar = (porCobrarRes.data ?? []) as unknown as PendingPaymentRow[];
+  const totalPorCobrar = porCobrar.reduce((sum, r) => sum + amountDue(r), 0);
 
-  if (pendientesError) {
-    console.error("Error al obtener reservas pendientes:", pendientesError);
-  }
-
-  const hasPendientesError = Boolean(pendientesError || !reservasPendientes);
-  const pendingCount = totalPendientesCount ?? reservasPendientes?.length ?? 0;
-
-  const { data: contactos } = await supabase
-    .from("contacto")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(5);
-
-  const stats = {
-    hoy: hoyReservas?.length || 0,
-    mensajes: unreadCount || 0,
-    pendientesPago: pendingPaymentReservations.length,
-    ingresosMes: currentMonthRevenueRes.ok ? currentMonthRevenueRes.data : null,
-    emailErrors: emailErrorsCount || 0,
-  };
+  // ── Mensajes ──
+  const contactos = (contactosRes.data ?? []) as unknown as ContactRow[];
+  const unreadCount = unreadRes.error ? null : (unreadRes.count ?? 0);
+  const emailErrors = emailErrorsRes.count ?? 0;
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 space-y-10">
-      <AdminNav title="Dashboard" />
+    <Page>
+      <AdminNav
+        title="Panel"
+        description={capitalizeFirst(formatIsoDateEs(todayStr))}
+        actions={<DashboardQuickActions today={todayStr} />}
+      />
 
-      {/* 1. Buscador Global */}
-      <AdminGlobalSearch />
-
-      {/* 2. Accesos Rápidos */}
-      <div className="space-y-4">
-        <h2 className="text-[10px] font-black uppercase tracking-widest text-muted border-b border-white/5 pb-2">Acciones Rápidas</h2>
-        <DashboardQuickActions />
+      <div className="mb-4">
+        <AdminGlobalSearch />
       </div>
 
-      {/* 3. Resumen Diario */}
-      <div className="space-y-4">
-        <h2 className="text-[10px] font-black uppercase tracking-widest text-muted border-b border-white/5 pb-2">Estado del Día</h2>
-        <DashboardSummary stats={stats} />
-      </div>
+      <DashboardSummary
+        stats={{
+          hoy: todayFailed ? null : sesionesHoy.filter((s) => occupiesSlot(s.estado)).length,
+          porConfirmar: pendientesFailed ? null : pendingCount,
+          cobros: porCobrarRes.error ? null : { count: porCobrar.length, total: totalPorCobrar },
+          ingresosMes: revenueRes.ok ? revenueRes.data : null,
+          mensajes: unreadCount,
+        }}
+      />
 
-      {/* 4. Hoy en Garage */}
-      <TodayAtGarage reservations={hoyReservas || []} />
+      {emailErrors > 0 && (
+        <Notice tone="amber" title={`${plural(emailErrors, "reserva tiene", "reservas tienen")} un correo que no se pudo enviar`} className="mt-4">
+          Abre cada reserva afectada para ver el error y avisa al cliente por otra vía. La{" "}
+          <Link href="/admin/auditoria" className={textLink}>
+            auditoría
+          </Link>{" "}
+          recoge los cambios de estado recientes.
+        </Notice>
+      )}
 
-      <div className="grid gap-10 lg:grid-cols-3">
-        {/* Columna Izquierda: Reservas y Mensajes */}
-        <div className="lg:col-span-2 space-y-12">
-          {/* Próximas Citas */}
-          <UpcomingAppointments reservations={proximasReservas || []} />
+      <div className="mt-4 grid gap-4 lg:grid-cols-12">
+        {/* Agenda */}
+        <div className="min-w-0 space-y-4 lg:col-span-8">
+          <TodayAtGarage
+            today={todayStr}
+            nowMinutes={nowMinutesInStudio()}
+            sessions={sesionesHoy}
+            events={eventosHoy}
+            next={proximas[0]}
+            failed={todayFailed}
+          />
 
-          {/* Reservas Pendientes de Revisión */}
-          <div className="bg-card-bg border border-amber-400/20 rounded-2xl overflow-hidden shadow-2xl">
-            <div className="bg-amber-400/5 p-6 border-b border-amber-400/10 flex justify-between items-center">
-              <h3 className="text-lg font-black text-amber-400 uppercase tracking-tighter">Pendientes de Revisar</h3>
-              <span className="bg-amber-400 text-black text-[10px] font-black px-2 py-0.5 rounded-full">
-                {hasPendientesError ? "!" : pendingCount}
-              </span>
-            </div>
-            
-            <div className="p-4 sm:p-6">
-              {pendientesError || !reservasPendientes ? (
-                <p className="text-sm text-red-400 italic">Error al cargar las reservas pendientes. Intenta recargar la página.</p>
-              ) : reservasPendientes.length === 0 ? (
-                <p className="text-sm text-muted italic">Todo al día. No hay reservas pendientes.</p>
-              ) : (
-                <div className="space-y-4">
-                  {reservasPendientes.map((res) => (
-                    <div key={res.id} className="bg-white/[0.02] border border-white/5 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-black text-accent uppercase tracking-tighter">
-                            {new Date(res.fecha_reserva + "T00:00:00").toLocaleDateString("es-ES", { day: '2-digit', month: 'short' })}
-                          </span>
-                          <span className="text-[10px] font-bold text-muted uppercase">
-                            {res.hora_inicio?.slice(0, 5)}
-                          </span>
-                        </div>
-                        <h4 className="font-black text-white truncate uppercase tracking-tighter">{res.nombre}</h4>
-                        <p className="text-[10px] text-muted truncate uppercase tracking-widest">{res.servicio?.nombre}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <ReservationStatusSelect id={res.id} currentStatus={res.estado} />
-                        <DeleteReservationButton id={res.id} />
-                      </div>
-                    </div>
-                  ))}
-                  {totalPendientesCount !== null && totalPendientesCount > reservasPendientes.length && (
-                    <p className="text-xs text-muted text-center pt-2">
-                      Mostrando las {reservasPendientes.length} más antiguas de {totalPendientesCount} pendientes.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Columna Derecha: Mensajes */}
-        <div className="space-y-6">
-          <div className="bg-card-bg border border-white/5 rounded-2xl p-6 shadow-xl h-fit">
-            <div className="flex items-center justify-between mb-6 border-b border-white/5 pb-4">
-              <h3 className="text-xs font-black uppercase tracking-widest text-white">Últimos Mensajes</h3>
-              <span className="text-[10px] font-bold text-muted uppercase tracking-widest">{stats.mensajes} sin leer</span>
-            </div>
-
-            {contactos?.length === 0 ? (
-              <p className="text-xs text-muted italic">No hay mensajes recientes.</p>
-            ) : (
-              <div className="space-y-4">
-                {contactos?.map((c) => (
-                  <div key={c.id} className={`p-3 rounded-xl border ${!c.leido ? 'border-amber-400/30 bg-amber-400/5' : 'border-white/5 bg-black/20'}`}>
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-[9px] font-black text-muted uppercase">{new Date(c.created_at).toLocaleDateString()}</span>
-                      {!c.leido && <StatusBadge type="mensaje" value="nuevo" />}
-                    </div>
-                    <div className="font-bold text-sm text-white truncate mb-1">{c.nombre}</div>
-                    <p className="text-[11px] text-white/60 line-clamp-2 italic mb-3">&ldquo;{c.asunto}&rdquo;</p>
-                    <div className="flex justify-end">
-                      <ContactStatusButton id={c.id} isRead={c.leido} />
-                    </div>
-                  </div>
-                ))}
+          <Panel flush title="Por confirmar" meta={pendientesFailed ? undefined : pendingCount}>
+            {pendientesFailed ? (
+              <div className="p-4">
+                <Notice title="No se pudieron cargar las reservas por confirmar">
+                  Recarga la página para reintentarlo.
+                </Notice>
               </div>
+            ) : pendientes.length === 0 ? (
+              <EmptyState
+                title="Todo al día"
+                hint="No hay reservas esperando confirmación. Las nuevas de la web aparecerán aquí."
+              />
+            ) : (
+              <>
+                <ul className="divide-y divide-gs-line">
+                  {pendientes.map((res) => (
+                    <CalendarReservationCard key={res.id} reservation={res} showDate />
+                  ))}
+                </ul>
+                {pendingCount > pendientes.length && (
+                  <p className="border-t border-gs-line px-4 py-2.5 text-[12px] text-gs-faint">
+                    Se muestran las {pendientes.length} más antiguas de {pendingCount}.
+                  </p>
+                )}
+              </>
             )}
+          </Panel>
+
+          <UpcomingAppointments reservations={proximas} failed={Boolean(proximasRes.error)} />
+        </div>
+
+        {/* Cobros y mensajes */}
+        <div className="min-w-0 space-y-4 lg:col-span-4">
+          <Panel
+            flush
+            title="Cobros pendientes"
+            meta={porCobrarRes.error || porCobrar.length === 0 ? undefined : formatEUR(totalPorCobrar)}
+            action={
+              <LinkButton href="/admin/finanzas" variant="ghost" size="sm">
+                Ver finanzas
+              </LinkButton>
+            }
+          >
+            {porCobrarRes.error ? (
+              <div className="p-4">
+                <Notice title="No se pudieron cargar los cobros pendientes">
+                  Recarga la página para reintentarlo.
+                </Notice>
+              </div>
+            ) : porCobrar.length === 0 ? (
+              <EmptyState title="No hay cobros pendientes" hint="Todas las sesiones confirmadas o completadas están cobradas." />
+            ) : (
+              <>
+                <ul className="divide-y divide-gs-line">
+                  {porCobrar.slice(0, MAX_PENDING_PAYMENTS).map((r) => (
+                    <li key={r.id}>
+                      <Link
+                        href={`/admin/calendario/${r.id}`}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.03]"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[14px] font-medium text-gs-paper">{r.nombre}</span>
+                          <span className="block truncate text-[12px] text-gs-faint">
+                            {formatIsoDateEs(r.fecha_reserva, SHORT_DAY)}
+                            {r.servicio?.nombre ? `, ${r.servicio.nombre}` : ""}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-right">
+                          <span className="block text-[14px] font-semibold text-gs-paper">{formatEUR(amountDue(r))}</span>
+                          <StatusBadge type="pago" value={r.estado_pago} plain />
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                {porCobrar.length > MAX_PENDING_PAYMENTS && (
+                  <p className="border-t border-gs-line px-4 py-2.5 text-[12px] text-gs-faint">
+                    Y {porCobrar.length - MAX_PENDING_PAYMENTS} más en{" "}
+                    <Link href="/admin/finanzas" className={textLink}>
+                      Finanzas
+                    </Link>
+                    .
+                  </p>
+                )}
+              </>
+            )}
+          </Panel>
+
+          <div id="mensajes" className="scroll-mt-20">
+            <Panel
+              flush
+              title="Mensajes de la web"
+              meta={unreadCount ? `${unreadCount} sin leer` : undefined}
+            >
+              {contactosRes.error ? (
+                <div className="p-4">
+                  <Notice title="No se pudieron cargar los mensajes">Recarga la página para reintentarlo.</Notice>
+                </div>
+              ) : contactos.length === 0 ? (
+                <EmptyState
+                  title="Aún no hay mensajes"
+                  hint="Lo que escriban desde el formulario de contacto de la web llegará aquí."
+                />
+              ) : (
+                <ul className="divide-y divide-gs-line">
+                  {contactos.map((c) => (
+                    <li key={c.id}>
+                      <details className="group">
+                        <summary className="flex cursor-pointer list-none items-start gap-3 px-4 py-2.5 hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-2">
+                              <span className="truncate text-[14px] font-medium text-gs-paper">{c.nombre}</span>
+                              {!c.leido && (
+                                <Badge tone="amber" plain className="shrink-0">
+                                  Nuevo
+                                </Badge>
+                              )}
+                            </span>
+                            <span className="block truncate text-[13px] text-gs-soft">{c.asunto}</span>
+                          </span>
+                          <span className="shrink-0 pt-0.5 text-[12px] text-gs-faint">
+                            {formatDateTimeEs(c.created_at, MESSAGE_DATE)}
+                          </span>
+                        </summary>
+                        <div className="space-y-3 px-4 pb-3">
+                          <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-gs-paper">
+                            {c.mensaje}
+                          </p>
+                          <p className="flex flex-wrap gap-x-3 gap-y-1 text-[13px]">
+                            <a href={`mailto:${c.email}`} className={`${textLink} break-all`}>
+                              {c.email}
+                            </a>
+                            {c.telefono && (
+                              <a href={`tel:${c.telefono.replace(/\s+/g, "")}`} className={textLink}>
+                                {c.telefono}
+                              </a>
+                            )}
+                          </p>
+                          <ContactStatusButton id={c.id} isRead={c.leido} />
+                        </div>
+                      </details>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
           </div>
         </div>
       </div>
-    </section>
+    </Page>
   );
 }

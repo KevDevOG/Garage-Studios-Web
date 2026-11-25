@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import AdminNav from "@/components/admin/AdminNav";
 import EditarServicioForm from "@/components/admin/EditarServicioForm";
+import { Page } from "@/components/admin/ui";
 
 export default async function EditarServicioPage({
   params,
@@ -13,7 +14,7 @@ export default async function EditarServicioPage({
 
   const { data: servicio } = await supabase
     .from("servicio")
-    .select("*")
+    .select("id, nombre, descripcion, precio, duracion_minutos, categoria, subcategoria, icono, es_pack")
     .eq("id", id)
     .single();
 
@@ -22,18 +23,9 @@ export default async function EditarServicioPage({
   }
 
   return (
-    <section className="mx-auto max-w-2xl px-4 py-16 sm:px-6">
-      <div className="mb-8 border-b border-card-border pb-4">
-        <Link
-          href="/admin/servicios"
-          className="text-sm font-medium text-muted hover:text-white"
-        >
-          &larr; Volver a Servicios
-        </Link>
-        <h1 className="mt-4 text-2xl font-bold">Editar Servicio</h1>
-      </div>
-
+    <Page width="medium">
+      <AdminNav title="Editar servicio" description={servicio.nombre} />
       <EditarServicioForm servicio={servicio} />
-    </section>
+    </Page>
   );
 }

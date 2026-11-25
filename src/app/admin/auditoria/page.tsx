@@ -1,20 +1,20 @@
 import { redirect } from "next/navigation";
 import AdminNav from "@/components/admin/AdminNav";
+import { Page } from "@/components/admin/ui";
 import { getAuditLogs, AuditLogFilters } from "@/app/actions/auditoria";
 import AuditoriaClient from "./AuditoriaClient";
-import { createClient } from "@/lib/supabase/server";
+import { getAdminSession } from "@/lib/auth";
 
 export const metadata = {
   title: "Auditoría - Admin",
 };
 
-export default async function AuditoriaPage({ 
-  searchParams 
-}: { 
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+export default async function AuditoriaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getAdminSession();
 
   if (!user) {
     redirect("/admin/login");
@@ -38,9 +38,12 @@ export default async function AuditoriaPage({
   const logs = await getAuditLogs(filters);
 
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6">
-      <AdminNav title="Auditoría" />
+    <Page width="wide">
+      <AdminNav
+        title="Auditoría"
+        description="Registro de las acciones realizadas en el panel. Se muestran hasta 200 registros según los filtros."
+      />
       <AuditoriaClient initialLogs={logs} />
-    </div>
+    </Page>
   );
 }

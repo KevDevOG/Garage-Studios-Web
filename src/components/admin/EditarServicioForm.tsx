@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateServiceAction } from "@/app/actions/servicios";
+import { Field, FormActions, Notice, Panel, buttonClass } from "@/components/admin/ui";
 
 interface ServicioRow {
   id: string;
@@ -33,105 +34,120 @@ export default function EditarServicioForm({ servicio }: { servicio: ServicioRow
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-4 rounded-xl border border-card-border bg-card-bg p-6"
-    >
-      <div>
-        <label className="mb-1 block text-sm font-medium">Nombre</label>
-        <input
-          name="nombre"
-          type="text"
-          defaultValue={servicio.nombre}
-          required
-          className="w-full"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium">Descripción</label>
-        <textarea
-          name="descripcion"
-          defaultValue={servicio.descripcion}
-          required
-          rows={3}
-          className="w-full"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="mb-1 block text-sm font-medium">Precio (€)</label>
+    <Panel>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Field label="Nombre" htmlFor="servicio-nombre" required>
           <input
-            name="precio"
-            type="number"
-            step="0.01"
-            min="0.01"
-            defaultValue={servicio.precio}
+            id="servicio-nombre"
+            name="nombre"
+            type="text"
+            defaultValue={servicio.nombre}
             required
             className="w-full"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium">
-            Duración (minutos)
-          </label>
-          <input
-            name="duracion_minutos"
-            type="number"
-            min="1"
-            defaultValue={servicio.duracion_minutos}
+        </Field>
+
+        <Field label="Descripción" htmlFor="servicio-descripcion" required>
+          <textarea
+            id="servicio-descripcion"
+            name="descripcion"
+            defaultValue={servicio.descripcion}
             required
+            rows={3}
             className="w-full"
           />
-        </div>
-      </div>
+        </Field>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="mb-1 block text-sm font-medium">Categoría *</label>
-          <select name="categoria" required defaultValue={servicio.categoria} className="w-full border-card-border bg-card-bg rounded-md p-2">
-            <option value="">Seleccionar...</option>
-            <option value="Sonido">Sonido</option>
-            <option value="Fotografía y vídeo">Fotografía y Vídeo</option>
-            <option value="Diseño">Diseño</option>
-            <option value="Packs">Packs</option>
-          </select>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Precio (€)" htmlFor="servicio-precio" required>
+            <input
+              id="servicio-precio"
+              name="precio"
+              type="number"
+              step="0.01"
+              min="0.01"
+              defaultValue={servicio.precio}
+              required
+              className="w-full"
+            />
+          </Field>
+          <Field label="Duración (minutos)" htmlFor="servicio-duracion" required hint="Por ejemplo, 90 son 1 h 30 min.">
+            <input
+              id="servicio-duracion"
+              name="duracion_minutos"
+              type="number"
+              min="1"
+              defaultValue={servicio.duracion_minutos}
+              required
+              aria-describedby="servicio-duracion-ayuda"
+              className="w-full"
+            />
+          </Field>
         </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium">Subcategoría</label>
-          <select name="subcategoria" defaultValue={servicio.subcategoria || ""} className="w-full border-card-border bg-card-bg rounded-md p-2">
-            <option value="">Ninguna</option>
-            <option value="Planes GST">Planes GST</option>
-            <option value="Packs Sonido">Packs Sonido</option>
-            <option value="Garage Visuals">Garage Visuals</option>
-            <option value="Pack Diseño">Pack Diseño</option>
-          </select>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-4 items-end">
-        <div>
-          <label className="mb-1 block text-sm font-medium">Icono (Emoji)</label>
-          <input name="icono" type="text" className="w-full" placeholder="Ej: 🎙️" defaultValue={servicio.icono || "✅"} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Categoría" htmlFor="servicio-categoria" required>
+            <select
+              id="servicio-categoria"
+              name="categoria"
+              required
+              defaultValue={servicio.categoria}
+              className="w-full"
+            >
+              <option value="">Seleccionar...</option>
+              <option value="Sonido">Sonido</option>
+              <option value="Fotografía y vídeo">Fotografía y Vídeo</option>
+              <option value="Diseño">Diseño</option>
+              <option value="Packs">Packs</option>
+            </select>
+          </Field>
+          <Field label="Subcategoría" htmlFor="servicio-subcategoria">
+            <select
+              id="servicio-subcategoria"
+              name="subcategoria"
+              defaultValue={servicio.subcategoria || ""}
+              className="w-full"
+            >
+              <option value="">Ninguna</option>
+              <option value="Planes GST">Planes GST</option>
+              <option value="Packs Sonido">Packs Sonido</option>
+              <option value="Garage Visuals">Garage Visuals</option>
+              <option value="Pack Diseño">Pack Diseño</option>
+            </select>
+          </Field>
         </div>
-        <div className="flex items-center h-10">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input name="es_pack" type="checkbox" defaultChecked={servicio.es_pack} className="w-4 h-4 accent-accent" />
-            <span className="text-sm font-medium">Es un Pack Destacado</span>
+
+        <div className="grid items-end gap-4 sm:grid-cols-2">
+          <Field label="Icono (emoji)" htmlFor="servicio-icono" hint="Se muestra junto al servicio en la web.">
+            <input
+              id="servicio-icono"
+              name="icono"
+              type="text"
+              className="w-full"
+              defaultValue={servicio.icono || "✅"}
+              aria-describedby="servicio-icono-ayuda"
+            />
+          </Field>
+          <label htmlFor="servicio-es-pack" className="flex min-h-10 cursor-pointer items-center gap-2 text-[14px] text-gs-paper">
+            <input
+              id="servicio-es-pack"
+              name="es_pack"
+              type="checkbox"
+              defaultChecked={servicio.es_pack}
+              className="size-4 accent-gs-amber"
+            />
+            Es un pack destacado
           </label>
         </div>
-      </div>
 
-      {error && <p className="text-sm font-medium text-red-500">{error}</p>}
+        {error && <Notice title="No se pudo guardar">{error}</Notice>}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="mt-4 w-full rounded-lg bg-accent px-4 py-2 font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {isPending ? "Guardando cambios..." : "Guardar Cambios"}
-      </button>
-    </form>
+        <FormActions>
+          <button type="submit" disabled={isPending} className={buttonClass("primary")}>
+            {isPending ? "Guardando..." : "Guardar servicio"}
+          </button>
+        </FormActions>
+      </form>
+    </Panel>
   );
 }

@@ -1,14 +1,17 @@
 "use client";
 
 import { useTransition } from "react";
+import { Mail, MailOpen } from "lucide-react";
 import { toast } from "sonner";
 import { updateContactStatus } from "@/app/actions/admin";
+import { buttonClass } from "@/components/admin/ui";
 
 interface Props {
   id: string;
   isRead: boolean;
 }
 
+/** Marca un mensaje de contacto como leído o lo devuelve a "sin leer". */
 export default function ContactStatusButton({ id, isRead }: Props) {
   const [isPending, startTransition] = useTransition();
 
@@ -19,7 +22,7 @@ export default function ContactStatusButton({ id, isRead }: Props) {
         if (!result.ok) toast.error(result.error);
       } catch (error) {
         console.error("Error updating contact status:", error);
-        toast.error("Hubo un error al actualizar el mensaje.");
+        toast.error("No se pudo actualizar el mensaje. Inténtalo de nuevo.");
       }
     });
   };
@@ -29,15 +32,10 @@ export default function ContactStatusButton({ id, isRead }: Props) {
       type="button"
       onClick={handleToggle}
       disabled={isPending}
-      aria-pressed={isRead}
-      aria-label={isRead ? "Marcar mensaje como no leído" : "Marcar mensaje como leído"}
-      className={`inline-block min-h-[32px] cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-        isRead
-          ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
-          : "bg-accent/10 text-accent hover:bg-accent/20"
-      }`}
+      className={buttonClass(isRead ? "ghost" : "secondary", "sm")}
     >
-      {isRead ? "Leído" : "Nuevo"}
+      {isRead ? <Mail aria-hidden /> : <MailOpen aria-hidden />}
+      {isRead ? "Marcar como no leído" : "Marcar como leído"}
     </button>
   );
 }

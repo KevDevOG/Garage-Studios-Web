@@ -3,13 +3,16 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteVisualsImage, toggleVisualsImageActive } from "@/app/actions/visuals";
-import { Trash2, Power, PowerOff, Loader2 } from "lucide-react";
+import { Trash2, Eye, EyeOff, Loader2 } from "lucide-react";
+import { buttonClass } from "@/components/admin/ui";
 
 interface VisualsQuickActionsProps {
   id: string;
   activo: boolean;
   titulo: string | null;
 }
+
+const ICON_BTN = "w-10 px-0 sm:w-8";
 
 export default function VisualsQuickActions({ id, activo, titulo }: VisualsQuickActionsProps) {
   const router = useRouter();
@@ -63,43 +66,36 @@ export default function VisualsQuickActions({ id, activo, titulo }: VisualsQuick
   }
 
   const isLoading = isDeleting || isToggling || isPending;
+  const toggleLabel = activo ? "Ocultar de la galería pública" : "Publicar en la galería pública";
 
   return (
-    <div className="flex gap-2">
-      {/* Botón de Activar / Desactivar */}
+    <div className="flex items-center gap-1">
       <button
+        type="button"
         onClick={handleToggleActive}
         disabled={isLoading}
-        className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all disabled:opacity-50 ${
-          activo
-            ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
-            : "bg-green-500/10 text-green-400 hover:bg-green-500/20"
-        }`}
-        title={activo ? "Desactivar de la galería pública" : "Activar en la galería pública"}
+        className={buttonClass("ghost", "sm", ICON_BTN)}
+        aria-label={toggleLabel}
+        title={toggleLabel}
       >
         {isToggling ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          <Loader2 aria-hidden className="animate-spin" />
         ) : activo ? (
-          <PowerOff className="w-3.5 h-3.5" />
+          <EyeOff aria-hidden />
         ) : (
-          <Power className="w-3.5 h-3.5" />
+          <Eye aria-hidden />
         )}
-        {activo ? "Desactivar" : "Activar"}
       </button>
 
-      {/* Botón de Borrar Rápido */}
       <button
+        type="button"
         onClick={handleDelete}
         disabled={isLoading}
-        className="flex items-center gap-1.5 rounded-lg bg-red-500/10 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-red-500 transition-all hover:bg-red-500/20 disabled:opacity-50"
-        title="Eliminar imagen"
+        className={buttonClass("ghost", "sm", `${ICON_BTN} hover:text-gs-bad`)}
+        aria-label="Borrar imagen"
+        title="Borrar imagen"
       >
-        {isDeleting ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        ) : (
-          <Trash2 className="w-3.5 h-3.5" />
-        )}
-        Borrar
+        {isDeleting ? <Loader2 aria-hidden className="animate-spin" /> : <Trash2 aria-hidden />}
       </button>
     </div>
   );

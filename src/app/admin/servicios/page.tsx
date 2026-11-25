@@ -1,123 +1,192 @@
-import Link from "next/link";
+import { Pencil, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { formatEUR, plural } from "@/lib/format";
 import AdminNav from "@/components/admin/AdminNav";
 import ServiceActiveToggle from "@/components/admin/ServiceActiveToggle";
 import DeleteServiceButton from "@/components/admin/DeleteServiceButton";
+import {
+  EmptyState,
+  LinkButton,
+  Page,
+  Segmented,
+  buttonClass,
+  table,
+  cx,
+} from "@/components/admin/ui";
+import Link from "next/link";
 
-export default async function AdminServiciosPage() {
+type Estado = "activos" | "inactivos" | "todos";
+
+type ServicioFila = {
+  id: string;
+  nombre: string;
+  precio: number | string;
+  duracion_minutos: number;
+  activo: boolean;
+  reserva: { count: number }[] | null;
+};
+
+function formatDuracion(minutos: number): string {
+  const h = Math.floor(minutos / 60);
+  const m = minutos % 60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h} h`;
+  return `${h} h ${m} min`;
+}
+
+function reservasDe(s: ServicioFila): number {
+  return s.reserva?.[0]?.count ?? 0;
+}
+
+export default async function AdminServiciosPage(props: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const searchParams = await props.searchParams;
+  const raw = Array.isArray(searchParams.estado) ? searchParams.estado[0] : searchParams.estado;
+  const estado: Estado = raw === "inactivos" || raw === "todos" ? raw : "activos";
+
   const supabase = await createClient();
 
-  // Obtener todos los servicios junto con sus reservas asociadas para contar (evita N+1)
-  const { data: servicios } = await supabase
+  const { data } = await supabase
     .from("servicio")
-    .select("*, reserva(id)")
+    .select("id, nombre, precio, duracion_minutos, activo, reserva(count)")
     .order("created_at", { ascending: false });
 
-  return (
-    <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
-      <AdminNav title="Servicios" />
+  const servicios = (data ?? []) as unknown as ServicioFila[];
+  const nActivos = servicios.filter((s) => s.activo).length;
+  const nInactivos = servicios.length - nActivos;
 
-      <div className="mb-6 flex justify-end">
-        <Link
-          href="/admin/servicios/nuevo"
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
-        >
-          + Añadir Servicio
-        </Link>
+  const visibles =
+    estado === "todos"
+      ? servicios
+      : servicios.filter((s) => (estado === "activos" ? s.activo : !s.activo));
+
+  const items = [
+    { href: "/admin/servicios?estado=activos", label: `Activos (${nActivos})`, active: estado === "activos" },
+    { href: "/admin/servicios?estado=inactivos", label: `Inactivos (${nInactivos})`, active: estado === "inactivos" },
+    { href: "/admin/servicios?estado=todos", label: `Todos (${servicios.length})`, active: estado === "todos" },
+  ];
+
+  return (
+    <Page width="wide">
+      <AdminNav
+        title="Servicios"
+        description={`${plural(servicios.length, "servicio", "servicios")}: ${nActivos} ${
+          nActivos === 1 ? "activo" : "activos"
+        } y ${nInactivos} ${nInactivos === 1 ? "inactivo" : "inactivos"}.`}
+        actions={
+          <LinkButton href="/admin/servicios/nuevo" variant="primary">
+            <Plus aria-hidden strokeWidth={2} />
+            Nuevo servicio
+          </LinkButton>
+        }
+      />
+
+      <div className="mb-4 overflow-x-auto">
+        <Segmented items={items} label="Filtrar servicios por estado" />
       </div>
 
-      <div className="rounded-xl border border-card-border bg-card-bg p-4 sm:p-6">
-        {!servicios || servicios.length === 0 ? (
-          <p className="text-sm text-muted">No hay servicios configurados.</p>
-        ) : (
-          <>
-            {/* Vista para MÓVIL (Tarjetas) */}
-            <div className="grid gap-4 md:hidden">
-              {servicios.map((s) => (
-                <div 
-                  key={s.id} 
-                  className="rounded-xl border border-white/5 bg-black/20 p-4 space-y-4"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-base font-black text-white">{s.nombre}</h3>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="text-sm font-bold text-accent">{s.precio} €</span>
-                        <span className="text-white/20">•</span>
-                        <span className="text-xs text-muted font-medium">{s.duracion_minutos} min</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-black text-white">{s.reserva?.length || 0}</div>
-                      <div className="text-[8px] font-bold uppercase tracking-tighter text-muted">Citas</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between py-3 border-y border-white/5">
-                    <span className="text-xs font-bold text-muted uppercase tracking-widest">Estado Activo</span>
-                    <ServiceActiveToggle id={s.id} isActivo={s.activo} />
-                  </div>
-
-                  <div className="flex items-center justify-end gap-4 pt-1">
-                    <Link
-                      href={`/admin/servicios/${s.id}`}
-                      className="text-sm font-bold text-accent transition-colors hover:text-accent-hover"
-                    >
-                      Editar
-                    </Link>
-                    <DeleteServiceButton id={s.id} />
-                  </div>
+      {visibles.length === 0 ? (
+        <div className="rounded-lg border border-gs-line bg-gs-surface">
+          <EmptyState
+            title={
+              servicios.length === 0
+                ? "Todavía no hay servicios"
+                : estado === "activos"
+                  ? "No hay servicios activos"
+                  : "No hay servicios inactivos"
+            }
+            hint={
+              servicios.length === 0
+                ? "Crea el primero para que aparezca en la web y se pueda reservar."
+                : "Cambia el filtro para ver el resto de servicios."
+            }
+            action={
+              servicios.length === 0 ? (
+                <LinkButton href="/admin/servicios/nuevo" variant="secondary">
+                  Nuevo servicio
+                </LinkButton>
+              ) : undefined
+            }
+          />
+        </div>
+      ) : (
+        <>
+          {/* Móvil: lista apilada */}
+          <ul className="divide-y divide-gs-line overflow-hidden rounded-lg border border-gs-line bg-gs-surface md:hidden">
+            {visibles.map((s) => (
+              <li key={s.id} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <Link
+                    href={`/admin/servicios/${s.id}`}
+                    className="min-w-0 text-[14px] font-medium leading-snug text-gs-paper hover:underline"
+                  >
+                    {s.nombre}
+                  </Link>
+                  <ServiceActiveToggle id={s.id} isActivo={s.activo} />
                 </div>
-              ))}
-            </div>
+                <p className="mt-1 text-[13px] text-gs-soft">
+                  {formatEUR(Number(s.precio))} · {formatDuracion(s.duracion_minutos)} ·{" "}
+                  {plural(reservasDe(s), "reserva", "reservas")}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`/admin/servicios/${s.id}`}
+                    className={buttonClass("secondary", "sm")}
+                    aria-label={`Editar ${s.nombre}`}
+                  >
+                    <Pencil aria-hidden strokeWidth={1.75} />
+                    Editar
+                  </Link>
+                  <DeleteServiceButton id={s.id} nombre={s.nombre} />
+                </div>
+              </li>
+            ))}
+          </ul>
 
-            {/* Vista para ESCRITORIO (Tabla) */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-card-border text-muted">
-                    <th className="pb-3 font-medium">Nombre</th>
-                    <th className="pb-3 font-medium">Precio</th>
-                    <th className="pb-3 font-medium">Duración</th>
-                    <th className="pb-3 font-medium">Reservas</th>
-                    <th className="pb-3 font-medium">Estado</th>
-                    <th className="pb-3 text-right font-medium">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-card-border">
-                  {servicios.map((s) => (
-                    <tr
-                      key={s.id}
-                      className="transition-colors hover:bg-white/[0.02]"
-                    >
-                      <td className="py-3 pr-4 font-medium">{s.nombre}</td>
-                      <td className="py-3 pr-4">{s.precio} €</td>
-                      <td className="py-3 pr-4">{s.duracion_minutos} min</td>
-                      <td className="py-3 pr-4">
-                        <span className="inline-block rounded-full bg-card-border px-2.5 py-0.5 text-xs font-semibold text-white">
-                          {s.reserva?.length || 0}
-                        </span>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <ServiceActiveToggle id={s.id} isActivo={s.activo} />
-                      </td>
-                      <td className="py-3 text-right">
+          {/* Escritorio: tabla densa */}
+          <div className={cx(table.wrap, "hidden md:block")}>
+            <table className={table.table}>
+              <thead>
+                <tr>
+                  <th scope="col" className={table.th}>Nombre</th>
+                  <th scope="col" className={cx(table.th, table.num)}>Precio</th>
+                  <th scope="col" className={table.th}>Duración</th>
+                  <th scope="col" className={cx(table.th, table.num)}>Reservas</th>
+                  <th scope="col" className={table.th}>Estado</th>
+                  <th scope="col" className={cx(table.th, "text-right")}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibles.map((s) => (
+                  <tr key={s.id} className={table.tr}>
+                    <td className={cx(table.td, "font-medium")}>{s.nombre}</td>
+                    <td className={cx(table.td, table.num)}>{formatEUR(Number(s.precio))}</td>
+                    <td className={cx(table.td, "text-gs-soft")}>{formatDuracion(s.duracion_minutos)}</td>
+                    <td className={cx(table.td, table.num)}>{reservasDe(s)}</td>
+                    <td className={table.td}>
+                      <ServiceActiveToggle id={s.id} isActivo={s.activo} />
+                    </td>
+                    <td className={table.td}>
+                      <div className="flex items-center justify-end gap-1">
                         <Link
                           href={`/admin/servicios/${s.id}`}
-                          className="text-accent transition-colors hover:text-accent-hover hover:underline"
+                          className={buttonClass("ghost", "sm")}
+                          aria-label={`Editar ${s.nombre}`}
                         >
+                          <Pencil aria-hidden strokeWidth={1.75} />
                           Editar
                         </Link>
-                        <DeleteServiceButton id={s.id} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </div>
-    </section>
+                        <DeleteServiceButton id={s.id} nombre={s.nombre} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </Page>
   );
 }

@@ -1,19 +1,20 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAdminSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import AdminNav from "@/components/admin/AdminNav";
 import FinanceForm from "@/components/admin/FinanceForm";
+import { Page, Panel } from "@/components/admin/ui";
 import { FinanceMovement } from "@/app/actions/finanzas";
 import { getActiveServices } from "@/app/actions/services";
 
 export const metadata = {
-  title: "Editar Movimiento - Finanzas",
+  title: "Editar movimiento - Finanzas",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function EditarFinanzaPage(props: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Sesión + lista de administradores, validada una vez por petición.
+  const { supabase, user } = await getAdminSession();
 
   if (!user) redirect("/admin/login");
 
@@ -40,11 +41,11 @@ export default async function EditarFinanzaPage(props: { params: Promise<{ id: s
   const services = await getActiveServices();
 
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6">
-      <AdminNav title="Editar Movimiento" />
-      <div className="mt-8 bg-card-bg p-6 rounded-xl border border-card-border">
+    <Page width="narrow">
+      <AdminNav title="Editar movimiento" description="Cambia los datos del movimiento o elimínalo." />
+      <Panel>
         <FinanceForm initialData={data as FinanceMovement} services={services} />
-      </div>
-    </div>
+      </Panel>
+    </Page>
   );
 }

@@ -1,23 +1,29 @@
 "use client";
 
 import { useState, useEffect, useRef, useId } from "react";
-import { Search, User, Calendar, DollarSign, MessageSquare, Briefcase, X, Loader2 } from "lucide-react";
+import { Search, User, Calendar, Receipt, MessageSquare, SlidersHorizontal, X, Loader2 } from "lucide-react";
 import { searchGlobalAdmin, type SearchResults } from "@/app/actions/admin-search";
 import { formatIsoDateEs, formatDateTimeEs } from "@/lib/dates";
+import { formatEUR } from "@/lib/format";
 import { formatTime } from "@/lib/schedule";
 import StatusBadge from "@/components/admin/StatusBadge";
 import Link from "next/link";
 
 const SHORT_DATE: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit", year: "numeric" };
 
+const ROW = "flex items-center justify-between gap-3 rounded-md px-3 py-2 hover:bg-white/[0.06]";
+const ROW_TITLE = "block truncate text-[14px] font-medium text-gs-paper";
+const ROW_META = "block truncate text-[12px] text-gs-soft";
+
 function SectionTitle({ icon: Icon, children }: { icon: typeof User; children: React.ReactNode }) {
   return (
-    <h3 className="mb-2 flex items-center gap-2 px-3 text-[10px] font-black uppercase tracking-widest text-muted">
-      <Icon className="h-3 w-3" aria-hidden="true" /> {children}
+    <h3 className="mb-1 flex items-center gap-2 px-3 text-[12px] font-medium text-gs-faint">
+      <Icon className="size-3.5" aria-hidden="true" /> {children}
     </h3>
   );
 }
 
+/** Buscador del panel: clientes, reservas, movimientos, mensajes y servicios. */
 export default function AdminGlobalSearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults | null>(null);
@@ -81,19 +87,21 @@ export default function AdminGlobalSearch() {
     setIsOpen(false);
   };
 
+  const close = () => setIsOpen(false);
+
   return (
-    <div className="relative mb-8" ref={containerRef} role="search">
-      <div className="group relative">
+    <div className="relative w-full max-w-[34rem]" ref={containerRef} role="search">
+      <div className="relative">
         <Search
-          className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted transition-colors group-focus-within:text-accent"
+          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gs-faint"
           aria-hidden="true"
         />
         <input
           type="search"
-          aria-label="Buscar clientes, reservas, finanzas, mensajes y servicios"
+          aria-label="Buscar clientes, reservas, movimientos, mensajes y servicios"
           aria-controls={listboxId}
-          placeholder="Buscar clientes, reservas, mensajes..."
-          className="w-full rounded-2xl border border-card-border bg-card-bg py-3.5 pl-12 pr-12 text-sm text-white placeholder-muted/60 outline-none transition-all focus:border-accent/40 focus:ring-4 focus:ring-accent/5"
+          placeholder="Buscar clientes, reservas, movimientos, mensajes…"
+          className="!pl-9 !pr-10 [&::-webkit-search-cancel-button]:hidden"
           value={query}
           onChange={(e) => {
             const value = e.target.value;
@@ -108,16 +116,19 @@ export default function AdminGlobalSearch() {
           onFocus={() => query.trim().length >= 2 && results && setIsOpen(true)}
         />
         {loading ? (
-          <Loader2 className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-accent" aria-label="Buscando" />
+          <Loader2
+            className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-gs-soft"
+            aria-label="Buscando"
+          />
         ) : (
           query && (
             <button
               type="button"
               onClick={clear}
               aria-label="Limpiar búsqueda"
-              className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-muted hover:text-white"
+              className="absolute right-1 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-gs-soft hover:text-gs-paper"
             >
-              <X className="h-5 w-5" aria-hidden="true" />
+              <X className="size-4" aria-hidden="true" />
             </button>
           )
         )}
@@ -126,130 +137,102 @@ export default function AdminGlobalSearch() {
       {isOpen && results && (
         <div
           id={listboxId}
-          className="absolute top-full z-50 mt-2 max-h-[70vh] w-full overflow-y-auto rounded-2xl border border-card-border bg-card-bg/95 p-2 shadow-2xl backdrop-blur-xl"
+          className="absolute top-full z-50 mt-1.5 max-h-[70vh] w-full overflow-y-auto rounded-lg border border-gs-line-strong bg-gs-raised py-2 shadow-[0_12px_32px_rgba(0,0,0,0.55)]"
         >
           {!hasResults ? (
-            <p className="py-8 text-center italic text-muted">
-              No se encontraron resultados para &ldquo;{query}&rdquo;
+            <p className="px-4 py-3 text-[13px] text-gs-soft">
+              Nada coincide con &ldquo;{query}&rdquo;. Prueba con el nombre, el correo o el teléfono.
             </p>
           ) : (
-            <div className="space-y-4 p-2">
+            <div className="space-y-3 px-1">
               {results.clientes.length > 0 && (
                 <section>
                   <SectionTitle icon={User}>Clientes</SectionTitle>
-                  <div className="space-y-1">
-                    {results.clientes.map((c) => (
-                      <Link
-                        key={c.id}
-                        href={`/admin/clientes/${c.id}`}
-                        onClick={() => setIsOpen(false)}
-                        className="flex flex-col rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5"
-                      >
-                        <span className="text-sm font-bold text-white">{c.nombre}</span>
-                        <span className="text-[11px] text-muted">
-                          {[c.email, c.telefono].filter(Boolean).join(" • ") || "Sin datos de contacto"}
+                  {results.clientes.map((c) => (
+                    <Link key={c.id} href={`/admin/clientes/${c.id}`} onClick={close} className={ROW}>
+                      <span className="min-w-0">
+                        <span className={ROW_TITLE}>{c.nombre}</span>
+                        <span className={ROW_META}>
+                          {[c.email, c.telefono].filter(Boolean).join(", ") || "Sin datos de contacto"}
                         </span>
-                      </Link>
-                    ))}
-                  </div>
+                      </span>
+                    </Link>
+                  ))}
                 </section>
               )}
 
               {results.reservas.length > 0 && (
                 <section>
                   <SectionTitle icon={Calendar}>Reservas</SectionTitle>
-                  <div className="space-y-1">
-                    {results.reservas.map((r) => (
-                      <Link
-                        key={r.id}
-                        href={`/admin/calendario/${r.id}`}
-                        onClick={() => setIsOpen(false)}
-                        className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5"
-                      >
-                        <div className="flex min-w-0 flex-col">
-                          <span className="truncate text-sm font-bold text-white">{r.nombre}</span>
-                          <span className="text-[11px] text-muted">
-                            {formatIsoDateEs(r.fecha_reserva, SHORT_DATE)} • {formatTime(r.hora_inicio)}
-                            {r.servicio?.nombre ? ` • ${r.servicio.nombre}` : ""}
-                          </span>
-                        </div>
-                        <StatusBadge type="reserva" value={r.estado} />
-                      </Link>
-                    ))}
-                  </div>
+                  {results.reservas.map((r) => (
+                    <Link key={r.id} href={`/admin/calendario/${r.id}`} onClick={close} className={ROW}>
+                      <span className="min-w-0">
+                        <span className={ROW_TITLE}>{r.nombre}</span>
+                        <span className={ROW_META}>
+                          {formatIsoDateEs(r.fecha_reserva, SHORT_DATE)}, {formatTime(r.hora_inicio)}
+                          {r.servicio?.nombre ? `, ${r.servicio.nombre}` : ""}
+                        </span>
+                      </span>
+                      <StatusBadge type="reserva" value={r.estado} plain className="shrink-0" />
+                    </Link>
+                  ))}
                 </section>
               )}
 
               {results.finanzas.length > 0 && (
                 <section>
-                  <SectionTitle icon={DollarSign}>Finanzas</SectionTitle>
-                  <div className="space-y-1">
-                    {results.finanzas.map((f) => (
-                      <Link
-                        key={f.id}
-                        href={`/admin/finanzas/${f.id}`}
-                        onClick={() => setIsOpen(false)}
-                        className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5"
+                  <SectionTitle icon={Receipt}>Movimientos</SectionTitle>
+                  {results.finanzas.map((f) => (
+                    <Link key={f.id} href={`/admin/finanzas/${f.id}`} onClick={close} className={ROW}>
+                      <span className="min-w-0">
+                        <span className={ROW_TITLE}>{f.concepto}</span>
+                        <span className={ROW_META}>{formatIsoDateEs(f.fecha, SHORT_DATE)}</span>
+                      </span>
+                      <span
+                        className={`shrink-0 text-[14px] font-semibold ${f.tipo === "gasto" ? "text-gs-bad" : "text-gs-ok"}`}
                       >
-                        <div className="flex min-w-0 flex-col">
-                          <span className="truncate text-sm font-bold text-white">{f.concepto}</span>
-                          <span className="text-[11px] text-muted">{formatIsoDateEs(f.fecha, SHORT_DATE)}</span>
-                        </div>
-                        <span className={`text-sm font-black ${f.tipo === "gasto" ? "text-red-400" : "text-green-400"}`}>
-                          {f.tipo === "gasto" ? "-" : "+"}
-                          {Number(f.importe).toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
+                        <span className="sr-only">{f.tipo === "gasto" ? "Gasto: " : "Ingreso: "}</span>
+                        {f.tipo === "gasto" ? "−" : "+"}
+                        {formatEUR(Number(f.importe))}
+                      </span>
+                    </Link>
+                  ))}
                 </section>
               )}
 
               {results.mensajes.length > 0 && (
                 <section>
                   <SectionTitle icon={MessageSquare}>Mensajes</SectionTitle>
-                  <div className="space-y-1">
-                    {results.mensajes.map((m) => (
-                      <Link
-                        key={m.id}
-                        href="/admin/dashboard#mensajes"
-                        onClick={() => setIsOpen(false)}
-                        className="flex flex-col rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5"
-                      >
-                        <div className="mb-1 flex items-center justify-between gap-3">
-                          <span className="truncate text-sm font-bold text-white">{m.nombre}</span>
-                          <span className="shrink-0 text-[11px] italic text-muted">
-                            {formatDateTimeEs(m.created_at, SHORT_DATE)}
-                          </span>
-                        </div>
-                        <span className="truncate text-[11px] italic text-muted">&ldquo;{m.asunto}&rdquo;</span>
-                      </Link>
-                    ))}
-                  </div>
+                  {results.mensajes.map((m) => (
+                    <Link key={m.id} href="/admin/dashboard#mensajes" onClick={close} className={ROW}>
+                      <span className="min-w-0">
+                        <span className={ROW_TITLE}>{m.nombre}</span>
+                        <span className={ROW_META}>{m.asunto}</span>
+                      </span>
+                      <span className="shrink-0 text-[12px] text-gs-faint">
+                        {formatDateTimeEs(m.created_at, SHORT_DATE)}
+                      </span>
+                    </Link>
+                  ))}
                 </section>
               )}
 
               {results.servicios.length > 0 && (
                 <section>
-                  <SectionTitle icon={Briefcase}>Servicios</SectionTitle>
-                  <div className="space-y-1">
-                    {results.servicios.map((s) => (
-                      <Link
-                        key={s.id}
-                        href={`/admin/servicios/${s.id}`}
-                        onClick={() => setIsOpen(false)}
-                        className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5"
-                      >
-                        <div className="flex min-w-0 flex-col">
-                          <span className="truncate text-sm font-bold text-white">{s.nombre}</span>
-                          <span className={`text-[11px] font-bold ${s.activo ? "text-green-400" : "text-red-400"}`}>
-                            {s.activo ? "ACTIVO" : "INACTIVO"}
-                          </span>
-                        </div>
-                        <span className="text-sm font-black text-accent">{s.precio} €</span>
-                      </Link>
-                    ))}
-                  </div>
+                  <SectionTitle icon={SlidersHorizontal}>Servicios</SectionTitle>
+                  {results.servicios.map((s) => (
+                    <Link key={s.id} href={`/admin/servicios/${s.id}`} onClick={close} className={ROW}>
+                      <span className="min-w-0">
+                        <span className={ROW_TITLE}>{s.nombre}</span>
+                        <span className={`block text-[12px] ${s.activo ? "text-gs-ok" : "text-gs-faint"}`}>
+                          {s.activo ? "Activo" : "Inactivo"}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-[14px] font-semibold text-gs-paper">
+                        {formatEUR(Number(s.precio))}
+                      </span>
+                    </Link>
+                  ))}
                 </section>
               )}
             </div>

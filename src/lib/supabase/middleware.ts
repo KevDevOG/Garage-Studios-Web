@@ -11,6 +11,17 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  const isAuthRoute = request.nextUrl.pathname.startsWith("/admin/login");
+  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
+
+  // La web pública no usa sesión: fuera de /admin no se consulta a Supabase
+  // Auth (antes cada página pública pagaba un viaje de red sin necesitarlo).
+  // La sesión del administrador se refresca en cada petición a /admin, que
+  // es también adonde llegan sus Server Actions.
+  if (!isAdminRoute) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -43,12 +54,9 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/admin/login");
-  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
-
   // Tener sesión no basta: la cuenta debe estar en la lista privada de
-  // administradores. Solo se consulta en rutas del panel.
-  const isAdmin = isAdminRoute ? await isAuthorizedAdmin(supabase, user) : false;
+  // administradores.
+  const isAdmin = await isAuthorizedAdmin(supabase, user);
 
   // Si trata de entrar a un panel protegido sin ser administrador
   if (isAdminRoute && !isAuthRoute && !isAdmin) {

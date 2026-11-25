@@ -35,6 +35,92 @@
   --color-success: var(--success);
 }
 
+/* ── Panel de administración: "consola del estudio" ─────────
+   Superficies grafito, papel cálido para el texto y ámbar solo como señal
+   (acción principal, hoy/ahora, lo que espera respuesta). Estos tokens solo
+   se usan dentro de /admin, con las utilidades bg-gs-*, text-gs-*, border-gs-*. */
+@theme {
+  --color-gs-canvas: #0c0d0f;      /* fondo del área de trabajo */
+  --color-gs-surface: #131417;     /* paneles, tablas */
+  --color-gs-raised: #1a1b1f;      /* controles, filas activas, fichas */
+  --color-gs-sunken: #0f1012;      /* campos de formulario, pistas */
+  --color-gs-line: #24262a;        /* divisores de 1px */
+  --color-gs-line-strong: #33363b; /* bordes de controles */
+  --color-gs-paper: #edebe4;       /* texto principal */
+  --color-gs-soft: #a3a6ab;        /* texto secundario (≥ 7:1 sobre surface) */
+  --color-gs-faint: #8b8e94;       /* metadatos (≥ 5:1 sobre surface) */
+  --color-gs-amber: #f59e0b;       /* señal de marca */
+  --color-gs-ok: #58b89a;          /* confirmado, cobrado, ingreso */
+  --color-gs-info: #8fa8cf;        /* completado, pago parcial */
+  --color-gs-bad: #e8776c;         /* cancelado, gasto, error */
+}
+
+.gs-admin {
+  /* Las utilidades heredadas (bg-card-bg, border-card-border, text-muted…)
+     toman aquí los valores grafito del panel sin tocar la web pública. */
+  --card-bg: #131417;
+  --card-border: #24262a;
+  --muted: #a3a6ab;
+  --danger: #e8776c;
+  --success: #58b89a;
+  font-family: var(--font-admin), var(--font-inter), "Inter", Arial, Helvetica, sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-gs-paper);
+}
+
+/* Campos del panel. Van en @layer base (y la regla general de más abajo los
+   excluye) para que las utilidades de Tailwind puedan ajustarlos: w-auto,
+   pl-9 para un icono, etc. Los estados (:focus, aria-invalid, :disabled) son
+   los mismos de toda la web. */
+@layer base {
+  .gs-admin :where(input, select, textarea) {
+    background-color: var(--color-gs-sunken);
+    border: 1px solid var(--color-gs-line-strong);
+    border-radius: 0.375rem;
+    color: var(--color-gs-paper);
+    padding: 0.625rem 0.875rem;
+    width: 100%;
+    font-size: 1rem; /* 16px en táctil: iOS no amplía la página al enfocar */
+    min-height: 2.75rem; /* objetivo táctil ≥ 44px */
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  /* Con ratón, campos más compactos. */
+  @media (pointer: fine) {
+    .gs-admin :where(input, select, textarea) {
+      font-size: 0.875rem;
+      min-height: 2.5rem;
+      padding: 0.5rem 0.75rem;
+    }
+  }
+
+  .gs-admin :where(input, textarea)::placeholder {
+    color: #74777d;
+  }
+
+  .gs-admin select option {
+    background-color: #1a1b1f;
+    color: #edebe4;
+  }
+}
+
+/* Títulos del panel: Archivo ligeramente expandida. */
+.gs-display {
+  font-family: var(--font-admin), var(--font-inter), sans-serif;
+  font-stretch: 112%;
+  letter-spacing: -0.015em;
+}
+
+/* Trama de "fuera de horario" y de horas bloqueadas en pistas y rejillas. */
+.gs-hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.05) 0 1px,
+    transparent 1px 7px
+  );
+}
+
 html {
   scroll-behavior: smooth;
   color-scheme: dark;
@@ -81,10 +167,9 @@ body {
   outline-offset: 2px;
 }
 
-/* ── Formularios ──────────────────────────────────────── */
-input,
-select,
-textarea {
+/* ── Formularios ────────────────────────────────────────
+   Web pública. Los campos del panel (.gs-admin) se declaran aparte, arriba. */
+:is(input, select, textarea):not(.gs-admin *) {
   background-color: var(--card-bg);
   border: 1px solid var(--card-border);
   color: var(--foreground);

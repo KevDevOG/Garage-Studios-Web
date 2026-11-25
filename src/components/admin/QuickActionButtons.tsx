@@ -1,59 +1,38 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, X, CheckCircle2, Ban } from "lucide-react";
+import { Ban, Check, CheckCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { updateReservationStatus } from "@/app/actions/admin";
 import type { ReservationState } from "@/lib/reservation-states";
+import { buttonClass } from "./ui";
 
 interface QuickActionButtonsProps {
   id: string;
   currentStatus: string;
+  /** Nombre del cliente, para los nombres accesibles. */
+  nombre?: string;
 }
 
-const LABELS: Record<string, string> = {
-  confirmada: "Confirmar reserva",
-  rechazada: "Rechazar reserva",
-  completada: "Marcar como completada",
-  cancelada: "Cancelar reserva",
+const DONE: Record<string, string> = {
+  confirmada: "Reserva confirmada.",
+  rechazada: "Reserva rechazada.",
+  completada: "Reserva marcada como completada.",
+  cancelada: "Reserva cancelada.",
 };
 
 const DESTRUCTIVE: ReservationState[] = ["cancelada", "rechazada"];
 
-function ActionButton({
-  status,
-  Icon,
-  tone,
-  disabled,
-  onClick,
-}: {
-  status: ReservationState;
-  Icon: typeof Check;
-  tone: string;
-  disabled: boolean;
-  onClick: (status: ReservationState) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onClick(status)}
-      disabled={disabled}
-      title={LABELS[status]}
-      aria-label={LABELS[status]}
-      className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors disabled:opacity-50 ${tone}`}
-    >
-      <Icon className="h-4 w-4" aria-hidden="true" />
-    </button>
-  );
-}
-
 /**
- * Botones rápidos de estado. Las acciones destructivas piden una segunda
- * pulsación en línea en vez de usar `confirm()` nativo.
+ * Siguiente paso de una reserva según su estado:
+ *   pendiente  → Confirmar · Rechazar
+ *   confirmada → Completar · Cancelar
+ * Rechazar y cancelar piden una segunda pulsación en línea.
  */
-export default function QuickActionButtons({ id, currentStatus }: QuickActionButtonsProps) {
+export default function QuickActionButtons({ id, currentStatus, nombre }: QuickActionButtonsProps) {
   const [isPending, startTransition] = useTransition();
   const [pendingConfirm, setPendingConfirm] = useState<ReservationState | null>(null);
+  const of = nombre ? ` de ${nombre}` : "";
 
   const run = (newStatus: ReservationState) => {
     startTransition(async () => {
@@ -63,10 +42,10 @@ export default function QuickActionButtons({ id, currentStatus }: QuickActionBut
           toast.error(result.error);
           return;
         }
-        toast.success(`Reserva ${newStatus}.`);
+        toast.success(DONE[newStatus] ?? "Reserva actualizada.");
       } catch (error) {
         console.error("Error updating status:", error);
-        toast.error("Error al actualizar el estado.");
+        toast.error("No se pudo actualizar el estado. Inténtalo de nuevo.");
       } finally {
         setPendingConfirm(null);
       }
@@ -81,53 +60,62 @@ export default function QuickActionButtons({ id, currentStatus }: QuickActionBut
     run(newStatus);
   };
 
-  if (currentStatus === "cancelada" || currentStatus === "rechazada" || currentStatus === "completada") {
-    return null;
-  }
+  if (currentStatus !== "pendiente" && currentStatus !== "confirmada") return null;
 
   if (pendingConfirm) {
+    const verb = pendingConfirm === "cancelada" ? "cancelar" : "rechazar";
     return (
-      <div className="flex items-center gap-2" role="group" aria-label="Confirmar acción">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-red-300">
-          ¿{pendingConfirm === "cancelada" ? "Cancelar" : "Rechazar"}?
-        </span>
+      <span role="group" aria-label={`Confirmar: ${verb} la reserva${of}`} className="inline-flex items-center gap-1.5">
+        <span className="text-[13px] text-gs-soft">¿{verb.charAt(0).toUpperCase() + verb.slice(1)}?</span>
         <button
           type="button"
           onClick={() => run(pendingConfirm)}
           disabled={isPending}
-          className="min-h-[36px] rounded-lg border border-red-500/30 bg-red-500/20 px-3 text-xs font-black uppercase text-red-300 transition-colors hover:bg-red-500/30 disabled:opacity-50"
+          className={buttonClass("danger", "sm")}
         >
-          Sí
+          {isPending ? "Guardando…" : `Sí, ${verb}`}
         </button>
         <button
           type="button"
           onClick={() => setPendingConfirm(null)}
           disabled={isPending}
-          className="min-h-[36px] rounded-lg border border-white/10 px-3 text-xs font-black uppercase text-muted transition-colors hover:text-white disabled:opacity-50"
+          className={buttonClass("ghost", "sm")}
         >
           No
         </button>
-      </div>
+      </span>
     );
   }
 
-  const common = { disabled: isPending, onClick: handleAction };
+  const isPendiente = currentStatus === "pendiente";
+  const positive: ReservationState = isPendiente ? "confirmada" : "completada";
+  const negative: ReservationState = isPendiente ? "rechazada" : "cancelada";
+  const negativeLabel = `${isPendiente ? "Rechazar" : "Cancelar"} reserva${of}`;
+  const PositiveIcon = isPendiente ? Check : CheckCheck;
+  const NegativeIcon = isPendiente ? Ban : X;
 
   return (
-    <div className="flex items-center gap-2">
-      {currentStatus === "pendiente" && (
-        <>
-          <ActionButton {...common} status="confirmada" Icon={Check} tone="bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20" />
-          <ActionButton {...common} status="rechazada" Icon={Ban} tone="bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20" />
-        </>
-      )}
-
-      {currentStatus === "confirmada" && (
-        <>
-          <ActionButton {...common} status="completada" Icon={CheckCircle2} tone="bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20" />
-          <ActionButton {...common} status="cancelada" Icon={X} tone="bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20" />
-        </>
-      )}
-    </div>
+    <span className="inline-flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => handleAction(positive)}
+        disabled={isPending}
+        aria-label={`${isPendiente ? "Confirmar" : "Marcar como completada la"} reserva${of}`}
+        className={buttonClass("secondary", "sm", "[&_svg]:text-gs-ok")}
+      >
+        <PositiveIcon aria-hidden />
+        {isPendiente ? "Confirmar" : "Completar"}
+      </button>
+      <button
+        type="button"
+        onClick={() => handleAction(negative)}
+        disabled={isPending}
+        aria-label={negativeLabel}
+        title={negativeLabel}
+        className={buttonClass("ghost", "sm", "w-10 px-0 hover:text-gs-bad sm:w-8")}
+      >
+        <NegativeIcon aria-hidden />
+      </button>
+    </span>
   );
 }

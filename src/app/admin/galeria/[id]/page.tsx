@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import AdminNav from "@/components/admin/AdminNav";
 import EditarImagenForm from "@/components/admin/EditarImagenForm";
+import { Page } from "@/components/admin/ui";
 
 export default async function EditarImagenPage({
   params,
@@ -13,7 +14,7 @@ export default async function EditarImagenPage({
 
   const { data: imagen } = await supabase
     .from("imagen")
-    .select("*")
+    .select("id, titulo, descripcion, url_imagen")
     .eq("id", id)
     .single();
 
@@ -22,18 +23,9 @@ export default async function EditarImagenPage({
   }
 
   return (
-    <section className="mx-auto max-w-2xl px-4 py-16 sm:px-6">
-      <div className="mb-8 border-b border-card-border pb-4">
-        <Link
-          href="/admin/galeria"
-          className="text-sm font-medium text-muted hover:text-white"
-        >
-          &larr; Volver a Galería
-        </Link>
-        <h1 className="mt-4 text-2xl font-bold">Editar Imagen</h1>
-      </div>
-
+    <Page width="medium">
+      <AdminNav title="Editar imagen" description={imagen.titulo} />
       <EditarImagenForm imagen={imagen} />
-    </section>
+    </Page>
   );
 }

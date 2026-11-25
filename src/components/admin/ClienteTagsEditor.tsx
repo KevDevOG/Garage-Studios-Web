@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { updateClienteEtiquetas } from "@/app/actions/clientes";
-import { X, Plus, Tag as TagIcon } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { Panel, buttonClass } from "./ui";
 
 interface ClienteTagsEditorProps {
   clienteId: string;
@@ -11,9 +12,9 @@ interface ClienteTagsEditorProps {
 }
 
 const SUGGESTED_TAGS = [
-  "Frecuente", "Nuevo", "VIP", "Pendiente de pago", 
-  "Artistas", "Fotografía", "Videoclip", "Producción", 
-  "Cliente potencial", "Empresa"
+  "Frecuente", "Nuevo", "VIP", "Pendiente de pago",
+  "Artistas", "Fotografía", "Videoclip", "Producción",
+  "Cliente potencial", "Empresa",
 ];
 
 export default function ClienteTagsEditor({ clienteId, initialTags }: ClienteTagsEditorProps) {
@@ -25,13 +26,13 @@ export default function ClienteTagsEditor({ clienteId, initialTags }: ClienteTag
     const trimmed = tag.trim();
     if (!trimmed) return;
     if (tags.includes(trimmed)) return;
-    
+
     const updated = [...tags, trimmed];
     saveTags(updated);
   };
 
   const handleRemoveTag = (tag: string) => {
-    const updated = tags.filter(t => t !== tag);
+    const updated = tags.filter((t) => t !== tag);
     saveTags(updated);
   };
 
@@ -50,73 +51,88 @@ export default function ClienteTagsEditor({ clienteId, initialTags }: ClienteTag
     });
   };
 
-  return (
-    <div className="space-y-4 bg-card-bg p-6 rounded-xl border border-card-border">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-xs font-black uppercase tracking-widest text-accent flex items-center gap-2">
-          <TagIcon className="w-3 h-3" /> Etiquetas Internas
-        </h3>
-      </div>
+  const suggestions = SUGGESTED_TAGS.filter((t) => !tags.includes(t));
 
-      {/* Tags Actuales */}
-      <div className="flex flex-wrap gap-2 min-h-[40px] items-center p-3 rounded-lg bg-white/5 border border-white/5">
-        {tags.length > 0 ? (
-          tags.map(tag => (
-            <span 
-              key={tag} 
-              className="flex items-center gap-1.5 bg-accent/10 text-accent border border-accent/20 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest animate-fade-in"
-            >
-              {tag}
-              <button 
-                onClick={() => handleRemoveTag(tag)}
-                className="hover:text-white transition-colors"
-                disabled={isPending}
+  return (
+    <Panel title="Etiquetas" meta={tags.length > 0 ? tags.length : undefined}>
+      <div className="space-y-3">
+        <ul aria-label="Etiquetas del cliente" className="flex min-h-8 flex-wrap items-center gap-1.5">
+          {tags.length > 0 ? (
+            tags.map((tag) => (
+              <li
+                key={tag}
+                className="flex items-center gap-1 rounded-md border border-gs-line-strong bg-gs-raised py-0.5 pl-2 text-[13px] text-gs-paper"
               >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))
-        ) : (
-          <span className="text-xs text-muted italic">Sin etiquetas</span>
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveTag(tag)}
+                  disabled={isPending}
+                  aria-label={`Quitar etiqueta ${tag}`}
+                  className="inline-flex size-10 items-center justify-center rounded-md text-gs-soft hover:text-gs-paper disabled:opacity-50 sm:size-7"
+                >
+                  <X aria-hidden className="size-3.5" />
+                </button>
+              </li>
+            ))
+          ) : (
+            <li className="text-[13px] text-gs-faint">Sin etiquetas todavía</li>
+          )}
+        </ul>
+
+        <div>
+          <label htmlFor="cliente-nueva-etiqueta" className="sr-only">Nueva etiqueta</label>
+          <div className="flex gap-2">
+            <input
+              id="cliente-nueva-etiqueta"
+              type="text"
+              value={newTag}
+              onChange={(e) => setNewTag(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddTag(newTag);
+                  setNewTag("");
+                }
+              }}
+              placeholder="Añadir etiqueta"
+              className="min-w-0 flex-1"
+              disabled={isPending}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                handleAddTag(newTag);
+                setNewTag("");
+              }}
+              disabled={isPending || !newTag.trim()}
+              aria-label="Añadir etiqueta"
+              className={buttonClass("secondary", "md", "w-11 px-0 sm:w-10")}
+            >
+              <Plus aria-hidden />
+            </button>
+          </div>
+        </div>
+
+        {suggestions.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-[12px] text-gs-faint">Sugerencias</p>
+            <div className="flex flex-wrap gap-1.5">
+              {suggestions.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => handleAddTag(tag)}
+                  disabled={isPending}
+                  className="inline-flex h-10 items-center rounded-md border border-gs-line px-2.5 text-[13px] text-gs-soft hover:border-gs-line-strong hover:text-gs-paper disabled:opacity-50 sm:h-8"
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </div>
-
-      {/* Input para añadir */}
-      <div className="flex gap-2">
-        <input 
-          type="text"
-          value={newTag}
-          onChange={(e) => setNewTag(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag(newTag), setNewTag(""))}
-          placeholder="Añadir etiqueta..."
-          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 transition-colors text-white"
-          disabled={isPending}
-        />
-        <button 
-          onClick={() => { handleAddTag(newTag); setNewTag(""); }}
-          className="p-2 bg-accent text-black rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50"
-          disabled={isPending || !newTag.trim()}
-        >
-          <Plus className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Sugerencias */}
-      <div className="pt-2">
-        <p className="text-[9px] font-bold text-muted uppercase tracking-widest mb-2">Sugerencias</p>
-        <div className="flex flex-wrap gap-1.5">
-          {SUGGESTED_TAGS.filter(t => !tags.includes(t)).map(tag => (
-            <button
-              key={tag}
-              onClick={() => handleAddTag(tag)}
-              className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/5 rounded text-[9px] font-bold text-muted hover:text-white transition-all uppercase"
-              disabled={isPending}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
+    </Panel>
   );
 }

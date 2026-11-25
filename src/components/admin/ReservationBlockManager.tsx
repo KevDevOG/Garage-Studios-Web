@@ -1,11 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
+import { Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import {
   addReservationBlock,
   deleteReservationBlock,
   type ReservationBlock,
 } from "@/app/actions/calendario";
+import { formatIsoDateEs } from "@/lib/dates";
+import { plural } from "@/lib/format";
+import { EmptyState, Field, FormActions, Notice, Panel, buttonClass } from "./ui";
 
 export default function ReservationBlockManager({
   reservaId,
@@ -17,7 +22,10 @@ export default function ReservationBlockManager({
   const [blocks, setBlocks] = useState(initialBlocks);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const uid = useId();
+  const id = (name: string) => `${uid}-${name}`;
 
   const handleAdd = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -26,135 +34,159 @@ export default function ReservationBlockManager({
     formData.set("reserva_id", reservaId);
 
     startTransition(async () => {
-      const result = await addReservationBlock(formData);
-      if (result?.error) {
-        setError(result.error);
-      } else {
-        setShowForm(false);
-        // Refresh will happen via revalidation
-        window.location.reload();
+      try {
+        const result = await addReservationBlock(formData);
+        if (result?.error) {
+          setError(result.error);
+        } else {
+          setShowForm(false);
+          // Refresh will happen via revalidation
+          window.location.reload();
+        }
+      } catch {
+        setError("No se pudo añadir la sesión. Inténtalo de nuevo.");
       }
     });
   };
 
   const handleDelete = (blockId: string) => {
-    if (!confirm("¿Eliminar este bloque?")) return;
     startTransition(async () => {
-      await deleteReservationBlock(blockId);
-      setBlocks((prev) => prev.filter((b) => b.id !== blockId));
+      try {
+        const result = await deleteReservationBlock(blockId);
+        if (result && "error" in result && result.error) {
+          setError(result.error);
+          toast.error(result.error);
+          return;
+        }
+        setBlocks((prev) => prev.filter((b) => b.id !== blockId));
+        toast.success("Sesión eliminada.");
+      } catch {
+        setError("No se pudo eliminar la sesión. Inténtalo de nuevo.");
+      } finally {
+        setConfirmingId(null);
+      }
     });
   };
 
   return (
-    <div className="rounded-xl border border-card-border bg-card-bg p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold">
-          Bloques / Sesiones del Pack
-        </h3>
+    <Panel
+      title="Sesiones del pack"
+      meta={plural(blocks.length, "sesión", "sesiones")}
+      action={
         <button
-          onClick={() => setShowForm(!showForm)}
-          className="text-xs font-semibold text-accent hover:underline"
+          type="button"
+          onClick={() => {
+            setShowForm(!showForm);
+            setError(null);
+          }}
+          aria-expanded={showForm}
+          className={buttonClass(showForm ? "ghost" : "secondary", "sm")}
         >
-          {showForm ? "Cancelar" : "+ Añadir Bloque"}
+          {!showForm && <Plus aria-hidden />}
+          {showForm ? "Cancelar" : "Añadir sesión"}
         </button>
-      </div>
-
-      {/* Lista de bloques existentes */}
+      }
+      flush
+    >
       {blocks.length === 0 && !showForm && (
-        <p className="py-4 text-center text-sm text-muted">
-          Sin bloques. Añade sesiones para organizar este pack.
-        </p>
+        <EmptyState title="Sin sesiones" hint="Añade las sesiones para organizar este pack." />
       )}
 
       {blocks.length > 0 && (
-        <div className="mb-4 space-y-2">
+        <ul className="divide-y divide-gs-line">
           {blocks.map((block) => (
-            <div
-              key={block.id}
-              className="flex items-center justify-between rounded-lg border border-card-border p-3"
-            >
-              <div className="space-y-0.5">
-                <div className="text-sm font-semibold">{block.titulo}</div>
-                <div className="text-xs text-muted">
-                  {new Date(block.fecha + "T00:00:00").toLocaleDateString(
-                    "es-ES",
-                    { day: "numeric", month: "short" }
-                  )}{" "}
-                  · {block.hora_inicio?.slice(0, 5)} —{" "}
-                  {block.hora_fin?.slice(0, 5)} · {block.duracion_minutos} min
-                </div>
+            <li key={block.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-[14px] font-medium text-gs-paper">{block.titulo}</p>
+                <p className="mt-0.5 text-[13px] text-gs-soft">
+                  {formatIsoDateEs(block.fecha, { weekday: "short", day: "numeric", month: "short" })} ·{" "}
+                  {block.hora_inicio?.slice(0, 5)} a {block.hora_fin?.slice(0, 5)} ({block.duracion_minutos} min)
+                </p>
               </div>
-              <button
-                onClick={() => handleDelete(block.id)}
-                disabled={isPending}
-                className="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
-              >
-                Eliminar
-              </button>
-            </div>
+
+              {confirmingId === block.id ? (
+                <span role="group" aria-label={`Confirmar eliminación de ${block.titulo}`} className="inline-flex items-center gap-1.5">
+                  <span className="text-[13px] text-gs-soft">¿Eliminar?</span>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(block.id)}
+                    disabled={isPending}
+                    className={buttonClass("danger", "sm")}
+                  >
+                    {isPending ? "Eliminando…" : "Sí, eliminar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingId(null)}
+                    disabled={isPending}
+                    className={buttonClass("ghost", "sm")}
+                  >
+                    No
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingId(block.id)}
+                  disabled={isPending}
+                  aria-label={`Eliminar sesión ${block.titulo}`}
+                  title={`Eliminar sesión ${block.titulo}`}
+                  className={buttonClass("ghost", "sm", "w-10 px-0 hover:text-gs-bad sm:w-8")}
+                >
+                  <Trash2 aria-hidden />
+                </button>
+              )}
+            </li>
           ))}
+        </ul>
+      )}
+
+      {error && !showForm && (
+        <div className="p-4">
+          <Notice tone="bad">{error}</Notice>
         </div>
       )}
 
-      {/* Formulario nuevo bloque */}
       {showForm && (
-        <form onSubmit={handleAdd} className="space-y-3 border-t border-card-border pt-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium">
-              Título *
-            </label>
+        <form onSubmit={handleAdd} className="space-y-4 border-t border-gs-line p-4 first:border-t-0">
+          <Field label="Título" htmlFor={id("titulo")} required>
             <input
+              id={id("titulo")}
               name="titulo"
               type="text"
               required
-              className="w-full"
-              placeholder="Ej: Grabación de voces"
+              maxLength={120}
+              placeholder="Por ejemplo: grabación de voces"
             />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium">Fecha *</label>
-              <input name="fecha" type="date" required className="w-full" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium">
-                Hora inicio *
-              </label>
+          </Field>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="Fecha" htmlFor={id("fecha")} required>
+              <input id={id("fecha")} name="fecha" type="date" required />
+            </Field>
+            <Field label="Hora de inicio" htmlFor={id("hora")} required>
+              <input id={id("hora")} name="hora_inicio" type="time" required step="1800" />
+            </Field>
+            <Field label="Duración (min)" htmlFor={id("duracion")} required>
               <input
-                name="hora_inicio"
-                type="time"
-                required
-                className="w-full"
-                step="1800"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium">
-                Duración (min) *
-              </label>
-              <input
+                id={id("duracion")}
                 name="duracion_minutos"
                 type="number"
+                inputMode="numeric"
                 required
                 min="30"
                 step="30"
                 defaultValue="60"
-                className="w-full"
               />
-            </div>
+            </Field>
           </div>
-          {error && (
-            <p className="text-xs text-red-400">{error}</p>
-          )}
-          <button
-            type="submit"
-            disabled={isPending}
-            className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-black transition-colors hover:bg-accent-hover disabled:opacity-50"
-          >
-            {isPending ? "Guardando..." : "Añadir Bloque"}
-          </button>
+          {error && <Notice tone="bad">{error}</Notice>}
+          <FormActions>
+            <button type="submit" disabled={isPending} className={buttonClass("secondary")}>
+              {isPending ? "Guardando…" : "Añadir sesión"}
+            </button>
+          </FormActions>
         </form>
       )}
-    </div>
+    </Panel>
   );
 }

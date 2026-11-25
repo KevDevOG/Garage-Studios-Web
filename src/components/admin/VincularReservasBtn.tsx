@@ -4,6 +4,7 @@ import { useState } from "react";
 import { linkReservasToCliente } from "@/app/actions/clientes";
 import { Link2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { buttonClass } from "./ui";
 
 interface VincularReservasBtnProps {
   clienteId: string;
@@ -40,13 +41,9 @@ export default function VincularReservasBtn({ clienteId }: VincularReservasBtnPr
       onClick={handleLink}
       disabled={loading}
       aria-busy={loading}
-      className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+      className={buttonClass("ghost", "sm")}
     >
-      {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-      ) : (
-        <Link2 className="h-4 w-4" aria-hidden="true" />
-      )}
+      {loading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Link2 aria-hidden="true" />}
       Vincular reservas antiguas
     </button>
   );

@@ -1,7 +1,8 @@
 "use server";
 
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { getAdminSession, isAuthorizedAdmin } from "@/lib/auth";
+import { getAdminSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
@@ -98,7 +99,7 @@ async function fetchAllRows<T>(
  * Regla de negocio: un ingreso manual con reserva_id se excluye para no
  * duplicar el cobro que ya aporta la propia reserva.
  */
-async function fetchFinanceData(
+async function readFinanceData(
   supabase: SupabaseServerClient,
   start: string,
   end: string
@@ -141,10 +142,21 @@ async function fetchFinanceData(
   };
 }
 
+/**
+ * El resumen y el listado de un mismo periodo piden exactamente los mismos
+ * datos: `cache` de React hace que, dentro de una petición, se lean una sola
+ * vez (dos consultas en lugar de cuatro). No guarda nada entre peticiones:
+ * cada carga de página vuelve a leer la base de datos, así que los importes
+ * nunca quedan desfasados.
+ */
+const fetchFinanceData = cache(readFinanceData);
+
 /** Sesión válida + pertenencia a la lista privada de administradores. */
 async function requireUser(supabase: SupabaseServerClient) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user || !(await isAuthorizedAdmin(supabase, user))) throw new Error("No autorizado");
+  void supabase; // se conserva la firma; la sesión se valida en lib/auth
+  // Comprobación compartida y resuelta una sola vez por petición.
+  const { user } = await getAdminSession();
+  if (!user) throw new Error("No autorizado");
   return user;
 }
 
@@ -484,15 +496,17 @@ export async function getPendingPaymentReservations() {
 
   const { data: reservas, error } = await supabase
     .from("reserva")
-    .select("*, servicio(nombre)")
+    .select("id, nombre, fecha_reserva, hora_inicio, precio, importe_pagado, estado, estado_pago, servicio(nombre)")
     .in("estado", ["confirmada", "completada"])
     .in("estado_pago", ["pendiente", "parcial"])
     .is("deleted_at", null)
     .order("fecha_reserva", { ascending: false });
 
+  // null = no se pudo consultar. No se devuelve una lista vacía, que se
+  // leería como "no hay cobros pendientes".
   if (error) {
     console.error("[finanzas] Error consultando pagos pendientes:", error.message);
-    return [];
+    return null;
   }
 
   return reservas ?? [];

@@ -1,7 +1,15 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export async function createClient() {
+/**
+ * Cliente Supabase con la sesión de las cookies de la petición.
+ *
+ * `cache` de React devuelve la misma instancia durante toda la petición (no
+ * entre peticiones): las lecturas en paralelo de una página comparten cliente
+ * en lugar de crear uno por lectura.
+ */
+export const createClient = cache(async () => {
   const cookieStore = await cookies();
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -33,4 +41,4 @@ export async function createClient() {
       },
     }
   );
-}
+});

@@ -1,9 +1,15 @@
-import Link from "next/link";
-import { AlertCircle } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { Plus, Printer } from "lucide-react";
+import { getAdminSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import AdminNav from "@/components/admin/AdminNav";
-import { getFinanceSummary, getFinanceMovementsResult, getFinanceYearOverview } from "@/app/actions/finanzas";
+import { LinkButton, Notice, Page } from "@/components/admin/ui";
+import {
+  getFinanceSummary,
+  getFinanceMovementsResult,
+  getFinanceYearOverview,
+  getPendingPaymentReservations,
+} from "@/app/actions/finanzas";
+import type { PendingReservation } from "@/components/admin/finanzas/PendingCollections";
 import { parsePeriod } from "@/lib/dates";
 import FinanzasClient from "./FinanzasClient";
 
@@ -14,8 +20,8 @@ export const metadata = {
 export default async function FinanzasPage(props: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Sesión + lista de administradores, validada una vez por petición.
+  const { user } = await getAdminSession();
 
   if (!user) {
     redirect("/admin/login");
@@ -27,10 +33,11 @@ export default async function FinanzasPage(props: {
   const view: "mensual" | "anual" = rawView === "anual" ? "anual" : "mensual";
 
   // Solo se consulta lo que la vista activa necesita, y en paralelo.
-  const [summaryRes, movementsRes, yearOverviewRes] = await Promise.all([
+  const [summaryRes, movementsRes, yearOverviewRes, pendingRes] = await Promise.all([
     view === "mensual" ? getFinanceSummary(month, year) : Promise.resolve(null),
     view === "mensual" ? getFinanceMovementsResult(month, year) : Promise.resolve(null),
     view === "anual" ? getFinanceYearOverview(year) : Promise.resolve(null),
+    view === "mensual" ? getPendingPaymentReservations() : Promise.resolve([]),
   ]);
 
   const hasError =
@@ -49,40 +56,48 @@ export default async function FinanzasPage(props: {
   }
 
   const retryHref = `/admin/finanzas?view=${view}&month=${month}&year=${year}`;
+  const otherView = view === "anual" ? "mensual" : "anual";
 
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6">
-      <AdminNav title="Finanzas" />
+    <Page width="wide">
+      <AdminNav
+        title="Finanzas"
+        description="Ingresos, gastos y cobros pendientes del estudio."
+        actions={
+          hasError ? undefined : (
+            <>
+              <LinkButton
+                href={`/admin/finanzas/informe?month=${month}&year=${year}`}
+                target="_blank"
+                variant="secondary"
+                className="max-sm:hidden"
+              >
+                <Printer aria-hidden />
+                Informe imprimible
+              </LinkButton>
+              <LinkButton href="/admin/finanzas/nuevo" variant="primary">
+                <Plus aria-hidden />
+                Nuevo movimiento
+              </LinkButton>
+            </>
+          )
+        }
+      />
       {hasError ? (
-        <div
-          role="alert"
-          className="rounded-2xl border border-red-500/20 bg-card-bg p-8 text-center shadow-lg sm:p-12"
-        >
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-red-500/20 bg-red-500/10 text-red-400">
-            <AlertCircle className="h-6 w-6" aria-hidden="true" />
-          </div>
-          <h2 className="text-lg font-black uppercase tracking-tight text-white sm:text-xl">
-            No se pudieron cargar los datos financieros
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+        <Notice title="No se pudieron cargar los datos financieros">
+          <p className="max-w-prose">
             Ocurrió un error al consultar la información de {view === "anual" ? "la vista anual" : "la vista mensual"}.
             Por seguridad, no se muestran totales en cero hasta restablecer la conexión.
           </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href={retryHref}
-              className="rounded-lg bg-accent px-5 py-2.5 text-xs font-black uppercase tracking-widest text-black transition-all hover:bg-accent-hover"
-            >
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <LinkButton href={retryHref} variant="primary">
               Reintentar
-            </Link>
-            <Link
-              href={`/admin/finanzas?view=${view === "anual" ? "mensual" : "anual"}&month=${month}&year=${year}`}
-              className="rounded-lg border border-card-border bg-white/5 px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-muted transition-colors hover:text-white"
-            >
-              Ver vista {view === "anual" ? "mensual" : "anual"}
-            </Link>
+            </LinkButton>
+            <LinkButton href={`/admin/finanzas?view=${otherView}&month=${month}&year=${year}`} variant="secondary">
+              Ver vista {otherView}
+            </LinkButton>
           </div>
-        </div>
+        </Notice>
       ) : (
         <FinanzasClient
           view={view}
@@ -92,8 +107,9 @@ export default async function FinanzasPage(props: {
           movements={movementsRes?.ok ? movementsRes.data : []}
           annualSummary={yearOverviewRes?.ok ? yearOverviewRes.data.summary : null}
           annualInsights={yearOverviewRes?.ok ? yearOverviewRes.data.insights : null}
+          pending={pendingRes as PendingReservation[] | null}
         />
       )}
-    </div>
+    </Page>
   );
 }

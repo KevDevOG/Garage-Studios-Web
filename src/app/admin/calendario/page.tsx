@@ -1,71 +1,58 @@
 import Link from "next/link";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import AdminNav from "@/components/admin/AdminNav";
-import { getReservations } from "@/app/actions/calendario";
-import type { ReservationRow } from "@/app/actions/calendario";
-import CalendarReservationCard from "@/components/admin/CalendarReservationCard";
-import { createClient } from "@/lib/supabase/server";
-import DateJump from "@/components/admin/DateJump";
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, List, AlertCircle } from "lucide-react";
 import BlockTimeButton from "@/components/admin/BlockTimeButton";
-import DeleteBloqueoButton from "@/components/admin/DeleteBloqueoButton";
-import { formatIsoDateEs, isValidIsoDate, todayInStudio, weekdayOfIsoDate } from "@/lib/dates";
-import { formatTime } from "@/lib/schedule";
+import DateJump from "@/components/admin/DateJump";
+import AgendaList, { type AgendaItem } from "@/components/admin/agenda/AgendaList";
+import DayTrack from "@/components/admin/agenda/DayTrack";
+import MonthGrid from "@/components/admin/agenda/MonthGrid";
+import WeekGrid from "@/components/admin/agenda/WeekGrid";
+import {
+  PACK_BLOCK_SELECT,
+  amountDue,
+  manualBlockToEvent,
+  occupiesSlot,
+  packBlocksToRows,
+  reservationToEvent,
+  withClienteStats,
+  type ManualBlock,
+  type PackBlockRow,
+  type SessionRowData,
+} from "@/components/admin/agenda/events";
+import { EmptyState, LinkButton, Notice, Page, Panel, Segmented, buttonClass } from "@/components/admin/ui";
+import { getReservations } from "@/app/actions/calendario";
+import {
+  addDays,
+  addMonths,
+  minutesLabel,
+  monthGrid,
+  openingMinutes,
+  parseAgendaView,
+  startOfMonth,
+  weekDays,
+  type AgendaEvent,
+  type AgendaView,
+} from "@/lib/agenda";
+import { getAdminSession } from "@/lib/auth";
+import { formatIsoDateEs, isValidIsoDate, nowMinutesInStudio, todayInStudio } from "@/lib/dates";
+import { capitalizeFirst, formatEUR, plural } from "@/lib/format";
+import { redirect } from "next/navigation";
 
 type SearchParams = { [key: string]: string | string[] | undefined };
-
-interface ManualBlock {
-  id: string;
-  nombre: string;
-  fecha_reserva: string;
-  hora_inicio: string | null;
-  hora_fin: string | null;
-}
-
-type CalendarEvent =
-  | { kind: "reserva"; fecha: string; hora: string | null; reservation: ReservationRow }
-  | { kind: "manual"; fecha: string; hora: string | null; block: ManualBlock };
-
-interface BlockRow {
-  id: string;
-  reserva_id: string;
-  titulo: string;
-  fecha: string;
-  hora_inicio: string;
-  hora_fin: string;
-  duracion_minutos: number | null;
-  estado: string;
-  reserva: {
-    id: string;
-    servicio_id: string | null;
-    nombre: string | null;
-    email: string | null;
-    telefono: string | null;
-    precio: number | null;
-    estado_pago: ReservationRow["estado_pago"];
-    importe_pagado: number | null;
-    deleted_at: string | null;
-    servicio: { nombre: string } | null;
-    cliente: { total_reservas: number | null } | null;
-  } | null;
-}
-
-interface ManualBlockRow {
-  id: string;
-  motivo: string | null;
-  fecha: string;
-  hora_inicio: string | null;
-  hora_fin: string | null;
-}
 
 const first = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value;
 
-function addDays(isoDate: string, days: number): string {
-  const [y, m, d] = isoDate.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
-}
+const VIEW_LABEL: Record<AgendaView, string> = { mes: "Mes", semana: "Semana", dia: "Día" };
 
-const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+/** "23 – 29 de noviembre de 2026" o "30 nov – 6 dic 2026" si cruza de mes. */
+function weekTitle(start: string, end: string): string {
+  if (start.slice(0, 7) === end.slice(0, 7)) {
+    return `${Number(start.slice(8))} – ${formatIsoDateEs(end, { day: "numeric", month: "long", year: "numeric" })}`;
+  }
+  const short: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+  return `${formatIsoDateEs(start, short)} – ${formatIsoDateEs(end, { ...short, year: "numeric" })}`;
+}
 
 export default async function CalendarioPage({
   searchParams,
@@ -73,52 +60,59 @@ export default async function CalendarioPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const view: "weekly" | "daily" = first(params.view) === "daily" ? "daily" : "weekly";
+  const view = parseAgendaView(first(params.view));
 
   const todayStr = todayInStudio();
   const fechaParam = first(params.fecha);
   const hasFecha = !!fechaParam && isValidIsoDate(fechaParam);
-  const baseDate = hasFecha ? (fechaParam as string) : todayStr;
 
-  // Compatibilidad con enlaces antiguos (?semana=N). Los enlaces actuales
-  // navegan siempre con una fecha concreta, sin desplazamiento acumulado.
+  // Compatibilidad con enlaces antiguos (?semana=N): desplazamiento en semanas.
   const rawOffset = Number.parseInt(first(params.semana) ?? "", 10);
   const weekOffset = Number.isFinite(rawOffset) ? Math.max(-520, Math.min(520, rawOffset)) : 0;
+  const baseDate = addDays(hasFecha ? (fechaParam as string) : todayStr, weekOffset * 7);
 
-  let startDate: string;
-  let endDate: string;
-  let displayRange: string;
+  let days: string[];
+  let weeks: string[][] = [];
+  let title: string;
   let prevFecha: string;
   let nextFecha: string;
+  /** Días que cuentan para el resumen (en la vista de mes, solo los del mes). */
+  let summaryDays: string[];
 
-  const formatDateLabel = (iso: string) => formatIsoDateEs(iso, { day: "numeric", month: "short" });
-
-  if (view === "daily") {
-    startDate = baseDate;
-    endDate = baseDate;
-    displayRange = formatIsoDateEs(baseDate, { day: "numeric", month: "long", year: "numeric" });
+  if (view === "dia") {
+    days = [baseDate];
+    summaryDays = days;
+    title = formatIsoDateEs(baseDate);
     prevFecha = addDays(baseDate, -1);
     nextFecha = addDays(baseDate, 1);
+  } else if (view === "mes") {
+    weeks = monthGrid(baseDate);
+    days = weeks.flat();
+    summaryDays = days.filter((d) => d.slice(0, 7) === baseDate.slice(0, 7));
+    title = formatIsoDateEs(baseDate, { month: "long", year: "numeric" });
+    prevFecha = addMonths(startOfMonth(baseDate), -1);
+    nextFecha = addMonths(startOfMonth(baseDate), 1);
   } else {
-    const weekday = weekdayOfIsoDate(baseDate);
-    const diffToMonday = weekday === 0 ? 6 : weekday - 1;
-    startDate = addDays(baseDate, -diffToMonday + weekOffset * 7);
-    endDate = addDays(startDate, 6);
-    displayRange = `${formatDateLabel(startDate)} — ${formatDateLabel(endDate)}`;
-    prevFecha = addDays(startDate, -7);
-    nextFecha = addDays(startDate, 7);
+    days = weekDays(baseDate);
+    summaryDays = days;
+    title = weekTitle(days[0], days[6]);
+    prevFecha = addDays(days[0], -7);
+    nextFecha = addDays(days[0], 7);
   }
 
-  const supabase = await createClient();
+  const startDate = days[0];
+  const endDate = days[days.length - 1];
+
+  // La sesión se valida una vez por petición (también la usa getReservations).
+  const { supabase, user } = await getAdminSession();
+  if (!user) redirect("/admin/login");
 
   // Las tres consultas son independientes: en paralelo.
   const [reservasRes, bloquesRes, bloqueosRes] = await Promise.all([
     getReservations(startDate, endDate),
     supabase
       .from("reserva_bloque")
-      .select(
-        "id, reserva_id, titulo, fecha, hora_inicio, hora_fin, duracion_minutos, estado, reserva:reserva_id(id, servicio_id, nombre, email, telefono, precio, estado_pago, importe_pagado, deleted_at, servicio(nombre), cliente:cliente_id(total_reservas))"
-      )
+      .select(PACK_BLOCK_SELECT)
       .gte("fecha", startDate)
       .lte("fecha", endDate),
     supabase
@@ -135,207 +129,210 @@ export default async function CalendarioPage({
 
   const hasError = !reservasRes.ok || Boolean(bloquesRes.error) || Boolean(bloqueosRes.error);
 
-  const reservas = reservasRes.ok ? reservasRes.data : [];
-  const bloques = (bloquesRes.data ?? []) as unknown as BlockRow[];
-  const bloqueosManuales = (bloqueosRes.data ?? []) as unknown as ManualBlockRow[];
+  const reservas: SessionRowData[] = (reservasRes.ok ? reservasRes.data : []).map(withClienteStats);
+  const bloqueosManuales = (bloqueosRes.data ?? []) as unknown as ManualBlock[];
 
   // Bloques de pack: heredan datos de la reserva padre (precio, contacto, pago).
-  const packBlocks: ReservationRow[] = bloques
-    .filter((b) => b.reserva && !b.reserva.deleted_at)
-    .map((b) => {
-      const parent = b.reserva!;
-      return {
-        id: b.id,
-        servicio_id: parent.servicio_id ?? "",
-        nombre: parent.nombre || "Bloque de Tiempo",
-        email: parent.email ?? "",
-        telefono: parent.telefono ?? "",
-        fecha_reserva: b.fecha,
-        hora_inicio: b.hora_inicio,
-        hora_fin: b.hora_fin,
-        duracion_minutos: b.duracion_minutos,
-        observaciones: null,
-        notas_admin: null,
-        estado: b.estado,
-        origen: null,
-        created_at: "",
-        updated_at: null,
-        deleted_at: null,
-        calendar_event_id: null,
-        precio: parent.precio ?? null,
-        cliente_total_reservas: parent.cliente?.total_reservas ?? undefined,
-        servicio: parent.servicio,
-        estado_pago: parent.estado_pago,
-        importe_pagado: parent.importe_pagado ?? undefined,
-        is_block: true,
-        block_title: b.titulo,
-        parent_reserva_id: b.reserva_id,
-      };
-    });
+  const packBlocks = packBlocksToRows((bloquesRes.data ?? []) as unknown as PackBlockRow[]);
 
-  const allEvents: CalendarEvent[] = [
-    ...[...reservas, ...packBlocks].map((r): CalendarEvent => ({
-      kind: "reserva",
-      fecha: r.fecha_reserva,
-      hora: r.hora_inicio,
-      reservation: r,
-    })),
-    ...bloqueosManuales.map((bm): CalendarEvent => ({
-      kind: "manual",
-      fecha: bm.fecha,
-      hora: bm.hora_inicio,
-      block: {
-        id: bm.id,
-        nombre: bm.motivo || "Bloqueo Administrativo",
-        fecha_reserva: bm.fecha,
-        hora_inicio: bm.hora_inicio,
-        hora_fin: bm.hora_fin,
-      },
-    })),
-  ];
+  // Por día: filas para la lista (con acciones) y eventos para pistas y rejillas.
+  const itemsByDay: Record<string, AgendaItem[]> = {};
+  const eventsByDay: Record<string, AgendaEvent[]> = {};
 
-  const grouped: Record<string, CalendarEvent[]> = {};
-  for (const ev of allEvents) {
-    (grouped[ev.fecha] ??= []).push(ev);
+  for (const r of [...reservas, ...packBlocks]) {
+    (itemsByDay[r.fecha_reserva] ??= []).push({ kind: "reserva", time: r.hora_inicio, row: r });
+    (eventsByDay[r.fecha_reserva] ??= []).push(reservationToEvent(r));
   }
-  for (const key in grouped) {
-    grouped[key].sort((a, b) => (a.hora || "23:59").localeCompare(b.hora || "23:59"));
+  for (const b of bloqueosManuales) {
+    (itemsByDay[b.fecha] ??= []).push({ kind: "bloqueo", time: b.hora_inicio, block: b });
+    (eventsByDay[b.fecha] ??= []).push(manualBlockToEvent(b));
+  }
+  for (const key in itemsByDay) {
+    itemsByDay[key].sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
   }
 
-  const daysToShow: string[] =
-    view === "daily" ? [startDate] : Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
+  // Resumen del periodo (solo reservas reales, sin bloques de pack ni bloqueos).
+  const inSummary = new Set(summaryDays);
+  const periodReservas = reservas.filter((r) => inSummary.has(r.fecha_reserva));
+  const sesiones = periodReservas.filter((r) => occupiesSlot(r.estado)).length;
+  const porConfirmar = periodReservas.filter((r) => r.estado === "pendiente").length;
+  const porCobrar = periodReservas
+    .filter(
+      (r) =>
+        (r.estado === "confirmada" || r.estado === "completada") &&
+        (r.estado_pago === "pendiente" || r.estado_pago === "parcial"),
+    )
+    .reduce((sum, r) => sum + amountDue(r), 0);
 
-  const hrefFor = (nextView: "weekly" | "daily", fecha?: string) =>
+  const summaryParts = [plural(sesiones, "sesión", "sesiones")];
+  if (porConfirmar > 0) summaryParts.push(`${porConfirmar} por confirmar`);
+  if (porCobrar > 0) summaryParts.push(`${formatEUR(porCobrar)} por cobrar`);
+
+  const hrefFor = (nextView: AgendaView, fecha?: string) =>
     `/admin/calendario?view=${nextView}${fecha ? `&fecha=${fecha}` : ""}`;
+  const dayHref = (date: string) => hrefFor("dia", date);
+  const keepFecha = hasFecha || weekOffset !== 0 ? baseDate : undefined;
 
-  const arrowClass =
-    "flex items-center rounded-lg border border-card-border bg-card-bg px-3 py-2 text-sm font-medium text-muted transition-colors hover:text-white";
+  const step = view === "dia" ? "Día" : view === "mes" ? "Mes" : "Semana";
+  const nowMinutes = nowMinutesInStudio();
+  const opening = openingMinutes(baseDate);
+  const listedCount = days.reduce((n, d) => n + (itemsByDay[d]?.length ?? 0), 0);
 
   return (
-    <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-      <AdminNav title="Calendario" />
+    <Page>
+      <AdminNav
+        title="Calendario"
+        description={hasError ? undefined : summaryParts.join(", ")}
+        actions={
+          <>
+            <BlockTimeButton initialDate={baseDate} />
+            <LinkButton href={`/admin/calendario/nueva?fecha=${baseDate}`} variant="primary">
+              <Plus aria-hidden /> Nueva reserva
+            </LinkButton>
+          </>
+        }
+      />
 
-      <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <DateJump currentFecha={hasFecha ? baseDate : todayStr} view={view} />
-            <div className="flex items-center rounded-xl bg-card-bg border border-card-border p-1">
-              <Link
-                href={hrefFor("weekly", hasFecha ? baseDate : undefined)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === "weekly" ? "bg-accent text-black" : "text-muted hover:text-white"}`}
-              >
-                <CalendarIcon className="h-4 w-4" aria-hidden="true" /> Semanal
-              </Link>
-              <Link
-                href={hrefFor("daily", hasFecha ? baseDate : undefined)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === "daily" ? "bg-accent text-black" : "text-muted hover:text-white"}`}
-              >
-                <List className="h-4 w-4" aria-hidden="true" /> Diario
-              </Link>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href={hrefFor(view, prevFecha)}
-              aria-label={view === "daily" ? "Día anterior" : "Semana anterior"}
-              className={arrowClass}
-            >
-              <ChevronLeft className="w-4 h-4" aria-hidden="true" />
-            </Link>
-            <span className="min-w-0 text-center text-sm font-black uppercase tracking-widest text-white sm:min-w-[200px]">
-              {displayRange}
-            </span>
-            <Link
-              href={hrefFor(view, nextFecha)}
-              aria-label={view === "daily" ? "Día siguiente" : "Semana siguiente"}
-              className={arrowClass}
-            >
-              <ChevronRight className="w-4 h-4" aria-hidden="true" />
-            </Link>
-          </div>
+      {/* Navegación del periodo y vistas */}
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3">
+        <div className="flex items-center gap-1">
+          <Link
+            href={hrefFor(view, prevFecha)}
+            aria-label={`${step} anterior`}
+            className={buttonClass("secondary", "sm", "w-10 px-0 sm:w-8")}
+          >
+            <ChevronLeft aria-hidden />
+          </Link>
+          <Link href={hrefFor(view)} className={buttonClass("secondary", "sm")}>
+            Hoy
+          </Link>
+          <Link
+            href={hrefFor(view, nextFecha)}
+            aria-label={`${step} siguiente`}
+            className={buttonClass("secondary", "sm", "w-10 px-0 sm:w-8")}
+          >
+            <ChevronRight aria-hidden />
+          </Link>
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          <BlockTimeButton />
-          <Link
-            href="/admin/calendario/nueva"
-            className="flex items-center justify-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-center text-sm font-black uppercase tracking-widest text-black transition-all hover:bg-accent-hover"
-          >
-            <Plus className="w-5 h-5" aria-hidden="true" /> Nueva Reserva
-          </Link>
+        <h2 className="gs-display text-[18px] font-semibold leading-tight text-gs-paper">
+          {capitalizeFirst(title)}
+        </h2>
+
+        <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
+          <DateJump currentFecha={baseDate} view={view} />
+          <Segmented
+            label="Vista del calendario"
+            items={(["mes", "semana", "dia"] as const).map((v) => ({
+              href: hrefFor(v, keepFecha),
+              label: VIEW_LABEL[v],
+              active: v === view,
+            }))}
+          />
         </div>
       </div>
 
       {hasError ? (
-        <div className="rounded-2xl border border-red-500/20 bg-card-bg p-8 text-center shadow-lg sm:p-12">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-red-500/20 bg-red-500/10 text-red-400">
-            <AlertCircle className="h-6 w-6" aria-hidden="true" />
-          </div>
-          <h2 className="text-lg font-black uppercase tracking-tight text-white sm:text-xl">
-            No se pudo cargar el calendario
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-            Ocurrió un error al consultar las reservas o bloqueos del estudio. Por favor, recarga la página o inténtalo de nuevo más tarde.
+        <Notice title="No se pudo cargar el calendario">
+          <p>
+            Falló la consulta de reservas o bloqueos, así que no se muestra una agenda vacía que podría
+            no ser cierta. Vuelve a intentarlo.
           </p>
-        </div>
+          <p className="mt-3">
+            <Link href={hrefFor(view, keepFecha)} className={buttonClass("secondary", "sm")}>
+              Reintentar
+            </Link>
+          </p>
+        </Notice>
       ) : (
-        <div className="space-y-6">
-          {daysToShow.map((dateStr) => {
-            const events = grouped[dateStr] || [];
-            const isToday = dateStr === todayStr;
+        <div className="space-y-4">
+          {view === "mes" && (
+            <MonthGrid
+              weeks={weeks}
+              month={baseDate.slice(0, 7)}
+              eventsByDay={eventsByDay}
+              today={todayStr}
+              dayHref={dayHref}
+            />
+          )}
 
-            return (
-              <div
-                key={dateStr}
-                className={`rounded-2xl border bg-card-bg p-4 sm:p-6 ${isToday ? "border-accent/50 shadow-lg shadow-accent/5" : "border-card-border"}`}
-              >
-                <div className="mb-6 flex items-center justify-between border-b border-white/5 pb-4">
-                  <div className="flex items-baseline gap-3">
-                    <span className="text-xl font-black text-white">{DAY_NAMES[weekdayOfIsoDate(dateStr)]}</span>
-                    <span className={`text-sm font-bold ${isToday ? "text-accent" : "text-muted"}`}>
-                      {formatDateLabel(dateStr)} {isToday && " — HOY"}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-muted">
-                    {events.length} Eventos
-                  </span>
-                </div>
+          {view === "semana" && (
+            <div className="hidden lg:block">
+              <WeekGrid
+                days={days}
+                eventsByDay={eventsByDay}
+                today={todayStr}
+                nowMinutes={nowMinutes}
+                dayHref={dayHref}
+              />
+            </div>
+          )}
 
-                {events.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <p className="text-sm text-muted italic">No hay actividad programada para este día.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {events.map((ev) =>
-                      ev.kind === "manual" ? (
-                        <div key={ev.block.id} className="flex items-center justify-between gap-4 p-4 rounded-xl border border-red-500/20 bg-red-500/5 group/block">
-                          <div className="flex min-w-0 items-center gap-4">
-                            <div className="flex flex-col items-center justify-center min-w-[70px] py-1 px-2 rounded-lg bg-red-500/20 text-red-400 font-bold text-sm">
-                              {formatTime(ev.block.hora_inicio)}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="font-bold text-white text-sm break-words">{ev.block.nombre}</div>
-                              <div className="text-[10px] text-red-400/70 font-black uppercase tracking-widest">Bloqueo Manual</div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-[10px] font-bold text-muted">{formatTime(ev.block.hora_fin)}</div>
-                            <DeleteBloqueoButton id={ev.block.id} />
-                          </div>
-                        </div>
-                      ) : (
-                        <CalendarReservationCard key={ev.reservation.id} reservation={ev.reservation} />
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {view === "dia" && (
+            <Panel
+              title="Pista del día"
+              meta={
+                opening
+                  ? `Abierto de ${minutesLabel(opening.open)} a ${minutesLabel(opening.close)}`
+                  : "Cerrado"
+              }
+            >
+              <DayTrack
+                date={baseDate}
+                events={eventsByDay[baseDate] ?? []}
+                nowMinutes={baseDate === todayStr ? nowMinutes : undefined}
+              />
+            </Panel>
+          )}
+
+          {view !== "mes" && (
+            <Panel
+              flush
+              title={view === "dia" ? "Agenda del día" : "Agenda de la semana"}
+            >
+              {listedCount === 0 ? (
+                <EmptyState
+                  title={view === "dia" ? "No hay nada programado este día" : "No hay nada programado esta semana"}
+                  hint="Las reservas de la web aparecen aquí en cuanto entran. Para apuntar una a mano, usa Nueva reserva."
+                />
+              ) : (
+                <AgendaList
+                  days={days}
+                  itemsByDay={itemsByDay}
+                  eventsByDay={eventsByDay}
+                  today={todayStr}
+                  dayHref={dayHref}
+                  showDayHeaders={view !== "dia"}
+                />
+              )}
+            </Panel>
+          )}
+
+          <Legend />
         </div>
       )}
-    </section>
+    </Page>
+  );
+}
+
+/** Qué significa cada marca de las pistas y rejillas. */
+function Legend() {
+  const dot = "inline-block size-2 rounded-full";
+  return (
+    <ul className="flex flex-wrap gap-x-5 gap-y-1.5 text-[12px] text-gs-soft" aria-label="Leyenda">
+      <li className="flex items-center gap-1.5">
+        <span aria-hidden className={`${dot} bg-gs-amber`} /> Pendiente de confirmar
+      </li>
+      <li className="flex items-center gap-1.5">
+        <span aria-hidden className={`${dot} bg-gs-ok`} /> Confirmada
+      </li>
+      <li className="flex items-center gap-1.5">
+        <span aria-hidden className={`${dot} bg-gs-info`} /> Completada
+      </li>
+      <li className="flex items-center gap-1.5">
+        <span aria-hidden className="gs-hatch inline-block h-2 w-4 rounded-[2px] border border-gs-line-strong" /> Bloqueado
+        o fuera de horario
+      </li>
+    </ul>
   );
 }

@@ -102,7 +102,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   // el enlace "Saltar al contenido" siga teniendo destino.
   if (isBareRoute(pathname)) {
     return (
-      <main id="contenido" tabIndex={-1} className="flex flex-1 flex-col outline-none">
+      <main id="contenido" tabIndex={-1} className="flex flex-1 flex-col bg-gs-canvas outline-none">
         {children}
       </main>
     );
@@ -254,7 +254,7 @@ function ShellFrame({
         id="contenido"
         tabIndex={-1}
         inert={drawerOpen}
-        className="min-w-0 flex-1 outline-none"
+        className="min-w-0 flex-1 bg-gs-canvas outline-none"
       >
         {children}
       </main>

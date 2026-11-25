@@ -1,22 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldAlert } from "lucide-react";
+import { Lock } from "lucide-react";
 import BlockTimeModal from "./BlockTimeModal";
+import { buttonClass } from "./ui";
 
-export default function BlockTimeButton() {
+/** Abre el diálogo para bloquear una franja de la agenda. */
+export default function BlockTimeButton({ initialDate }: { initialDate?: string }) {
   const [showModal, setShowModal] = useState(false);
 
   return (
     <>
-      <button
-        onClick={() => setShowModal(true)}
-        className="flex items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/5 px-5 py-2.5 text-center text-sm font-bold text-red-400 transition-all hover:bg-red-500/10"
-      >
-        <ShieldAlert className="w-5 h-5" /> Bloquear Horas
+      <button type="button" onClick={() => setShowModal(true)} className={buttonClass("secondary")}>
+        <Lock aria-hidden /> Bloquear horas
       </button>
 
-      {showModal && <BlockTimeModal onClose={() => setShowModal(false)} />}
+      {showModal && <BlockTimeModal initialDate={initialDate} onClose={() => setShowModal(false)} />}
     </>
   );
 }

@@ -6,7 +6,7 @@
  * No guarda datos sensibles completos, solo IDs y resúmenes.
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { getAdminSession } from "@/lib/auth";
 
 export interface AuditLogEntry {
   accion: string;       // "creación", "edición", "eliminación", "cambio_estado", etc.
@@ -18,8 +18,8 @@ export interface AuditLogEntry {
 
 export async function createAuditLog(entry: AuditLogEntry): Promise<void> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Misma comprobación que las acciones del panel (sesión + lista privada).
+    const { supabase, user } = await getAdminSession();
 
     // Solo registrar si hay un admin autenticado
     if (!user) return;

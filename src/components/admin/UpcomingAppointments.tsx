@@ -1,75 +1,62 @@
 import Link from "next/link";
-import { Calendar as CalendarIcon, ChevronRight } from "lucide-react";
-import type { ReservationRow } from "@/app/actions/calendario";
+import { formatIsoDateEs } from "@/lib/dates";
+import { capitalizeFirst } from "@/lib/format";
 import { formatTime } from "@/lib/schedule";
+import type { SessionRowData } from "./agenda/events";
+import StatusBadge from "./StatusBadge";
+import { EmptyState, LinkButton, Notice, Panel } from "./ui";
 
 interface UpcomingAppointmentsProps {
-  reservations: ReservationRow[];
+  reservations: SessionRowData[];
+  failed?: boolean;
 }
 
-export default function UpcomingAppointments({ reservations }: UpcomingAppointmentsProps) {
-  return (
-    <div className="rounded-2xl border border-card-border bg-card-bg p-6 mb-8 shadow-sm">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-          <CalendarIcon className="h-5 w-5 text-accent" />
-          Próximas Citas
-        </h3>
-        <Link 
-          href="/admin/calendario" 
-          className="text-xs font-black uppercase tracking-widest text-accent hover:text-white transition-colors flex items-center gap-1 group"
-        >
-          Ver Calendario
-          <ChevronRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-        </Link>
-      </div>
+const DAY: Intl.DateTimeFormatOptions = { weekday: "short", day: "numeric", month: "short" };
 
-      {reservations.length === 0 ? (
-        <p className="py-4 text-center text-sm text-muted italic">No hay próximas citas programadas.</p>
-      ) : (
-        <div className="space-y-4">
-          {reservations.map((res) => {
-            const date = new Date(res.fecha_reserva + "T00:00:00");
-            return (
-              <div 
-                key={res.id} 
-                className="flex items-center justify-between gap-4 p-3 rounded-xl hover:bg-white/[0.02] transition-colors border-l-2 border-transparent hover:border-accent"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex flex-col items-center justify-center min-w-[50px]">
-                    <span className="text-xs font-bold text-muted uppercase">{date.toLocaleDateString("es-ES", { month: 'short' })}</span>
-                    <span className="text-lg font-black text-white leading-none">{date.getDate()}</span>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-bold text-white text-sm truncate">{res.nombre}</div>
-                    <div className="text-[10px] text-muted truncate">
-                      {formatTime(res.hora_inicio)} • {res.servicio?.nombre}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <div className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                    res.estado === 'confirmada' ? 'border-green-500/20 text-green-400 bg-green-500/5' : 
-                    res.estado === 'pendiente' ? 'border-amber-500/20 text-amber-400 bg-amber-500/5' : 'border-white/10 text-muted'
-                  }`}>
-                    {res.estado}
-                  </div>
-                  {res.estado_pago && (
-                    <div className={`text-[7px] font-black uppercase px-1.5 py-0 rounded border ${
-                      res.estado_pago === 'pagado' ? 'border-green-500/20 text-green-400/80 bg-green-500/5' :
-                      res.estado_pago === 'parcial' ? 'border-blue-500/20 text-blue-400/80 bg-blue-500/5' :
-                      'border-amber-500/20 text-amber-400/80 bg-amber-500/5'
-                    }`}>
-                      {res.estado_pago === 'pagado' ? 'Pagado' : 
-                       res.estado_pago === 'parcial' ? 'Parcial' : 'Pendiente'}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+/** Próximas sesiones (pendientes o confirmadas) a partir de mañana. */
+export default function UpcomingAppointments({ reservations, failed }: UpcomingAppointmentsProps) {
+  return (
+    <Panel
+      flush
+      title="Próximas sesiones"
+      action={
+        <LinkButton href="/admin/calendario" variant="ghost" size="sm">
+          Abrir calendario
+        </LinkButton>
+      }
+    >
+      {failed ? (
+        <div className="p-4">
+          <Notice title="No se pudieron cargar las próximas sesiones">Recarga la página para reintentarlo.</Notice>
         </div>
+      ) : reservations.length === 0 ? (
+        <EmptyState title="No hay sesiones futuras" hint="Cuando entre una reserva para otro día aparecerá aquí." />
+      ) : (
+        <ul className="divide-y divide-gs-line">
+          {reservations.map((res) => (
+            <li key={res.id}>
+              <Link
+                href={`/admin/calendario/${res.id}`}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.03]"
+              >
+                <span className="flex w-[5.75rem] shrink-0 flex-col gap-0.5 sm:w-[10rem] sm:flex-row sm:items-baseline sm:gap-3">
+                  <span className="text-[13px] text-gs-soft sm:w-[6rem]">
+                    {capitalizeFirst(formatIsoDateEs(res.fecha_reserva, DAY))}
+                  </span>
+                  <span className="text-[13px] font-semibold text-gs-paper">{formatTime(res.hora_inicio)}</span>
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-medium text-gs-paper">{res.nombre}</span>
+                  <span className="block truncate text-[12px] text-gs-faint">
+                    {res.servicio?.nombre || "Servicio sin especificar"}
+                  </span>
+                </span>
+                <StatusBadge type="reserva" value={res.estado} plain className="shrink-0" />
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
-    </div>
+    </Panel>
   );
 }

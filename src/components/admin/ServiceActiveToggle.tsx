@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { toggleServiceActiveAction } from "@/app/actions/servicios";
+import { TONE_BG, TONE_TEXT, cx } from "@/components/admin/ui";
 
 export default function ServiceActiveToggle({
   id,
@@ -23,16 +24,21 @@ export default function ServiceActiveToggle({
     });
   };
 
+  const tone = isActivo ? "ok" : "neutral";
+
   return (
     <button
+      type="button"
       onClick={handleToggle}
       disabled={isPending}
-      className={`inline-block cursor-pointer rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-        isActivo
-          ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
-          : "bg-white/10 text-muted hover:bg-white/20 hover:text-white"
-      }`}
+      aria-pressed={isActivo}
+      title={isActivo ? "Pulsa para desactivar" : "Pulsa para activar"}
+      className={cx(
+        "inline-flex h-10 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-gs-line bg-gs-raised px-3 text-[12px] font-medium leading-none transition-colors hover:border-gs-line-strong disabled:cursor-not-allowed disabled:opacity-50 sm:h-8",
+        TONE_TEXT[tone],
+      )}
     >
+      <span aria-hidden className={cx("size-1.5 shrink-0 rounded-full", TONE_BG[tone])} />
       {isActivo ? "Activo" : "Inactivo"}
     </button>
   );

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { loginAction } from "@/app/actions/auth";
+import { Field, Notice, buttonClass } from "@/components/admin/ui";
 
 export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -19,23 +21,17 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <section className="flex flex-1 items-center justify-center px-4 py-16">
-      <div className="w-full max-w-sm rounded-xl border border-card-border bg-card-bg p-8">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold">Admin Login</h1>
-          <p className="mt-2 text-sm text-muted">
-            Acceso exclusivo para el equipo.
-          </p>
+    <section className="flex flex-1 items-center justify-center px-4 py-12">
+      <div className="w-full max-w-[360px]">
+        <div className="mb-8">
+          <p className="gs-display text-[22px] font-semibold leading-none text-gs-paper">Garage Studios</p>
+          <p className="mt-1.5 text-[13px] text-gs-faint">Consola del estudio</p>
         </div>
 
+        <h1 className="sr-only">Entrar al panel</h1>
+
         <form action={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-1 block text-sm font-medium"
-            >
-              Email
-            </label>
+          <Field label="Correo" htmlFor="email">
             <input
               id="email"
               name="email"
@@ -44,37 +40,30 @@ export default function AdminLoginPage() {
               autoComplete="username"
               placeholder="correo@ejemplo.com"
             />
-          </div>
+          </Field>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="mb-1 block text-sm font-medium"
-            >
-              Contraseña
-            </label>
+          <Field label="Contraseña" htmlFor="password">
             <input
               id="password"
               name="password"
               type="password"
               autoComplete="current-password"
               required
-              placeholder="••••••••"
             />
-          </div>
+          </Field>
 
-          {error && (
-            <p className="text-sm font-medium text-red-500">{error}</p>
-          )}
+          {error && <Notice tone="bad">{error}</Notice>}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-2 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Iniciando sesión..." : "Entrar al Dashboard"}
+          <button type="submit" disabled={loading} className={buttonClass("primary", "md", "w-full")}>
+            {loading ? "Entrando…" : "Entrar"}
           </button>
         </form>
+
+        <p className="mt-6 text-[13px]">
+          <Link href="/" className="text-gs-soft underline decoration-gs-line-strong underline-offset-4 hover:text-gs-paper">
+            Volver a la web
+          </Link>
+        </p>
       </div>
     </section>
   );

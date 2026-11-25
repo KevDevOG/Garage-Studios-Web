@@ -142,32 +142,36 @@ export async function validateSlotAvailable(
   duracionMinutos: number,
   excludeReservaId?: string
 ): Promise<boolean> {
-  const occupied = await fetchOccupiedSlots(fecha);
-  // Fallo cerrado: sin datos fiables no damos el hueco por libre.
-  if (occupied === null) return false;
-
-  if (excludeReservaId && isUuid(excludeReservaId)) {
+  // Las dos lecturas son independientes: van en paralelo (al editar una
+  // reserva se ahorra un viaje completo a la base de datos).
+  const readOwn = async () => {
+    if (!excludeReservaId || !isUuid(excludeReservaId)) return null;
     // Solo un admin autenticado llega aquí; RLS permite leer la reserva.
     const supabase = await createClient();
-    const { data: own } = await supabase
+    const { data } = await supabase
       .from("reserva")
       .select("fecha_reserva, hora_inicio, hora_fin, estado, deleted_at")
       .eq("id", excludeReservaId)
       .maybeSingle();
+    return data;
+  };
 
-    if (
-      own &&
-      own.fecha_reserva === fecha &&
-      own.hora_inicio &&
-      own.hora_fin &&
-      !own.deleted_at &&
-      (own.estado === "pendiente" || own.estado === "confirmada")
-    ) {
-      const start = timeToMinutes(own.hora_inicio);
-      const end = timeToMinutes(own.hora_fin);
-      const index = occupied.findIndex((o) => o.start === start && o.end === end);
-      if (index >= 0) occupied.splice(index, 1);
-    }
+  const [occupied, own] = await Promise.all([fetchOccupiedSlots(fecha), readOwn()]);
+  // Fallo cerrado: sin datos fiables no damos el hueco por libre.
+  if (occupied === null) return false;
+
+  if (
+    own &&
+    own.fecha_reserva === fecha &&
+    own.hora_inicio &&
+    own.hora_fin &&
+    !own.deleted_at &&
+    (own.estado === "pendiente" || own.estado === "confirmada")
+  ) {
+    const start = timeToMinutes(own.hora_inicio);
+    const end = timeToMinutes(own.hora_fin);
+    const index = occupied.findIndex((o) => o.start === start && o.end === end);
+    if (index >= 0) occupied.splice(index, 1);
   }
 
   return isSlotAvailable(timeToMinutes(horaInicio), duracionMinutos, occupied);

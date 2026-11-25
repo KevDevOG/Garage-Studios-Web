@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
 import { getVisualsImageById, updateVisualsImage, deleteVisualsImage, toggleVisualsImageActive, VisualImage } from "@/app/actions/visuals";
-import { ArrowLeft, Save, Trash2, Power, PowerOff, UploadCloud } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Eye, EyeOff } from "lucide-react";
+import AdminNav from "@/components/admin/AdminNav";
+import { Badge, Field, FormActions, LinkButton, Notice, Page, Panel, buttonClass } from "@/components/admin/ui";
+import { FileZone, ModeToggle, PublicacionChecks, TipoSelect, VistaPrevia } from "@/components/admin/visuals/FormPieces";
 
 export default function EditarVisualImagenPage() {
   const router = useRouter();
@@ -75,12 +77,12 @@ export default function EditarVisualImagenPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!id) return;
-    
+
     setError("");
     setSaving(true);
 
     const formData = new FormData(e.currentTarget);
-    
+
     if (!formData.has("activo")) formData.set("activo", "off");
     if (!formData.has("destacado")) formData.set("destacado", "off");
 
@@ -112,10 +114,10 @@ export default function EditarVisualImagenPage() {
 
   async function handleDelete() {
     if (!id || !confirm("¿Estás seguro de que quieres eliminar esta imagen? Esta acción no se puede deshacer de forma sencilla.")) return;
-    
+
     setDeleting(true);
     const result = await deleteVisualsImage(id);
-    
+
     if (!result.success) {
       setError(result.error || "Error al eliminar");
       setDeleting(false);
@@ -127,10 +129,10 @@ export default function EditarVisualImagenPage() {
 
   async function handleToggleActive() {
     if (!id || !imagen) return;
-    
+
     setToggling(true);
     const result = await toggleVisualsImageActive(id);
-    
+
     if (!result.success) {
       setError(result.error || "Error al cambiar el estado");
     } else {
@@ -140,170 +142,156 @@ export default function EditarVisualImagenPage() {
     setToggling(false);
   }
 
-  if (loading) {
-    return <div className="p-16 text-center text-muted">Cargando datos...</div>;
-  }
+  const volver = (
+    <LinkButton href="/admin/visuals" variant="ghost">
+      <ArrowLeft aria-hidden /> Volver a Visuals
+    </LinkButton>
+  );
 
-  if (!imagen && !loading) {
+  if (loading) {
     return (
-      <div className="p-16 text-center text-red-400">
-        <p className="mb-4">{error || "Imagen no encontrada"}</p>
-        <Link href="/admin/visuals" className="text-accent underline">Volver a la galería</Link>
-      </div>
+      <Page width="medium">
+        <AdminNav title="Editar imagen" actions={volver} />
+        <p role="status" className="text-[14px] text-gs-soft">
+          Cargando datos…
+        </p>
+      </Page>
     );
   }
 
+  if (!imagen) {
+    return (
+      <Page width="medium">
+        <AdminNav title="Editar imagen" actions={volver} />
+        <Notice tone="bad" title="No se puede editar">
+          {error || "Imagen no encontrada"}
+        </Notice>
+      </Page>
+    );
+  }
+
+  const creada = new Date(imagen.created_at || "").toLocaleDateString("es-ES");
+
   return (
-    <section className="mx-auto max-w-2xl px-4 py-16 sm:px-6">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-white tracking-tight">Editar Imagen (Visuals)</h1>
-          <p className="text-xs text-gray-400 mt-1">Modifica los detalles o reemplaza la foto seleccionada.</p>
-        </div>
-        <Link
-          href="/admin/visuals"
-          className="flex items-center gap-2 rounded-lg bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-        >
-          <ArrowLeft className="w-4 h-4" /> Volver
-        </Link>
-      </div>
+    <Page width="medium">
+      <AdminNav
+        title="Editar imagen"
+        description="Modifica los detalles o reemplaza la imagen seleccionada."
+        actions={volver}
+      />
 
-      <div className="rounded-xl border border-card-border bg-card-bg p-6">
-        {error && (
-          <div className="mb-6 rounded-lg bg-red-500/10 p-4 text-sm text-red-500 border border-red-500/20 font-medium">
-            {error}
-          </div>
-        )}
+      {error && (
+        <Notice tone="bad" title="No se ha podido continuar" className="mb-4">
+          {error}
+        </Notice>
+      )}
 
-        <div className="mb-6 flex items-center justify-between border-b border-card-border pb-6">
-          <div className="flex items-center gap-4">
-            {imagen?.url_imagen && (
-              <div className="relative h-16 w-16 overflow-hidden rounded border border-white/10 bg-black/20">
-                <Image src={imagen.url_imagen} alt="" fill sizes="64px" className="object-cover" />
+      <Panel className="mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {imagen.url_imagen && (
+              <div className="relative size-14 shrink-0 overflow-hidden rounded-md border border-gs-line bg-gs-sunken">
+                <Image src={imagen.url_imagen} alt="" fill sizes="56px" loading="lazy" decoding="async" className="object-cover" />
               </div>
             )}
-            <div>
-              <p className="font-semibold text-sm text-white">
-                {imagen?.titulo || <span className="text-gray-500 italic font-normal">Sin título</span>}
+            <div className="min-w-0">
+              <p className="truncate text-[14px] font-medium text-gs-paper">
+                {imagen.titulo || <span className="font-normal text-gs-faint">Sin título</span>}
               </p>
-              <p className="text-xs text-muted">Añadida el {new Date(imagen?.created_at || "").toLocaleDateString()}</p>
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-gs-faint">
+                <Badge plain tone={imagen.activo ? "ok" : "neutral"}>
+                  {imagen.activo ? "Visible" : "Oculta"}
+                </Badge>
+                <span>Añadida el {creada}</span>
+              </p>
             </div>
           </div>
-          
-          <div className="flex gap-2">
+
+          <div className="flex flex-wrap gap-2">
             <button
+              type="button"
               onClick={handleToggleActive}
               disabled={toggling}
-              className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
-                imagen?.activo 
-                  ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 animate-pulse-subtle" 
-                  : "bg-green-500/10 text-green-400 hover:bg-green-500/20"
-              }`}
+              className={buttonClass("secondary", "md")}
             >
-              {imagen?.activo ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
-              {imagen?.activo ? "Desactivar" : "Activar"}
+              {imagen.activo ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
+              {imagen.activo ? "Ocultar" : "Publicar"}
             </button>
             <button
+              type="button"
               onClick={handleDelete}
               disabled={deleting}
-              className="flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-500 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+              className={buttonClass("danger", "md")}
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              Borrar
+              <Trash2 aria-hidden />
+              {deleting ? "Borrando…" : "Borrar imagen"}
             </button>
           </div>
         </div>
+      </Panel>
 
-        <form onSubmit={handleSubmit} className="space-y-6" encType="multipart/form-data">
+      <form onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-4">
+        <Panel title="Imagen">
           <div className="space-y-4">
-            <div>
-              <label htmlFor="titulo" className="mb-1 block text-sm font-medium text-gray-300">
-                Título (opcional)
-              </label>
+            <Field
+              label="Título"
+              htmlFor="titulo"
+              hint="Opcional. Si lo dejas vacío, la imagen no mostrará título público (nunca se usará el nombre del archivo)."
+            >
               <input
                 type="text"
                 id="titulo"
                 name="titulo"
-                defaultValue={imagen?.titulo || ""}
-                className="w-full rounded-lg border border-white/10 bg-black/50 p-2.5 text-sm text-white placeholder-gray-500 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                placeholder="Si lo dejas vacío, no mostrará título público."
+                defaultValue={imagen.titulo || ""}
+                aria-describedby="titulo-ayuda"
+                className="w-full"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Opcional. Si lo dejas vacío, la imagen no mostrará título público (nunca se usará el nombre del archivo).
-              </p>
-            </div>
+            </Field>
 
-            {/* Selector de modo y campo de imagen */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-300">
-                Imagen de la Galería *
-              </label>
-              <div className="flex gap-3 mb-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUploadMode("file");
-                    setError("");
-                  }}
-                  className={`rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all border ${
-                    uploadMode === "file"
-                      ? "bg-accent text-black border-accent"
-                      : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
-                  }`}
-                >
-                  Subir Nuevo Archivo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUploadMode("url");
-                    setError("");
-                    setPreviewUrl(imagen?.url_imagen || null);
-                  }}
-                  className={`rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all border ${
-                    uploadMode === "url"
-                      ? "bg-accent text-black border-accent"
-                      : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
-                  }`}
-                >
-                  URL Manual
-                </button>
-              </div>
+              <p className="mb-1.5 text-[13px] font-medium text-gs-paper">
+                Origen de la imagen
+                <span aria-hidden className="text-gs-amber">
+                  {" "}
+                  *
+                </span>
+              </p>
+              <ModeToggle
+                mode={uploadMode}
+                onChange={(m) => {
+                  setUploadMode(m);
+                  setError("");
+                  if (m === "url") setPreviewUrl(imagen.url_imagen || null);
+                }}
+                fileLabel="Subir archivo nuevo"
+                urlLabel="Usar una URL"
+                label="Origen de la imagen"
+              />
 
               {uploadMode === "file" ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-center w-full">
-                    <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-white/10 rounded-xl cursor-pointer bg-black/30 hover:bg-black/50 hover:border-accent/40 transition-all p-6 text-center">
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <UploadCloud className="w-8 h-8 mb-3 text-gray-400" />
-                        <p className="mb-2 text-sm text-gray-300">
-                          <span className="font-semibold text-accent">Haz clic para reemplazar</span> o arrastra
-                        </p>
-                        <p className="text-xs text-muted">JPG, PNG o WEBP (máx. 5 MB)</p>
-                      </div>
-                      <input
-                        type="file"
-                        id="imagen_archivo"
-                        name="imagen_archivo"
-                        accept="image/jpeg, image/png, image/webp"
-                        className="hidden"
-                        onChange={handleFileChange}
-                      />
-                    </label>
-                  </div>
+                <div className="space-y-3">
+                  <FileZone
+                    id="imagen_archivo"
+                    name="imagen_archivo"
+                    onChange={handleFileChange}
+                    title="Elegir archivo para reemplazar o arrastrarlo aquí"
+                    hint="JPG, PNG o WEBP, máximo 5 MB."
+                  />
 
                   {fileName && (
-                    <div className="flex items-center justify-between text-xs text-muted bg-white/5 px-3 py-2 rounded-lg border border-white/5">
-                      <span className="truncate pr-4">{fileName}</span>
+                    <div className="flex items-center justify-between gap-3 rounded-md border border-gs-line bg-gs-raised px-3 py-1.5 text-[13px] text-gs-soft">
+                      <span role="status" className="truncate">
+                        Archivo seleccionado: {fileName}
+                      </span>
                       <button
                         type="button"
                         onClick={() => {
                           setFileName("");
-                          setPreviewUrl(imagen?.url_imagen || null);
+                          setPreviewUrl(imagen.url_imagen || null);
                           const input = document.getElementById("imagen_archivo") as HTMLInputElement;
                           if (input) input.value = "";
                         }}
-                        className="text-red-400 hover:text-red-300 font-semibold"
+                        className={buttonClass("ghost", "sm")}
                       >
                         Quitar
                       </button>
@@ -311,113 +299,73 @@ export default function EditarVisualImagenPage() {
                   )}
                 </div>
               ) : (
-                <div className="space-y-2">
+                <Field
+                  label="URL de la imagen"
+                  htmlFor="url_imagen"
+                  hint="Introduce una dirección URL completa o ruta en el directorio /public."
+                >
                   <input
                     type="text"
                     id="url_imagen"
                     name="url_imagen"
-                    defaultValue={imagen?.url_imagen}
+                    defaultValue={imagen.url_imagen}
                     onChange={(e) => setPreviewUrl(e.target.value || null)}
-                    className="w-full rounded-lg border border-white/10 bg-black/50 p-2.5 text-sm text-white placeholder-gray-500 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                    placeholder="Ej: https://images.unsplash.com/photo-..."
+                    aria-describedby="url_imagen-ayuda"
+                    className="w-full"
+                    placeholder="https://images.unsplash.com/photo-..."
                   />
-                  <p className="text-xs text-muted">
-                    Introduce una dirección URL completa o ruta en el directorio /public.
-                  </p>
-                </div>
+                </Field>
               )}
 
               {previewUrl && (
-                <div className="relative mt-4 aspect-video rounded-xl overflow-hidden border border-white/10 bg-black/20 max-w-sm">
-                  {/* Vista previa local (blob:) que next/image no puede optimizar */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={previewUrl} alt="Vista previa" className="h-full w-full object-cover" />
-                  <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white uppercase backdrop-blur-sm">
-                    Vista Previa
-                  </span>
+                <div className="mt-3">
+                  <p className="mb-1.5 text-[12px] text-gs-faint">Vista previa</p>
+                  <VistaPrevia src={previewUrl} alt="Vista previa de la imagen" />
                 </div>
               )}
             </div>
+          </div>
+        </Panel>
 
-            <div>
-              <label htmlFor="descripcion" className="mb-1 block text-sm font-medium text-gray-300">
-                Descripción (opcional)
-              </label>
+        <Panel title="Detalles">
+          <div className="space-y-4">
+            <Field label="Descripción" htmlFor="descripcion" hint="Opcional.">
               <textarea
                 id="descripcion"
                 name="descripcion"
                 rows={3}
-                defaultValue={imagen?.descripcion || ""}
-                className="w-full rounded-lg border border-white/10 bg-black/50 p-2.5 text-sm text-white placeholder-gray-500 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                defaultValue={imagen.descripcion || ""}
+                aria-describedby="descripcion-ayuda"
+                className="w-full"
               />
+            </Field>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TipoSelect defaultValue={imagen.tipo} />
+              <Field label="Orden" htmlFor="orden">
+                <input type="number" id="orden" name="orden" defaultValue={imagen.orden} className="w-full" />
+              </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="tipo" className="mb-1 block text-sm font-medium text-gray-300">
-                  Tipo de Contenido
-                </label>
-                <select
-                  id="tipo"
-                  name="tipo"
-                  defaultValue={imagen?.tipo}
-                  className="w-full rounded-lg border border-white/10 bg-black/50 p-2.5 text-sm text-white focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  <option value="fotos">Sesión de fotos</option>
-                  <option value="grabaciones">Sesión de grabación</option>
-                  <option value="rodajes">Rodaje</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="orden" className="mb-1 block text-sm font-medium text-gray-300">
-                  Orden
-                </label>
-                <input
-                  type="number"
-                  id="orden"
-                  name="orden"
-                  defaultValue={imagen?.orden}
-                  className="w-full rounded-lg border border-white/10 bg-black/50 p-2.5 text-sm text-white focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-6 border-t border-card-border pt-4">
-              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="activo"
-                  defaultChecked={imagen?.activo}
-                  className="rounded border-white/10 bg-black/50 text-accent focus:ring-accent focus:ring-offset-black"
-                />
-                Activo (Público)
-              </label>
-
-              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="destacado"
-                  defaultChecked={imagen?.destacado}
-                  className="rounded border-white/10 bg-black/50 text-accent focus:ring-accent focus:ring-offset-black"
-                />
-                Destacado
-              </label>
-            </div>
+            <PublicacionChecks activoDefault={imagen.activo} destacadoDefault={imagen.destacado} />
           </div>
+        </Panel>
 
-          <div className="flex justify-end pt-4">
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 text-sm font-bold text-black transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Save className="w-4 h-4" />
-              {saving ? "Guardando..." : "Guardar Cambios"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </section>
+        <FormActions>
+          <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>
+            <Save aria-hidden />
+            {saving ? "Guardando…" : "Guardar cambios"}
+          </button>
+          <LinkButton href="/admin/visuals" variant="ghost">
+            Cancelar
+          </LinkButton>
+          {saving && (
+            <span role="status" className="text-[13px] text-gs-soft">
+              Guardando cambios, no cierres esta página.
+            </span>
+          )}
+        </FormActions>
+      </form>
+    </Page>
   );
 }

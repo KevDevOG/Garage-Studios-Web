@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
@@ -191,21 +192,57 @@ export async function searchClientes(
 
 // ── Métricas y Estadísticas (admin) ──
 
-export async function getClientesMetrics(month: number | null, year: number): Promise<ClientesMetrics> {
-  const supabase = await requireAuth();
+interface ReservaMetricRow {
+  cliente_id: string | null;
+  fecha_reserva: string;
+  importe_pagado: number | string | null;
+  estado: string;
+  estado_pago: string;
+}
 
+const METRICS_PAGE_SIZE = 1000;
+
+/**
+ * Todas las reservas que cuentan para las métricas (no canceladas ni
+ * rechazadas), con los datos mínimos.
+ *
+ *  · Paginada: PostgREST devuelve como mucho 1000 filas por consulta; sin
+ *    paginar, a partir de la reserva 1001 "nuevos" y "recurrentes" saldrían
+ *    mal sin avisar.
+ *  · `cache` de React: las métricas y la evolución anual comparten esta
+ *    lectura dentro de la misma petición (no se guarda entre peticiones).
+ *  · Si la consulta falla se lanza un error: la página muestra "no se pudo
+ *    cargar" en lugar de métricas a cero que parecerían reales.
+ */
+const fetchReservasForMetrics = cache(async (): Promise<ReservaMetricRow[]> => {
+  const supabase = await requireAuth();
+  const rows: ReservaMetricRow[] = [];
+
+  for (let from = 0; ; from += METRICS_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("reserva")
+      .select("cliente_id, fecha_reserva, importe_pagado, estado, estado_pago")
+      .is("deleted_at", null)
+      .not("estado", "in", '("cancelada","rechazada")')
+      .order("id", { ascending: true })
+      .range(from, from + METRICS_PAGE_SIZE - 1);
+
+    if (error || !data) {
+      console.error("[clientes] Error leyendo reservas para métricas:", error?.message);
+      throw new Error("No se pudieron cargar las métricas de clientes.");
+    }
+    rows.push(...(data as ReservaMetricRow[]));
+    if (data.length < METRICS_PAGE_SIZE) break;
+  }
+
+  return rows;
+});
+
+export async function getClientesMetrics(month: number | null, year: number): Promise<ClientesMetrics> {
   const { start: startDateStr, end: endDateStr } = monthRange(year, month);
 
   // 1. Obtener todas las reservas (mínimo de datos)
-  const { data: allReservas } = await supabase
-    .from("reserva")
-    .select("cliente_id, fecha_reserva, importe_pagado, estado, estado_pago")
-    .is("deleted_at", null)
-    .not("estado", "in", '("cancelada","rechazada")');
-
-  if (!allReservas) {
-    return { nuevos: 0, recurrentes: 0, reservas: 0, ingresos: 0, ticketMedio: 0 };
-  }
+  const allReservas = await fetchReservasForMetrics();
 
   // Calcular fechas de primera reserva y conteos por cliente
   const clientFirstDates = new Map<string, string>();
@@ -304,72 +341,59 @@ function buildRanking(reservas: RankingRow[]): Record<string, TopClienteRanking>
   return map;
 }
 
+/**
+ * Reservas cobradas de un periodo, agrupadas por cliente. Los dos rankings
+ * (por ingresos y por número de reservas) ordenan el mismo conjunto, así que
+ * comparten una única lectura por petición.
+ */
+const fetchRankingForPeriod = cache(
+  async (startDate: string, endDate: string): Promise<TopClienteRanking[]> => {
+    const supabase = await requireAuth();
+
+    const { data: reservas, error } = await supabase
+      .from("reserva")
+      .select(`
+        cliente_id,
+        importe_pagado,
+        estado,
+        estado_pago,
+        servicio:servicio_id(nombre),
+        cliente:cliente_id(nombre, total_reservas)
+      `)
+      .is("deleted_at", null)
+      .gte("fecha_reserva", startDate)
+      .lte("fecha_reserva", endDate)
+      .in("estado_pago", ["parcial", "pagado"])
+      .not("estado", "in", '("cancelada","rechazada")')
+      .not("cliente_id", "is", null);
+
+    if (error || !reservas) {
+      console.error("[clientes] Error leyendo reservas para los rankings:", error?.message);
+      throw new Error("No se pudieron cargar los rankings de clientes.");
+    }
+
+    return Object.values(buildRanking(reservas as unknown as RankingRow[]));
+  },
+);
+
 export async function getTopClientesByRevenue(month: number | null, year: number): Promise<TopClienteRanking[]> {
-  const supabase = await requireAuth();
-  const { start: startDate, end: endDate } = monthRange(year, month);
-
-  const { data: reservas } = await supabase
-    .from("reserva")
-    .select(`
-      cliente_id,
-      importe_pagado, 
-      estado,
-      estado_pago,
-      servicio:servicio_id(nombre),
-      cliente:cliente_id(nombre, total_reservas)
-    `)
-    .is("deleted_at", null)
-    .gte("fecha_reserva", startDate)
-    .lte("fecha_reserva", endDate)
-    .in("estado_pago", ["parcial", "pagado"])
-    .not("estado", "in", '("cancelada","rechazada")')
-    .not("cliente_id", "is", null);
-
-  if (!reservas) return [];
-
-  const map = buildRanking(reservas as unknown as RankingRow[]);
-  return Object.values(map).sort((a, b) => b.total_pagado - a.total_pagado).slice(0, 5);
+  const { start, end } = monthRange(year, month);
+  const ranking = await fetchRankingForPeriod(start, end);
+  return [...ranking].sort((a, b) => b.total_pagado - a.total_pagado).slice(0, 5);
 }
 
 export async function getTopClientesByReservations(month: number | null, year: number): Promise<TopClienteRanking[]> {
-  const supabase = await requireAuth();
-  const { start: startDate, end: endDate } = monthRange(year, month);
-
-  const { data: reservas } = await supabase
-    .from("reserva")
-    .select(`
-      cliente_id,
-      importe_pagado, 
-      estado,
-      estado_pago,
-      servicio:servicio_id(nombre),
-      cliente:cliente_id(nombre, total_reservas)
-    `)
-    .is("deleted_at", null)
-    .gte("fecha_reserva", startDate)
-    .lte("fecha_reserva", endDate)
-    .in("estado_pago", ["parcial", "pagado"])
-    .not("estado", "in", '("cancelada","rechazada")')
-    .not("cliente_id", "is", null);
-
-  if (!reservas) return [];
-
-  const map = buildRanking(reservas as unknown as RankingRow[]);
-  return Object.values(map).sort((a, b) => b.reservas - a.reservas).slice(0, 5);
+  const { start, end } = monthRange(year, month);
+  const ranking = await fetchRankingForPeriod(start, end);
+  return [...ranking].sort((a, b) => b.reservas - a.reservas).slice(0, 5);
 }
 
 export async function getClientesYearEvolution(year: number): Promise<ClienteEvolution[]> {
-  const supabase = await requireAuth();
-
-  // 1. Obtener todas las reservas (mínimo de datos)
-  const { data: allReservas } = await supabase
-    .from("reserva")
-    .select("cliente_id, fecha_reserva, importe_pagado, estado, estado_pago")
-    .is("deleted_at", null)
-    .not("estado", "in", '("cancelada","rechazada")');
+  // 1. Obtener todas las reservas (mínimo de datos; lectura compartida)
+  const allReservas = await fetchReservasForMetrics();
 
   const clientFirstDates = new Map<string, string>();
-  allReservas?.forEach((r) => {
+  allReservas.forEach((r) => {
     if (!r.cliente_id) return;
     if (!clientFirstDates.has(r.cliente_id) || r.fecha_reserva < clientFirstDates.get(r.cliente_id)!) {
       clientFirstDates.set(r.cliente_id, r.fecha_reserva);
@@ -391,7 +415,7 @@ export async function getClientesYearEvolution(year: number): Promise<ClienteEvo
       }
     });
 
-    const monthReservas = allReservas?.filter(r => r.fecha_reserva.startsWith(prefix)) || [];
+    const monthReservas = allReservas.filter(r => r.fecha_reserva.startsWith(prefix));
 
     const ingresos = monthReservas
       .filter((r) => ["parcial", "pagado"].includes(r.estado_pago))
@@ -531,8 +555,7 @@ export async function getClienteNotas(clienteId: string): Promise<ClienteNota[]>
 }
 
 export async function addClienteNota(clienteId: string, nota: string) {
-  const supabase = await requireAuth();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await requireAdmin();
 
   const { data, error } = await supabase
     .from("cliente_nota")

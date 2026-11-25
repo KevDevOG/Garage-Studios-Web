@@ -1,9 +1,13 @@
 import { redirect } from "next/navigation";
 import AdminNav from "@/components/admin/AdminNav";
 import EditarReservaForm from "@/components/admin/EditarReservaForm";
+import StatusBadge from "@/components/admin/StatusBadge";
+import { Page } from "@/components/admin/ui";
 import { getReservation, getReservationBlocks } from "@/app/actions/calendario";
 import { getActiveServices } from "@/app/actions/services";
 import { checkFinanceMovementExistsForReservation } from "@/app/actions/finanzas";
+import { formatIsoDateEs } from "@/lib/dates";
+import { formatTime } from "@/lib/schedule";
 
 export default async function EditarReservaPage({
   params,
@@ -22,15 +26,29 @@ export default async function EditarReservaPage({
     redirect("/admin/calendario");
   }
 
+  const servicio = servicesList.find((s) => s.id === reservation.servicio_id)?.nombre ?? reservation.servicio?.nombre;
+
   return (
-    <section className="mx-auto max-w-2xl px-4 py-16 sm:px-6">
-      <AdminNav title="Editar Reserva" />
+    <Page width="wide">
+      <AdminNav
+        title={`Reserva de ${reservation.nombre}`}
+        description={
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <StatusBadge type="reserva" value={reservation.estado} />
+            <span>
+              {servicio ? `${servicio}, ` : ""}
+              {formatIsoDateEs(reservation.fecha_reserva, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              {reservation.hora_inicio ? `, ${formatTime(reservation.hora_inicio)} - ${formatTime(reservation.hora_fin)}` : ""}
+            </span>
+          </span>
+        }
+      />
       <EditarReservaForm
         reservation={reservation}
         blocks={blocks}
         servicesList={servicesList}
         hasFinance={hasFinance}
       />
-    </section>
+    </Page>
   );
 }

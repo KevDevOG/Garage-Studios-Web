@@ -1,24 +1,64 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
-import { Search, Filter, Calendar, List, ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AuditLogRow } from "@/app/actions/auditoria";
 import { formatDateTimeEs } from "@/lib/dates";
+import { Badge, EmptyState, Field, Panel, buttonClass, cx, table, type Tone } from "@/components/admin/ui";
+
+const PAGE_SIZE = 50;
 
 const ENTIDADES = [
-  "todos", "reserva", "cliente", "finanza", "servicio", "galeria", "bloqueo_horario", "cliente_nota", "otros"
+  "todos", "reserva", "cliente", "finanza", "servicio", "galeria", "bloqueo_horario", "cliente_nota", "otros",
 ];
 
 const ACCIONES = [
-  "todos", "creación", "edición", "eliminación", "cambio_estado", "reprogramación", "pago", "login", "otros"
+  "todos", "creación", "edición", "eliminación", "cambio_estado", "reprogramación", "pago", "login", "otros",
 ];
+
+function label(value: string): string {
+  const text = value.replace(/_/g, " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function actionTone(accion: string): Tone {
+  const a = accion.toLowerCase();
+  if (/elimin|borra|delete/.test(a)) return "bad";
+  if (/cre|alta|insert/.test(a)) return "ok";
+  if (/edici|edit|cambio|estado|actualiz|reprogram|update/.test(a)) return "info";
+  return "neutral";
+}
+
+function formatDate(date: string) {
+  return formatDateTimeEs(date, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function Metadata({ log }: { log: AuditLogRow }) {
+  if (!log.metadata) return null;
+  return (
+    <details className="group mt-1">
+      <summary className="inline-flex min-h-10 cursor-pointer items-center text-[13px] text-gs-soft hover:text-gs-paper md:min-h-0">
+        Ver metadatos
+      </summary>
+      <pre className="mt-1 max-h-64 overflow-auto rounded-md border border-gs-line bg-gs-sunken p-2 text-[12px] leading-relaxed text-gs-soft">
+        {JSON.stringify(log.metadata, null, 2)}
+      </pre>
+    </details>
+  );
+}
 
 export default function AuditoriaClient({ initialLogs }: { initialLogs: AuditLogRow[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const [filters, setFilters] = useState({
     query: searchParams.get("query") || "",
@@ -52,6 +92,7 @@ export default function AuditoriaClient({ initialLogs }: { initialLogs: AuditLog
   const updateFilters = (newFilters: Partial<typeof filters>) => {
     const updated = { ...filters, ...newFilters };
     setFilters(updated);
+    setPage(1);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -64,207 +105,149 @@ export default function AuditoriaClient({ initialLogs }: { initialLogs: AuditLog
     }
   };
 
-  const formatDate = (date: string) =>
-    formatDateTimeEs(date, {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const totalPages = Math.max(1, Math.ceil(initialLogs.length / PAGE_SIZE));
+  const current = Math.min(page, totalPages);
+  const visible = useMemo(
+    () => initialLogs.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE),
+    [initialLogs, current],
+  );
+  const from = initialLogs.length === 0 ? 0 : (current - 1) * PAGE_SIZE + 1;
+  const to = Math.min(current * PAGE_SIZE, initialLogs.length);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Filtros */}
-      <div className="grid gap-4 bg-card-bg p-4 rounded-xl border border-card-border shadow-xl sm:grid-cols-2 lg:grid-cols-5 items-end">
-        <div className="space-y-1.5">
-          <label htmlFor="audit-query" className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
-            <Search className="w-3 h-3" /> Buscar
-          </label>
-          <input id="audit-query" 
-            type="text"
+      <div className="grid gap-3 rounded-lg border border-gs-line bg-gs-surface p-3 sm:grid-cols-2 lg:grid-cols-5">
+        <Field label="Buscar" htmlFor="audit-query">
+          <input
+            id="audit-query"
+            type="search"
             value={filters.query}
             onChange={(e) => updateFilters({ query: e.target.value })}
-            placeholder="ID, descripción..."
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent/50"
+            placeholder="ID o descripción"
           />
-        </div>
-
-        <div className="space-y-1.5">
-          <label htmlFor="audit-entidad" className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
-            <Filter className="w-3 h-3" /> Entidad
-          </label>
-          <select id="audit-entidad" 
-            value={filters.entidad}
-            onChange={(e) => updateFilters({ entidad: e.target.value })}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent/50 appearance-none capitalize"
-          >
-            {ENTIDADES.map(e => <option key={e} value={e} className="bg-zinc-900">{e.replace("_", " ")}</option>)}
+        </Field>
+        <Field label="Entidad" htmlFor="audit-entidad">
+          <select id="audit-entidad" value={filters.entidad} onChange={(e) => updateFilters({ entidad: e.target.value })}>
+            {ENTIDADES.map((e) => (
+              <option key={e} value={e}>{label(e)}</option>
+            ))}
           </select>
-        </div>
-
-        <div className="space-y-1.5">
-          <label htmlFor="audit-accion" className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
-            <List className="w-3 h-3" /> Acción
-          </label>
-          <select id="audit-accion" 
-            value={filters.accion}
-            onChange={(e) => updateFilters({ accion: e.target.value })}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent/50 appearance-none capitalize"
-          >
-            {ACCIONES.map(a => <option key={a} value={a} className="bg-zinc-900">{a.replace("_", " ")}</option>)}
+        </Field>
+        <Field label="Acción" htmlFor="audit-accion">
+          <select id="audit-accion" value={filters.accion} onChange={(e) => updateFilters({ accion: e.target.value })}>
+            {ACCIONES.map((a) => (
+              <option key={a} value={a}>{label(a)}</option>
+            ))}
           </select>
-        </div>
-
-        <div className="space-y-1.5">
-          <label htmlFor="audit-fecha" className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
-            <Calendar className="w-3 h-3" /> Fecha
-          </label>
-          <select id="audit-fecha" 
-            value={filters.fecha}
-            onChange={(e) => updateFilters({ fecha: e.target.value })}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent/50 appearance-none"
-          >
-            <option value="todo" className="bg-zinc-900">Histórico completo</option>
-            <option value="hoy" className="bg-zinc-900">Hoy</option>
-            <option value="7dias" className="bg-zinc-900">Últimos 7 días</option>
-            <option value="este_mes" className="bg-zinc-900">Este mes</option>
+        </Field>
+        <Field label="Fecha" htmlFor="audit-fecha">
+          <select id="audit-fecha" value={filters.fecha} onChange={(e) => updateFilters({ fecha: e.target.value })}>
+            <option value="todo">Histórico completo</option>
+            <option value="hoy">Hoy</option>
+            <option value="7dias">Últimos 7 días</option>
+            <option value="este_mes">Este mes</option>
           </select>
-        </div>
-
-        <div className="space-y-1.5">
-          <label htmlFor="audit-orden" className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
-            Orden
-          </label>
-          <select id="audit-orden" 
-            value={filters.order}
-            onChange={(e) => updateFilters({ order: e.target.value })}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent/50 appearance-none"
-          >
-            <option value="desc" className="bg-zinc-900">Más recientes primero</option>
-            <option value="asc" className="bg-zinc-900">Más antiguos primero</option>
+        </Field>
+        <Field label="Orden" htmlFor="audit-orden">
+          <select id="audit-orden" value={filters.order} onChange={(e) => updateFilters({ order: e.target.value })}>
+            <option value="desc">Más recientes primero</option>
+            <option value="asc">Más antiguos primero</option>
           </select>
-        </div>
+        </Field>
       </div>
 
-      {/* Indicador de carga */}
-      {isPending && (
-        <div className="text-center py-2">
-          <span className="text-[10px] font-black text-accent uppercase animate-pulse">Actualizando resultados...</span>
+      <p role="status" aria-live="polite" className="min-h-5 text-[13px] text-gs-faint">
+        {isPending
+          ? "Actualizando resultados…"
+          : initialLogs.length > 0
+            ? `Registros ${from}–${to} de ${initialLogs.length}`
+            : ""}
+      </p>
+
+      {initialLogs.length === 0 ? (
+        <Panel flush>
+          <EmptyState
+            title="No hay registros"
+            hint="Ningún registro coincide con los filtros seleccionados. Prueba a ampliar la fecha o quitar algún filtro."
+          />
+        </Panel>
+      ) : (
+        <div className={cx(isPending && "opacity-60 transition-opacity")}>
+          {/* Móvil */}
+          <ul className="divide-y divide-gs-line rounded-lg border border-gs-line bg-gs-surface md:hidden">
+            {visible.map((log) => (
+              <li key={log.id} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-[12px] text-gs-faint">{formatDate(log.created_at)}</span>
+                  <Badge tone={actionTone(log.accion)}>{label(log.accion)}</Badge>
+                </div>
+                <p className="mt-1 text-[14px] font-medium text-gs-paper">{label(log.entidad)}</p>
+                <p className="mt-0.5 break-words text-[13px] text-gs-soft">{log.descripcion || "Sin descripción"}</p>
+                <Metadata log={log} />
+              </li>
+            ))}
+          </ul>
+
+          {/* Escritorio */}
+          <div className={cx(table.wrap, "hidden md:block")}>
+            <table className={table.table}>
+              <thead>
+                <tr>
+                  <th scope="col" className={table.th}>Fecha y hora</th>
+                  <th scope="col" className={table.th}>Acción</th>
+                  <th scope="col" className={table.th}>Entidad</th>
+                  <th scope="col" className={table.th}>Descripción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((log) => (
+                  <tr key={log.id} className={cx(table.tr, "align-top")}>
+                    <td className={cx(table.td, "whitespace-nowrap align-top text-gs-soft")}>{formatDate(log.created_at)}</td>
+                    <td className={cx(table.td, "align-top")}>
+                      <Badge tone={actionTone(log.accion)} plain>{label(log.accion)}</Badge>
+                    </td>
+                    <td className={cx(table.td, "align-top")}>
+                      <span className="font-medium">{label(log.entidad)}</span>
+                      {log.entidad_id && (
+                        <div className="font-mono text-[12px] text-gs-faint">{log.entidad_id.slice(0, 8)}…</div>
+                      )}
+                    </td>
+                    <td className={cx(table.td, "align-top")}>
+                      <p className="max-w-xl break-words text-gs-soft">{log.descripcion || "—"}</p>
+                      <Metadata log={log} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <nav aria-label="Paginación" className="mt-3 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                className={buttonClass("secondary", "sm")}
+                disabled={current <= 1}
+                onClick={() => setPage(current - 1)}
+              >
+                <ChevronLeft aria-hidden="true" /> Anterior
+              </button>
+              <span className="text-[13px] text-gs-soft">
+                Página {current} de {totalPages}
+              </span>
+              <button
+                type="button"
+                className={buttonClass("secondary", "sm")}
+                disabled={current >= totalPages}
+                onClick={() => setPage(current + 1)}
+              >
+                Siguiente <ChevronRight aria-hidden="true" />
+              </button>
+            </nav>
+          )}
         </div>
       )}
-
-      {/* Listado / Tabla */}
-      <div className="space-y-4">
-        {initialLogs.length === 0 ? (
-          <div className="rounded-xl border border-white/5 bg-card-bg p-12 text-center">
-            <p className="text-sm text-muted italic">No hay registros para los filtros seleccionados.</p>
-          </div>
-        ) : (
-          <>
-            {/* Móvil */}
-            <div className="grid gap-3 md:hidden">
-              {initialLogs.map((log) => (
-                <div key={log.id} className="bg-card-bg border border-white/5 p-4 rounded-xl space-y-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-muted uppercase tracking-tighter">
-                        {formatDate(log.created_at)}
-                      </span>
-                      <span className="text-xs font-black text-white capitalize mt-0.5">
-                        {log.entidad.replace("_", " ")}
-                      </span>
-                    </div>
-                    <span className="bg-white/5 px-2 py-0.5 rounded text-[9px] font-black uppercase text-accent border border-white/10">
-                      {log.accion}
-                    </span>
-                  </div>
-                  <p className="text-xs text-white/70 italic leading-relaxed">
-                    &ldquo;{log.descripcion || "Sin descripción"}&rdquo;
-                  </p>
-                  {log.metadata && (
-                    <div className="pt-2 border-t border-white/5">
-                      <button 
-                        onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
-                        className="text-[9px] font-bold text-accent uppercase flex items-center gap-1"
-                      >
-                        {expandedId === log.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                        {expandedId === log.id ? "Ocultar" : "Ver"} Metadatos
-                      </button>
-                      {expandedId === log.id && (
-                        <pre className="mt-2 p-2 bg-black/40 rounded-lg text-[9px] text-muted overflow-x-auto">
-                          {JSON.stringify(log.metadata, null, 2)}
-                        </pre>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Escritorio */}
-            <div className="hidden md:block rounded-xl border border-card-border bg-card-bg overflow-hidden shadow-2xl">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-black/20 text-muted uppercase font-black tracking-widest text-[10px] border-b border-white/5">
-                  <tr>
-                    <th scope="col" className="px-4 py-4">Fecha / Hora</th>
-                    <th scope="col" className="px-4 py-4">Acción</th>
-                    <th scope="col" className="px-4 py-4">Entidad</th>
-                    <th scope="col" className="px-4 py-4">Descripción</th>
-                    <th scope="col" className="px-4 py-4 text-right">Detalles</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {initialLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-white/[0.02] transition-colors group">
-                      <td className="px-4 py-3 whitespace-nowrap text-muted font-medium">
-                        {formatDate(log.created_at)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="bg-white/5 px-2 py-1 rounded-lg font-black uppercase text-[9px] text-white/90 border border-white/10">
-                          {log.accion}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="font-bold text-white capitalize">{log.entidad.replace("_", " ")}</span>
-                        {log.entidad_id && <div className="text-[9px] text-muted font-mono">{log.entidad_id.slice(0, 8)}...</div>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-white/80 line-clamp-1 italic max-w-xs" title={log.descripcion || ""}>
-                          {log.descripcion || "—"}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {log.metadata && (
-                          <button 
-                            aria-label={expandedId === log.id ? "Ocultar metadatos" : "Ver metadatos"} aria-expanded={expandedId === log.id} onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
-                            className="p-1.5 rounded hover:bg-white/10 text-muted hover:text-accent transition-colors"
-                          >
-                            {expandedId === log.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            {/* Metadata Expandida en Escritorio (Flotante o in-row? Mejor in-row si es tabla) */}
-            {expandedId && (
-              <div className="hidden md:block fixed bottom-8 right-8 w-96 bg-zinc-950 border border-accent/20 rounded-xl shadow-2xl z-50 p-4">
-                <div className="flex justify-between items-center mb-3 border-b border-white/5 pb-2">
-                  <h4 className="text-[10px] font-black text-accent uppercase tracking-widest">Metadata Detallada</h4>
-                  <button type="button" aria-label="Cerrar metadatos" onClick={() => setExpandedId(null)} className="text-muted hover:text-white"><List className="w-4 h-4" /></button>
-                </div>
-                <pre className="text-[10px] text-muted overflow-y-auto max-h-96 scrollbar-hide">
-                  {JSON.stringify(initialLogs.find(l => l.id === expandedId)?.metadata, null, 2)}
-                </pre>
-              </div>
-            )}
-          </>
-        )}
-      </div>
     </div>
   );
 }

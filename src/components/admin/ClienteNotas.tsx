@@ -2,13 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { ClienteNota, addClienteNota, deleteClienteNota, updateClienteNota } from "@/app/actions/clientes";
-import { MessageSquare, Trash2, Edit2, Check, X, Plus } from "lucide-react";
+import { Trash2, Pencil, Check, X, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { EmptyState, Panel, buttonClass, cx } from "./ui";
 
 interface ClienteNotasProps {
   clienteId: string;
   initialNotas: ClienteNota[];
 }
+
+const ICON_BTN =
+  "inline-flex size-10 items-center justify-center rounded-md text-gs-soft hover:bg-gs-raised hover:text-gs-paper disabled:opacity-50 sm:size-8";
 
 export default function ClienteNotas({ clienteId, initialNotas }: ClienteNotasProps) {
   const [notas, setNotas] = useState<ClienteNota[]>(initialNotas || []);
@@ -19,7 +23,7 @@ export default function ClienteNotas({ clienteId, initialNotas }: ClienteNotasPr
 
   const handleAddNota = () => {
     if (!newNota.trim()) return;
-    
+
     startTransition(async () => {
       try {
         const added = await addClienteNota(clienteId, newNota);
@@ -38,7 +42,7 @@ export default function ClienteNotas({ clienteId, initialNotas }: ClienteNotasPr
     startTransition(async () => {
       try {
         await deleteClienteNota(id);
-        setNotas(notas.filter(n => n.id !== id));
+        setNotas(notas.filter((n) => n.id !== id));
         toast.success("Nota eliminada");
       } catch {
         toast.error("Error al eliminar la nota");
@@ -52,7 +56,7 @@ export default function ClienteNotas({ clienteId, initialNotas }: ClienteNotasPr
     startTransition(async () => {
       try {
         const updated = await updateClienteNota(id, editValue);
-        setNotas(notas.map(n => n.id === id ? updated : n));
+        setNotas(notas.map((n) => (n.id === id ? updated : n)));
         setEditingId(null);
         toast.success("Nota actualizada");
       } catch {
@@ -61,102 +65,120 @@ export default function ClienteNotas({ clienteId, initialNotas }: ClienteNotasPr
     });
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString("es-ES", {
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleString("es-ES", {
       day: "2-digit",
       month: "short",
       year: "numeric",
       hour: "2-digit",
-      minute: "2-digit"
+      minute: "2-digit",
     });
-  };
 
   return (
-    <div className="space-y-6 bg-card-bg p-6 rounded-xl border border-card-border shadow-xl">
-      <div className="flex items-center justify-between border-b border-white/5 pb-4">
-        <h3 className="text-xs font-black uppercase tracking-widest text-accent flex items-center gap-2">
-          <MessageSquare className="w-4 h-4" /> Notas Internas
-        </h3>
-        <span className="text-[10px] font-bold text-muted uppercase tracking-widest">
-          {notas.length} notas
-        </span>
-      </div>
-
-      {/* Editor de nueva nota */}
+    <Panel title="Notas internas" meta={notas.length}>
       <div className="space-y-3">
-        <textarea 
-          value={newNota}
-          onChange={(e) => setNewNota(e.target.value)}
-          placeholder="Escribir una nota interna sobre el cliente..."
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 transition-colors text-white min-h-[100px] resize-none"
-          disabled={isPending}
-        />
-        <div className="flex justify-end">
-          <button 
-            onClick={handleAddNota}
-            disabled={isPending || !newNota.trim()}
-            className="flex items-center gap-2 bg-accent text-black px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-accent-hover transition-all disabled:opacity-50"
-          >
-            <Plus className="w-4 h-4" /> Añadir Nota
-          </button>
-        </div>
-      </div>
-
-      {/* Listado de notas */}
-      <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-        {notas.length > 0 ? (
-          notas.map(nota => (
-            <div 
-              key={nota.id} 
-              className="group bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-2 hover:border-white/10 transition-all"
+        <div>
+          <label htmlFor="cliente-nueva-nota" className="sr-only">Nueva nota interna</label>
+          <textarea
+            id="cliente-nueva-nota"
+            value={newNota}
+            onChange={(e) => setNewNota(e.target.value)}
+            placeholder="Escribe una nota interna sobre el cliente"
+            rows={3}
+            className="w-full resize-y"
+            disabled={isPending}
+          />
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={handleAddNota}
+              disabled={isPending || !newNota.trim()}
+              className={buttonClass("secondary", "md")}
             >
-              <div className="flex justify-between items-start">
-                <span className="text-[10px] font-bold text-muted uppercase tracking-tighter italic">
-                  {formatDate(nota.created_at)}
-                </span>
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {editingId === nota.id ? (
-                    <>
-                      <button onClick={() => handleUpdateNota(nota.id)} className="p-1 text-green-400 hover:bg-green-400/10 rounded">
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => setEditingId(null)} className="p-1 text-red-400 hover:bg-red-400/10 rounded">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => { setEditingId(nota.id); setEditValue(nota.nota); }} className="p-1 text-muted hover:text-white hover:bg-white/10 rounded">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => handleDeleteNota(nota.id)} className="p-1 text-muted hover:text-red-400 hover:bg-red-400/10 rounded">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {editingId === nota.id ? (
-                <textarea 
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="w-full bg-black/40 border border-accent/30 rounded-lg px-3 py-2 text-sm text-white min-h-[60px] focus:outline-none"
-                  autoFocus
-                />
-              ) : (
-                <p className="text-sm text-white/90 leading-relaxed whitespace-pre-wrap">
-                  {nota.nota}
-                </p>
-              )}
-            </div>
-          ))
-        ) : (
-          <div className="text-center py-8">
-            <p className="text-xs text-muted italic">No hay notas registradas para este cliente.</p>
+              <Plus aria-hidden /> Añadir nota
+            </button>
           </div>
+        </div>
+
+        {notas.length > 0 ? (
+          <ul className="max-h-[420px] divide-y divide-gs-line overflow-y-auto border-t border-gs-line">
+            {notas.map((nota) => (
+              <li key={nota.id} className="py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[12px] text-gs-faint">{formatDate(nota.created_at)}</span>
+                  <div className="flex shrink-0 gap-0.5">
+                    {editingId === nota.id ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateNota(nota.id)}
+                          disabled={isPending}
+                          aria-label="Guardar nota"
+                          className={cx(ICON_BTN, "text-gs-ok hover:text-gs-ok")}
+                        >
+                          <Check aria-hidden className="size-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingId(null)}
+                          aria-label="Cancelar edición"
+                          className={ICON_BTN}
+                        >
+                          <X aria-hidden className="size-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingId(nota.id);
+                            setEditValue(nota.nota);
+                          }}
+                          aria-label="Editar nota"
+                          className={ICON_BTN}
+                        >
+                          <Pencil aria-hidden className="size-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteNota(nota.id)}
+                          disabled={isPending}
+                          aria-label="Eliminar nota"
+                          className={cx(ICON_BTN, "hover:text-gs-bad")}
+                        >
+                          <Trash2 aria-hidden className="size-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {editingId === nota.id ? (
+                  <textarea
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    aria-label="Texto de la nota"
+                    rows={3}
+                    className="mt-1 w-full resize-y"
+                    autoFocus
+                  />
+                ) : (
+                  <p className="mt-0.5 whitespace-pre-wrap break-words text-[14px] leading-relaxed text-gs-paper">
+                    {nota.nota}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState
+            className="border-t border-gs-line px-0 pb-0 pt-3"
+            title="Sin notas todavía"
+            hint="Anota acuerdos, preferencias o cualquier detalle útil para la próxima sesión."
+          />
         )}
       </div>
-    </div>
+    </Panel>
   );
 }

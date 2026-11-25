@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Image from "next/image";
 import { updateImageAction } from "@/app/actions/galeria";
+import { Field, FormActions, Notice, Panel, buttonClass } from "@/components/admin/ui";
 
 interface ImagenRow {
   id: string;
@@ -29,53 +30,49 @@ export default function EditarImagenForm({ imagen }: { imagen: ImagenRow }) {
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-4 rounded-xl border border-card-border bg-card-bg p-6"
-    >
-      {/* Imagen actual como referencia */}
-      <div className="relative h-64 overflow-hidden rounded-lg border border-card-border bg-black/40">
-        <Image
-          src={imagen.url_imagen}
-          alt={imagen.titulo}
-          fill
-          sizes="(max-width: 768px) 100vw, 640px"
-          className="object-contain"
-        />
-      </div>
+    <Panel>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Imagen actual como referencia */}
+        <div className="relative h-64 overflow-hidden rounded-lg border border-gs-line bg-gs-sunken">
+          <Image
+            src={imagen.url_imagen}
+            alt={imagen.titulo}
+            fill
+            sizes="(max-width: 768px) 100vw, 640px"
+            className="object-contain"
+          />
+        </div>
 
-      <div>
-        <label className="mb-1 block text-sm font-medium">Título</label>
-        <input
-          name="titulo"
-          type="text"
-          defaultValue={imagen.titulo}
-          required
-          className="w-full"
-        />
-      </div>
+        <Field label="Título" htmlFor="imagen-titulo" required>
+          <input
+            id="imagen-titulo"
+            name="titulo"
+            type="text"
+            defaultValue={imagen.titulo}
+            required
+            className="w-full"
+          />
+        </Field>
 
-      <div>
-        <label className="mb-1 block text-sm font-medium">
-          Descripción <span className="text-muted">(opcional)</span>
-        </label>
-        <textarea
-          name="descripcion"
-          defaultValue={imagen.descripcion || ""}
-          rows={3}
-          className="w-full"
-        />
-      </div>
+        <Field label="Descripción" htmlFor="imagen-descripcion" hint="Opcional.">
+          <textarea
+            id="imagen-descripcion"
+            name="descripcion"
+            defaultValue={imagen.descripcion || ""}
+            rows={3}
+            aria-describedby="imagen-descripcion-ayuda"
+            className="w-full"
+          />
+        </Field>
 
-      {error && <p className="text-sm font-medium text-red-500">{error}</p>}
+        {error && <Notice title="No se pudo guardar">{error}</Notice>}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="mt-4 w-full rounded-lg bg-accent px-4 py-2 font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {isPending ? "Guardando cambios..." : "Guardar Cambios"}
-      </button>
-    </form>
+        <FormActions>
+          <button type="submit" disabled={isPending} className={buttonClass("primary")}>
+            {isPending ? "Guardando..." : "Guardar imagen"}
+          </button>
+        </FormActions>
+      </form>
+    </Panel>
   );
 }

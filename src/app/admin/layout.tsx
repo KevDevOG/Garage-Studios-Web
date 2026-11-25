@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 // Tipografía del marco del panel (solo /admin). Archivo variable con eje de
 // anchura: expandida para la marca y los títulos, normal para la navegación.
-// El contenido de las páginas sigue en Inter, la fuente base de la web.
+// La clase gs-admin (globals.css) la aplica a todo el panel, con cifras tabulares.
 const archivo = Archivo({
   subsets: ["latin", "latin-ext"],
   axes: ["wdth"],
@@ -21,9 +21,9 @@ const archivo = Archivo({
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    // display: contents → solo aporta la variable CSS de la fuente, sin caja
-    // propia que rompa el flex del <body>.
-    <div className={`${archivo.variable} contents`}>
+    // display: contents → solo aporta la fuente y los tokens del panel (que se
+    // heredan), sin caja propia que rompa el flex del <body>.
+    <div className={`${archivo.variable} gs-admin contents`}>
       <AdminShell>{children}</AdminShell>
     </div>
   );

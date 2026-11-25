@@ -7,10 +7,10 @@ export default function PrintButton() {
     <button
       type="button"
       onClick={() => window.print()}
-      className="fixed bottom-8 right-8 bg-black text-white px-6 py-3 rounded-full font-black uppercase tracking-widest text-xs shadow-2xl hover:scale-105 transition-transform flex items-center gap-3 print:hidden"
+      className="fixed bottom-6 right-6 inline-flex h-11 items-center gap-2 rounded-md bg-black px-4 text-[14px] font-semibold text-white transition-colors hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black print:hidden"
     >
-      <Printer className="w-4 h-4" aria-hidden="true" />
-      Imprimir Informe
+      <Printer className="size-4" aria-hidden="true" />
+      Imprimir informe
     </button>
   );
 }

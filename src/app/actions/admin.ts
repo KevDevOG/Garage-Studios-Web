@@ -135,6 +135,8 @@ export async function updateReservationStatus(id: string, estado: string): Promi
     revalidatePath("/admin/calendario");
     revalidatePath(`/admin/calendario/${id}`);
     revalidatePath("/admin/clientes");
+    // Cancelar o rechazar una reserva cobrada cambia los ingresos y lo pendiente.
+    revalidatePath("/admin/finanzas");
     return actionOk();
   } catch (err) {
     return unauthorizedOrGeneric(err, "No se pudo actualizar el estado de la reserva.");

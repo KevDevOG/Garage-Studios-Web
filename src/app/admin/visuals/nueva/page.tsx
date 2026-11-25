@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { createVisualsImages } from "@/app/actions/visuals";
-import { ArrowLeft, Save, UploadCloud, X, Trash2 } from "lucide-react";
+import { ArrowLeft, UploadCloud, X, Trash2 } from "lucide-react";
+import AdminNav from "@/components/admin/AdminNav";
+import { Field, FormActions, LinkButton, Notice, Page, Panel, buttonClass } from "@/components/admin/ui";
+import { FileZone, ModeToggle, PublicacionChecks, TipoSelect, VistaPrevia } from "@/components/admin/visuals/FormPieces";
 
 interface FileWithPreview {
   file: File;
@@ -142,157 +144,140 @@ export default function NuevaVisualImagenPage() {
     return `${mb.toFixed(2)} MB`;
   }
 
+  const submitLabel =
+    uploadMode === "file" && selectedFiles.length > 1 ? `Subir ${selectedFiles.length} imágenes` : "Subir imagen";
+
   return (
-    <section className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-white tracking-tight">Nueva Imagen / Lote de Imágenes (Visuals)</h1>
-          <p className="text-xs text-gray-400 mt-1">Sube uno o varios archivos a la galería de Garage Visuals de forma simultánea.</p>
-        </div>
-        <Link
-          href="/admin/visuals"
-          className="flex items-center gap-2 rounded-lg bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-        >
-          <ArrowLeft className="w-4 h-4" /> Volver
-        </Link>
-      </div>
+    <Page width="medium">
+      <AdminNav
+        title="Subir imágenes"
+        description="Sube uno o varios archivos a la galería de Visuals de una sola vez."
+        actions={
+          <LinkButton href="/admin/visuals" variant="ghost">
+            <ArrowLeft aria-hidden /> Volver a Visuals
+          </LinkButton>
+        }
+      />
 
-      <div className="rounded-xl border border-card-border bg-card-bg p-6">
-        {error && (
-          <div className="mb-6 rounded-lg bg-red-500/10 p-4 text-sm text-red-500 border border-red-500/20 font-medium">
-            {error}
-          </div>
-        )}
+      {error && (
+        <Notice tone="bad" title="No se ha podido continuar" className="mb-4">
+          {error}
+        </Notice>
+      )}
 
-        <form onSubmit={handleSubmit} className="space-y-6" encType="multipart/form-data">
-          <div className="space-y-5">
-            
-            {/* Título */}
-            <div>
-              <label htmlFor="titulo" className="mb-1 block text-sm font-medium text-gray-300">
-                {uploadMode === "file" ? "Título base" : "Título"}
-              </label>
+      <form onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-4">
+        <Panel title="Imágenes">
+          <div className="space-y-4">
+            <Field
+              label={uploadMode === "file" ? "Título base" : "Título"}
+              htmlFor="titulo"
+              hint={
+                uploadMode === "file"
+                  ? "Opcional. Si lo rellenas, se generarán de forma numerada (ej: Título 1, Título 2). Si se deja vacío, se guardarán sin título (nunca se usará el nombre del archivo)."
+                  : "Opcional. Si se deja vacío, la imagen no mostrará título público (nunca se usará el nombre del archivo)."
+              }
+            >
               <input
                 type="text"
                 id="titulo"
                 name="titulo"
-                className="w-full rounded-lg border border-white/10 bg-black/50 p-2.5 text-sm text-white placeholder-gray-500 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                placeholder="Opcional. Si lo dejas vacío, las imágenes no mostrarán título en la web."
+                aria-describedby="titulo-ayuda"
+                className="w-full"
+                placeholder="Opcional"
               />
-              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
-                {uploadMode === "file"
-                  ? "Opcional. Si lo rellenas, se generarán de forma numerada (ej: Título 1, Título 2). Si se deja vacío, se guardarán sin título (nunca se usará el nombre del archivo)."
-                  : "Opcional. Si se deja vacío, la imagen no mostrará título público (nunca se usará el nombre del archivo)."}
-              </p>
-            </div>
+            </Field>
 
-            {/* Selector de modo y campo de imagen */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-300">
-                Imágenes a Subir *
-              </label>
-              <div className="flex gap-3 mb-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUploadMode("file");
-                    setError("");
-                  }}
-                  className={`rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all border ${
-                    uploadMode === "file"
-                      ? "bg-accent text-black border-accent"
-                      : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
-                  }`}
-                >
-                  Subir Archivos
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUploadMode("url");
-                    setError("");
-                  }}
-                  className={`rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all border ${
-                    uploadMode === "url"
-                      ? "bg-accent text-black border-accent"
-                      : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
-                  }`}
-                >
-                  URL Manual
-                </button>
-              </div>
+              <p className="mb-1.5 text-[13px] font-medium text-gs-paper">
+                Origen de la imagen
+                <span aria-hidden className="text-gs-amber">
+                  {" "}
+                  *
+                </span>
+              </p>
+              <ModeToggle
+                mode={uploadMode}
+                onChange={(m) => {
+                  setUploadMode(m);
+                  setError("");
+                }}
+                fileLabel="Subir archivos"
+                urlLabel="Usar una URL"
+                label="Origen de la imagen"
+              />
 
               {uploadMode === "file" ? (
-                <div className="space-y-4">
-                  {/* Selector de archivos múltiples */}
-                  <div className="flex items-center justify-center w-full">
-                    <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-white/10 rounded-xl cursor-pointer bg-black/30 hover:bg-black/50 hover:border-accent/40 transition-all p-6 text-center">
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <UploadCloud className="w-8 h-8 mb-3 text-gray-400" />
-                        <p className="mb-2 text-sm text-gray-300">
-                          <span className="font-semibold text-accent">Haz clic para buscar</span> o arrastra tus fotos
-                        </p>
-                        <p className="text-xs text-muted leading-relaxed">Solo JPG, PNG y WEBP (máx. 5 MB por archivo) • Límite máximo: 20 archivos</p>
-                      </div>
-                      <input
-                        type="file"
-                        id="imagen_archivos"
-                        name="imagen_archivos"
-                        multiple
-                        accept="image/jpeg, image/png, image/webp"
-                        className="hidden"
-                        onChange={handleFileChange}
-                      />
-                    </label>
-                  </div>
+                <div className="space-y-3">
+                  <FileZone
+                    id="imagen_archivos"
+                    name="imagen_archivos"
+                    multiple
+                    onChange={handleFileChange}
+                    title="Elegir archivos o arrastrarlos aquí"
+                    hint="Solo JPG, PNG y WEBP, máximo 5 MB por archivo y 20 archivos por lote."
+                  />
 
-                  {/* Previsualización del lote de imágenes */}
                   {selectedFiles.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-gray-400">
-                        <span>Lote Seleccionado ({selectedFiles.length} de 20)</span>
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-gs-soft">
+                        <span role="status">
+                          {selectedFiles.length} de 20 seleccionadas
+                        </span>
                         <button
                           type="button"
                           onClick={() => {
-                            selectedFiles.forEach(f => URL.revokeObjectURL(f.previewUrl));
+                            selectedFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
                             setSelectedFiles([]);
                           }}
-                          className="text-red-400 hover:text-red-300 flex items-center gap-1 font-bold lowercase tracking-normal"
+                          className={buttonClass("ghost", "sm")}
                         >
-                          <Trash2 className="w-3.5 h-3.5" /> Quitar todo
+                          <Trash2 aria-hidden /> Quitar todas
                         </button>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin">
+                      <ul className="grid max-h-[320px] grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
                         {selectedFiles.map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/30 p-2 relative group"
+                          <li
+                            key={`${item.file.name}-${idx}`}
+                            className="flex items-center gap-3 rounded-md border border-gs-line bg-gs-raised p-2"
                           >
-                            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-white/10 bg-black/50">
+                            <div className="relative size-12 shrink-0 overflow-hidden rounded-md border border-gs-line bg-gs-sunken">
                               {/* eslint-disable-next-line @next/next/no-img-element -- vista previa blob: local */}
-                              <img src={item.previewUrl} alt={item.file.name} className="h-full w-full object-cover" />
+                              <img
+                                src={item.previewUrl}
+                                alt={`Vista previa de ${item.file.name}`}
+                                loading="lazy"
+                                decoding="async"
+                                className="size-full object-cover"
+                              />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-semibold text-gray-200" title={item.file.name}>{item.file.name}</p>
-                              <p className="text-[10px] text-gray-500 font-bold mt-0.5">{formatSize(item.file.size)}</p>
+                              <p className="truncate text-[13px] text-gs-paper" title={item.file.name}>
+                                {item.file.name}
+                              </p>
+                              <p className="text-[12px] text-gs-faint">{formatSize(item.file.size)}</p>
                             </div>
                             <button
                               type="button"
                               onClick={() => removeFile(idx)}
-                              className="text-red-400 hover:text-red-300 hover:bg-white/5 rounded-full p-1 transition-colors"
+                              className={buttonClass("ghost", "sm", "w-10 px-0 sm:w-8")}
+                              aria-label={`Quitar ${item.file.name} de la selección`}
                               title="Quitar de la selección"
                             >
-                              <X className="w-4 h-4" />
+                              <X aria-hidden />
                             </button>
-                          </div>
+                          </li>
                         ))}
-                      </div>
+                      </ul>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="space-y-2">
+                <div className="space-y-3">
+                  <Field
+                    label="URL de la imagen"
+                    htmlFor="url_imagen"
+                    hint="Introduce una dirección URL completa o ruta en el directorio /public."
+                  >
                     <input
                       type="text"
                       id="url_imagen"
@@ -302,119 +287,70 @@ export default function NuevaVisualImagenPage() {
                         setManualUrl(e.target.value);
                         setManualUrlPreview(e.target.value || null);
                       }}
-                      className="w-full rounded-lg border border-white/10 bg-black/50 p-2.5 text-sm text-white placeholder-gray-500 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                      placeholder="Ej: https://images.unsplash.com/photo-..."
+                      aria-describedby="url_imagen-ayuda"
+                      className="w-full"
+                      placeholder="https://images.unsplash.com/photo-..."
                     />
-                    <p className="text-xs text-muted">
-                      Introduce una dirección URL completa o ruta en el directorio /public.
-                    </p>
-                  </div>
+                  </Field>
 
-                  {manualUrlPreview && (
-                    <div className="relative aspect-video rounded-xl overflow-hidden border border-white/10 bg-black/20 max-w-sm">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- URL externa arbitraria introducida por el admin */}
-                      <img src={manualUrlPreview} alt="Vista previa manual" className="h-full w-full object-cover" />
-                      <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white uppercase backdrop-blur-sm">
-                        Vista Previa
-                      </span>
-                    </div>
-                  )}
+                  {manualUrlPreview && <VistaPrevia src={manualUrlPreview} alt="Vista previa de la URL indicada" />}
                 </div>
               )}
             </div>
+          </div>
+        </Panel>
 
-            {/* Descripción Común */}
-            <div>
-              <label htmlFor="descripcion" className="mb-1 block text-sm font-medium text-gray-300">
-                Descripción (opcional)
-              </label>
-              <textarea
-                id="descripcion"
-                name="descripcion"
-                rows={3}
-                className="w-full rounded-lg border border-white/10 bg-black/50 p-2.5 text-sm text-white placeholder-gray-500 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                placeholder="Esta descripción se aplicará a todas las imágenes del lote."
-              />
-            </div>
+        <Panel title="Detalles">
+          <div className="space-y-4">
+            <Field
+              label="Descripción"
+              htmlFor="descripcion"
+              hint="Opcional. Se aplicará a todas las imágenes del lote."
+            >
+              <textarea id="descripcion" name="descripcion" rows={3} aria-describedby="descripcion-ayuda" className="w-full" />
+            </Field>
 
-            {/* Tipo de Contenido e Incremento de Orden */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="tipo" className="mb-1 block text-sm font-medium text-gray-300">
-                  Tipo de Contenido
-                </label>
-                <select
-                  id="tipo"
-                  name="tipo"
-                  className="w-full rounded-lg border border-white/10 bg-black/50 p-2.5 text-sm text-white focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  <option value="fotos">Sesión de fotos</option>
-                  <option value="grabaciones">Sesión de grabación</option>
-                  <option value="rodajes">Rodaje</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="orden" className="mb-1 block text-sm font-medium text-gray-300">
-                  Orden Inicial
-                </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TipoSelect />
+              <Field
+                label="Orden inicial"
+                htmlFor="orden"
+                hint={
+                  uploadMode === "file" && selectedFiles.length > 1
+                    ? "Se incrementará de 1 en 1 de forma automática."
+                    : undefined
+                }
+              >
                 <input
                   type="number"
                   id="orden"
                   name="orden"
                   defaultValue={999}
-                  className="w-full rounded-lg border border-white/10 bg-black/50 p-2.5 text-sm text-white focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  aria-describedby={uploadMode === "file" && selectedFiles.length > 1 ? "orden-ayuda" : undefined}
+                  className="w-full"
                 />
-                {uploadMode === "file" && selectedFiles.length > 1 && (
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    Se incrementará de 1 en 1 de forma automática.
-                  </p>
-                )}
-              </div>
+              </Field>
             </div>
 
-            {/* Checkboxes de Activo y Destacado */}
-            <div className="flex gap-6 border-t border-card-border pt-4">
-              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  id="activo"
-                  name="activo"
-                  defaultChecked
-                  className="rounded border-white/10 bg-black/50 text-accent focus:ring-accent focus:ring-offset-black"
-                />
-                Activo (Público)
-              </label>
-
-              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  id="destacado"
-                  name="destacado"
-                  className="rounded border-white/10 bg-black/50 text-accent focus:ring-accent focus:ring-offset-black"
-                />
-                Destacado
-              </label>
-            </div>
+            <PublicacionChecks activoDefault />
           </div>
+        </Panel>
 
-          {/* Botón de Envío Dinámico */}
-          <div className="flex justify-end pt-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 text-sm font-bold text-black transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Save className="w-4 h-4" />
-              {loading
-                ? "Guardando..."
-                : uploadMode === "file" && selectedFiles.length > 1
-                ? `Guardar ${selectedFiles.length} imágenes`
-                : "Guardar imagen"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </section>
+        <FormActions>
+          <button type="submit" disabled={loading} className={buttonClass("primary", "md")}>
+            <UploadCloud aria-hidden />
+            {loading ? "Subiendo…" : submitLabel}
+          </button>
+          <LinkButton href="/admin/visuals" variant="ghost">
+            Cancelar
+          </LinkButton>
+          {loading && (
+            <span role="status" className="text-[13px] text-gs-soft">
+              Subiendo y guardando, no cierres esta página.
+            </span>
+          )}
+        </FormActions>
+      </form>
+    </Page>
   );
 }

@@ -1,29 +1,28 @@
-"use client";
-
-import { getStatusConfig, StatusType } from "@/lib/status-colors";
+import { getStatusConfig, type StatusType } from "@/lib/status-colors";
+import { Badge } from "./ui";
 
 interface StatusBadgeProps {
   type: StatusType;
   value: string;
   className?: string;
   showLabel?: boolean;
+  /** Sin cápsula: solo punto y texto, para filas densas. */
+  plain?: boolean;
 }
 
-export default function StatusBadge({ 
-  type, 
-  value, 
-  className = "", 
-  showLabel = true 
+/** Estado de reserva, pago, movimiento, mensaje o cliente con su tono. */
+export default function StatusBadge({
+  type,
+  value,
+  className,
+  showLabel = true,
+  plain = false,
 }: StatusBadgeProps) {
   const config = getStatusConfig(type, value);
 
   return (
-    <span className={`
-      inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border
-      ${config.colorClass}
-      ${className}
-    `}>
+    <Badge tone={config.tone} plain={plain} className={className}>
       {showLabel ? config.label : value}
-    </span>
+    </Badge>
   );
 }

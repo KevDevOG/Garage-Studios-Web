@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Trash2, Loader2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { deleteBloqueo } from "@/app/actions/bloqueos";
+import { buttonClass } from "./ui";
 
 interface DeleteBloqueoButtonProps {
   id: string;
 }
 
+/** Quita un bloqueo de horas, con confirmación en línea. */
 export default function DeleteBloqueoButton({ id }: DeleteBloqueoButtonProps) {
   const [isPending, startTransition] = useTransition();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -16,47 +18,47 @@ export default function DeleteBloqueoButton({ id }: DeleteBloqueoButtonProps) {
   const handleDelete = () => {
     startTransition(async () => {
       try {
-        await deleteBloqueo(id);
+        const result = await deleteBloqueo(id);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
         setShowConfirm(false);
-        toast.success("Bloqueo eliminado");
+        toast.success("Bloqueo eliminado.");
       } catch {
-        toast.error("No se pudo eliminar el bloqueo");
+        toast.error("No se pudo eliminar el bloqueo. Inténtalo de nuevo.");
       }
     });
   };
 
   if (showConfirm) {
     return (
-      <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
-        <button
-          onClick={handleDelete}
-          disabled={isPending}
-          className="rounded-lg bg-red-500/20 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50"
-        >
-          {isPending ? (
-            <Loader2 className="h-3 w-3 animate-spin mx-auto" />
-          ) : (
-            "Confirmar"
-          )}
+      <span role="group" aria-label="Confirmar eliminación del bloqueo" className="inline-flex items-center gap-1.5">
+        <span className="text-[13px] text-gs-soft">¿Quitar el bloqueo?</span>
+        <button type="button" onClick={handleDelete} disabled={isPending} className={buttonClass("danger", "sm")}>
+          {isPending ? "Quitando…" : "Sí, quitar"}
         </button>
         <button
+          type="button"
           onClick={() => setShowConfirm(false)}
           disabled={isPending}
-          className="rounded-lg bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-white transition-colors"
+          className={buttonClass("ghost", "sm")}
         >
-          Cancelar
+          No
         </button>
-      </div>
+      </span>
     );
   }
 
   return (
     <button
+      type="button"
       onClick={() => setShowConfirm(true)}
-      title="Eliminar bloqueo"
-      className="group flex items-center justify-center rounded-lg p-2 text-red-400/40 hover:bg-red-500/10 hover:text-red-400 transition-all"
+      aria-label="Quitar bloqueo"
+      title="Quitar bloqueo"
+      className={buttonClass("ghost", "sm", "w-10 px-0 hover:text-gs-bad sm:w-8")}
     >
-      <Trash2 className="h-4 w-4" />
+      <Trash2 aria-hidden />
     </button>
   );
 }

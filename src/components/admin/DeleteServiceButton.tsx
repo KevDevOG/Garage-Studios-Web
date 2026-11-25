@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Trash2, X } from "lucide-react";
 import { deleteServiceAction } from "@/app/actions/servicios";
+import { buttonClass } from "@/components/admin/ui";
 
-export default function DeleteServiceButton({ id }: { id: string }) {
+export default function DeleteServiceButton({ id, nombre }: { id: string; nombre?: string }) {
   const [isPending, startTransition] = useTransition();
   const [isConfirming, setIsConfirming] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -13,11 +15,11 @@ export default function DeleteServiceButton({ id }: { id: string }) {
     startTransition(async () => {
       try {
         const result = await deleteServiceAction(id);
-        
+
         if (result?.error) {
           setErrorMsg(result.error);
         }
-        
+
         setIsConfirming(false);
       } catch (error) {
         console.error("Error al borrar:", error);
@@ -29,15 +31,18 @@ export default function DeleteServiceButton({ id }: { id: string }) {
 
   if (errorMsg) {
     return (
-      <span className="ml-4 inline-flex items-center gap-2 rounded bg-red-500/10 px-2 py-1">
-        <span className="text-xs font-medium text-red-500">{errorMsg}</span>
+      <span
+        role="alert"
+        className="inline-flex items-center gap-1 rounded-md border border-[#4d2623] bg-[#1d1211] pl-2.5 text-[12px] font-medium text-gs-bad"
+      >
+        {errorMsg}
         <button
           type="button"
           onClick={() => setErrorMsg(null)}
-          className="text-xs text-muted hover:text-white"
-          title="Cerrar aviso"
+          className={buttonClass("ghost", "sm", "!px-2")}
+          aria-label="Cerrar aviso"
         >
-          ✕
+          <X aria-hidden strokeWidth={1.75} />
         </button>
       </span>
     );
@@ -45,21 +50,21 @@ export default function DeleteServiceButton({ id }: { id: string }) {
 
   if (isConfirming) {
     return (
-      <span className="ml-4 inline-flex items-center gap-3">
-        <span className="text-xs text-muted">¿Seguro?</span>
+      <span className="inline-flex items-center gap-1">
+        <span className="px-1 text-[13px] text-gs-soft">¿Eliminar?</span>
         <button
           type="button"
           onClick={handleDelete}
           disabled={isPending}
-          className="font-medium text-red-500 hover:text-red-400 hover:underline disabled:opacity-50"
+          className={buttonClass("danger", "sm")}
         >
-          {isPending ? "Borrando..." : "Sí"}
+          {isPending ? "Eliminando..." : "Sí, eliminar"}
         </button>
         <button
           type="button"
           onClick={() => setIsConfirming(false)}
           disabled={isPending}
-          className="text-muted hover:text-white hover:underline disabled:opacity-50"
+          className={buttonClass("ghost", "sm")}
         >
           Cancelar
         </button>
@@ -71,9 +76,11 @@ export default function DeleteServiceButton({ id }: { id: string }) {
     <button
       type="button"
       onClick={() => setIsConfirming(true)}
-      className="ml-4 inline-flex cursor-pointer items-center text-red-500 transition-colors hover:text-red-400 hover:underline"
+      className={buttonClass("ghost", "sm", "hover:!text-gs-bad")}
+      aria-label={nombre ? `Eliminar ${nombre}` : "Eliminar servicio"}
       title="Eliminar servicio"
     >
+      <Trash2 aria-hidden strokeWidth={1.75} />
       Eliminar
     </button>
   );

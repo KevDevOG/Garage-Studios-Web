@@ -1,65 +1,90 @@
 /**
- * Estandarización de colores para estados en Garage Studios
+ * Estados del panel de Garage Studios: etiqueta en castellano y tono.
+ *
+ * Un tono por significado, igual en todo el panel:
+ *   amber   → espera una acción (reserva pendiente, cobro pendiente, mensaje nuevo)
+ *   ok      → resuelto a favor (confirmada, pagado, ingreso)
+ *   info    → informativo o intermedio (completada, pago parcial)
+ *   bad     → anulado o salida de dinero (cancelada, gasto)
+ *   neutral → sin carga (rechazada, leído, métodos de pago)
  */
 
-export type StatusType = 
-  | 'reserva' 
-  | 'pago' 
-  | 'finanzas' 
+export type StatusType =
+  | 'reserva'
+  | 'pago'
+  | 'finanzas'
   | 'mensaje'
   | 'cliente';
 
+export type StatusTone = 'amber' | 'ok' | 'info' | 'bad' | 'neutral';
+
 export interface StatusConfig {
   label: string;
-  colorClass: string; // Tailwind bg/text classes
+  tone: StatusTone;
+  /** Clases de texto del tono, para quien pinte el estado sin <StatusBadge>. */
+  colorClass: string;
 }
 
+const TONE_CLASS: Record<StatusTone, string> = {
+  amber: 'text-gs-amber',
+  ok: 'text-gs-ok',
+  info: 'text-gs-info',
+  bad: 'text-gs-bad',
+  neutral: 'text-gs-soft',
+};
+
+const status = (label: string, tone: StatusTone): StatusConfig => ({
+  label,
+  tone,
+  colorClass: TONE_CLASS[tone],
+});
+
 export const RESERVA_STATUS: Record<string, StatusConfig> = {
-  pendiente: { label: 'Pendiente', colorClass: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-  confirmada: { label: 'Confirmada', colorClass: 'bg-green-500/10 text-green-400 border-green-500/20' },
-  cancelada: { label: 'Cancelada', colorClass: 'bg-red-500/10 text-red-400 border-red-500/20' },
-  rechazada: { label: 'Rechazada', colorClass: 'bg-zinc-800 text-zinc-400 border-zinc-700' },
-  completada: { label: 'Completada', colorClass: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  pendiente: status('Pendiente', 'amber'),
+  confirmada: status('Confirmada', 'ok'),
+  cancelada: status('Cancelada', 'bad'),
+  rechazada: status('Rechazada', 'neutral'),
+  completada: status('Completada', 'info'),
 };
 
 export const PAGO_STATUS: Record<string, StatusConfig> = {
   // Estados de pago
-  pendiente: { label: 'Pendiente', colorClass: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-  parcial: { label: 'Pago Parcial', colorClass: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-  pagado: { label: 'Pagado', colorClass: 'bg-green-500/10 text-green-400 border-green-500/20' },
+  pendiente: status('Sin cobrar', 'amber'),
+  parcial: status('Pago parcial', 'info'),
+  pagado: status('Pagado', 'ok'),
   // Métodos de pago
-  efectivo: { label: 'Efectivo', colorClass: 'bg-zinc-100/10 text-zinc-300 border-zinc-500/20' },
-  bizum: { label: 'Bizum', colorClass: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
-  tarjeta: { label: 'Tarjeta', colorClass: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
-  transferencia: { label: 'Transferencia', colorClass: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
-  stripe: { label: 'Stripe', colorClass: 'bg-blue-600/10 text-blue-500 border-blue-600/20' },
-  paypal: { label: 'PayPal', colorClass: 'bg-blue-800/10 text-blue-400 border-blue-800/20' },
+  efectivo: status('Efectivo', 'neutral'),
+  bizum: status('Bizum', 'neutral'),
+  tarjeta: status('Tarjeta', 'neutral'),
+  transferencia: status('Transferencia', 'neutral'),
+  stripe: status('Stripe', 'neutral'),
+  paypal: status('PayPal', 'neutral'),
 };
 
 export const FINANZAS_STATUS: Record<string, StatusConfig> = {
-  ingreso: { label: 'Ingreso', colorClass: 'bg-green-500/10 text-green-400 border-green-500/20' },
-  gasto: { label: 'Gasto', colorClass: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  ingreso: status('Ingreso', 'ok'),
+  gasto: status('Gasto', 'bad'),
 };
 
 export const MENSAJE_STATUS: Record<string, StatusConfig> = {
-  nuevo: { label: 'Nuevo', colorClass: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-  leido: { label: 'Leído', colorClass: 'bg-zinc-800 text-zinc-500 border-zinc-700' },
+  nuevo: status('Nuevo', 'amber'),
+  leido: status('Leído', 'neutral'),
 };
 
 export const CLIENTE_STATUS: Record<string, StatusConfig> = {
-  recurrente: { label: 'Recurrente', colorClass: 'bg-accent/10 text-accent border-accent/20' },
-  nuevo: { label: 'Nuevo', colorClass: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  recurrente: status('Recurrente', 'amber'),
+  nuevo: status('Nuevo', 'info'),
+};
+
+const TABLES: Record<StatusType, Record<string, StatusConfig>> = {
+  reserva: RESERVA_STATUS,
+  pago: PAGO_STATUS,
+  finanzas: FINANZAS_STATUS,
+  mensaje: MENSAJE_STATUS,
+  cliente: CLIENTE_STATUS,
 };
 
 export function getStatusConfig(type: StatusType, value: string): StatusConfig {
   const normalized = value?.toLowerCase();
-  
-  switch (type) {
-    case 'reserva': return RESERVA_STATUS[normalized] || { label: value, colorClass: 'bg-zinc-800 text-zinc-400 border-zinc-700' };
-    case 'pago': return PAGO_STATUS[normalized] || { label: value, colorClass: 'bg-zinc-800 text-zinc-400 border-zinc-700' };
-    case 'finanzas': return FINANZAS_STATUS[normalized] || { label: value, colorClass: 'bg-zinc-800 text-zinc-400 border-zinc-700' };
-    case 'mensaje': return MENSAJE_STATUS[normalized] || { label: value, colorClass: 'bg-zinc-800 text-zinc-400 border-zinc-700' };
-    case 'cliente': return CLIENTE_STATUS[normalized] || { label: value, colorClass: 'bg-zinc-800 text-zinc-400 border-zinc-700' };
-    default: return { label: value, colorClass: 'bg-zinc-800 text-zinc-400 border-zinc-700' };
-  }
+  return TABLES[type]?.[normalized] ?? status(value, 'neutral');
 }
