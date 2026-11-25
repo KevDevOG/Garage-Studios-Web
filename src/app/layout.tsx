@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import PublicChrome from "@/components/PublicChrome";
 import { Toaster } from "sonner";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
@@ -148,11 +149,11 @@ export default function RootLayout({
           Saltar al contenido
         </a>
         <Toaster position="top-right" richColors theme="dark" closeButton />
-        <Navbar />
-        <main id="contenido" tabIndex={-1} className="flex-1 outline-none">
+        {/* La web pública conserva Navbar, <main id="contenido"> y Footer;
+            en /admin el marco lo aporta el layout del panel. */}
+        <PublicChrome navbar={<Navbar />} footer={<Footer />}>
           {children}
-        </main>
-        <Footer />
+        </PublicChrome>
         <Analytics />
         <SpeedInsights />
       </body>
