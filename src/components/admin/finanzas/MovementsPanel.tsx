@@ -149,7 +149,7 @@ export default function MovementsPanel({ movements }: { movements: FinanceMoveme
               const v = e.target.value;
               setFilterTipo(v === "ingreso" || v === "gasto" ? v : "todos");
             }}
-            className="h-10 border text-[13px] sm:h-8"
+            className="w-auto py-1.5 text-[13px] sm:min-h-8 sm:py-1"
           >
             <option value="todos">Todos los tipos</option>
             <option value="ingreso">Ingresos</option>
@@ -229,19 +229,15 @@ export default function MovementsPanel({ movements }: { movements: FinanceMoveme
                   <p className="min-w-0 break-words text-[14px] font-medium text-gs-paper">{mov.concepto}</p>
                   <Amount mov={mov} className="shrink-0 text-[14px]" />
                 </div>
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-gs-soft">
-                  <span className="tabular-nums">{dateLabel(mov.fecha)}</span>
-                  <span aria-hidden>·</span>
-                  <span>{mov.categoria}</span>
-                  {mov.metodo_pago && (
-                    <>
-                      <span aria-hidden>·</span>
-                      <StatusBadge type="pago" value={mov.metodo_pago} plain />
-                    </>
-                  )}
-                </div>
-                <div className="mt-1 flex justify-end">
-                  <RowActions {...rowProps(mov)} />
+                <div className="mt-1 flex items-end justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-gs-soft">
+                    <span className="tabular-nums">{dateLabel(mov.fecha)}</span>
+                    <span>{mov.categoria}</span>
+                    {mov.metodo_pago && <StatusBadge type="pago" value={mov.metodo_pago} plain />}
+                  </div>
+                  <div className="shrink-0">
+                    <RowActions {...rowProps(mov)} />
+                  </div>
                 </div>
               </li>
             ))}

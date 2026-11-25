@@ -25,6 +25,7 @@ import {
 import { Badge, EmptyState, LinkButton, Notice, Page, Panel, textLink } from "@/components/admin/ui";
 import { getMonthlyRevenueResult } from "@/app/actions/finanzas";
 import { getAdminSession } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { formatDateTimeEs, formatIsoDateEs, nowMinutesInStudio, todayInStudio } from "@/lib/dates";
 import { capitalizeFirst, formatEUR, plural } from "@/lib/format";
 
@@ -54,14 +55,15 @@ const MESSAGE_DATE: Intl.DateTimeFormatOptions = { day: "numeric", month: "short
 const MAX_PENDING_PAYMENTS = 6;
 
 export default async function AdminDashboardPage() {
-  // Una sola validación de sesión para toda la página (deduplicada por petición).
-  const { supabase, user } = await getAdminSession();
-  if (!user) redirect("/admin/login");
-
+  const supabase = await createClient();
   const todayStr = todayInStudio();
 
-  // Todas las lecturas son independientes: una sola ronda en paralelo.
+  // Una sola ronda en paralelo: la validación de sesión (deduplicada por
+  // petición; la comparte getMonthlyRevenueResult) y todas las lecturas.
+  // Las lecturas van con la sesión de las cookies y las protege RLS; nada se
+  // pinta si la validación de más abajo falla.
   const [
+    session,
     hoyRes,
     bloquesHoyRes,
     bloqueosHoyRes,
@@ -73,6 +75,7 @@ export default async function AdminDashboardPage() {
     unreadRes,
     contactosRes,
   ] = await Promise.all([
+    getAdminSession(),
     // Reservas de hoy
     supabase
       .from("reserva")
@@ -130,6 +133,8 @@ export default async function AdminDashboardPage() {
       .order("created_at", { ascending: false })
       .limit(5),
   ]);
+
+  if (!session.user) redirect("/admin/login");
 
   if (hoyRes.error) console.error("[dashboard] Error al obtener las reservas de hoy:", hoyRes.error.message);
   if (bloquesHoyRes.error) console.error("[dashboard] Error al obtener bloques de pack de hoy:", bloquesHoyRes.error.message);

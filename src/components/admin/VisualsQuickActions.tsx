@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { deleteVisualsImage, toggleVisualsImageActive } from "@/app/actions/visuals";
 import { Trash2, Eye, EyeOff, Loader2 } from "lucide-react";
 import { buttonClass } from "@/components/admin/ui";
@@ -33,13 +34,14 @@ export default function VisualsQuickActions({ id, activo, titulo }: VisualsQuick
       try {
         const res = await deleteVisualsImage(id);
         if (!res.success) {
-          alert(res.error || "Ocurrió un error al intentar eliminar la imagen.");
+          toast.error(res.error || "No se pudo eliminar la imagen.");
         } else {
+          toast.success("Imagen eliminada.");
           router.refresh();
         }
       } catch (err) {
         console.error("Error al eliminar imagen:", err);
-        alert("Ocurrió un error inesperado al intentar eliminar la imagen.");
+        toast.error("No se pudo eliminar la imagen. Inténtalo de nuevo.");
       } finally {
         setIsDeleting(false);
       }
@@ -52,13 +54,13 @@ export default function VisualsQuickActions({ id, activo, titulo }: VisualsQuick
       try {
         const res = await toggleVisualsImageActive(id);
         if (!res.success) {
-          alert(res.error || "Ocurrió un error al intentar cambiar el estado de la imagen.");
+          toast.error(res.error || "No se pudo cambiar la visibilidad de la imagen.");
         } else {
           router.refresh();
         }
       } catch (err) {
         console.error("Error al cambiar estado:", err);
-        alert("Ocurrió un error inesperado al intentar cambiar el estado de la imagen.");
+        toast.error("No se pudo cambiar la visibilidad de la imagen. Inténtalo de nuevo.");
       } finally {
         setIsToggling(false);
       }

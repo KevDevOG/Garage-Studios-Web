@@ -71,6 +71,8 @@ export default async function InformeFinanzasPage({
           {movements.length === 0 ? (
             <p className="py-4 text-[14px] text-neutral-700">No hay movimientos en este periodo.</p>
           ) : (
+            // En pantallas estrechas la tabla se desplaza dentro de su caja; al imprimir va entera.
+            <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full border-collapse text-left text-[13px]">
               <thead>
                 <tr className="border-b border-black text-[12px] font-semibold">
@@ -104,6 +106,7 @@ export default async function InformeFinanzasPage({
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </section>
 

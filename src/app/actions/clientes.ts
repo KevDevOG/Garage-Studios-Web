@@ -349,30 +349,41 @@ function buildRanking(reservas: RankingRow[]): Record<string, TopClienteRanking>
 const fetchRankingForPeriod = cache(
   async (startDate: string, endDate: string): Promise<TopClienteRanking[]> => {
     const supabase = await requireAuth();
+    const reservas: RankingRow[] = [];
 
-    const { data: reservas, error } = await supabase
-      .from("reserva")
-      .select(`
-        cliente_id,
-        importe_pagado,
-        estado,
-        estado_pago,
-        servicio:servicio_id(nombre),
-        cliente:cliente_id(nombre, total_reservas)
-      `)
-      .is("deleted_at", null)
-      .gte("fecha_reserva", startDate)
-      .lte("fecha_reserva", endDate)
-      .in("estado_pago", ["parcial", "pagado"])
-      .not("estado", "in", '("cancelada","rechazada")')
-      .not("cliente_id", "is", null);
+    // Paginada por el mismo motivo que las métricas: en la vista anual un
+    // periodo puede superar las 1000 reservas cobradas.
+    for (let from = 0; ; from += METRICS_PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from("reserva")
+        .select(`
+          cliente_id,
+          importe_pagado,
+          estado,
+          estado_pago,
+          servicio:servicio_id(nombre),
+          cliente:cliente_id(nombre, total_reservas)
+        `)
+        .is("deleted_at", null)
+        .gte("fecha_reserva", startDate)
+        .lte("fecha_reserva", endDate)
+        .in("estado_pago", ["parcial", "pagado"])
+        .not("estado", "in", '("cancelada","rechazada")')
+        .not("cliente_id", "is", null)
+        // Más reciente primero: "último servicio" es de verdad el último.
+        .order("fecha_reserva", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, from + METRICS_PAGE_SIZE - 1);
 
-    if (error || !reservas) {
-      console.error("[clientes] Error leyendo reservas para los rankings:", error?.message);
-      throw new Error("No se pudieron cargar los rankings de clientes.");
+      if (error || !data) {
+        console.error("[clientes] Error leyendo reservas para los rankings:", error?.message);
+        throw new Error("No se pudieron cargar los rankings de clientes.");
+      }
+      reservas.push(...(data as unknown as RankingRow[]));
+      if (data.length < METRICS_PAGE_SIZE) break;
     }
 
-    return Object.values(buildRanking(reservas as unknown as RankingRow[]));
+    return Object.values(buildRanking(reservas));
   },
 );
 

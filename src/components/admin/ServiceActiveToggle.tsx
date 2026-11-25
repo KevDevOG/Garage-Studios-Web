@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { toast } from "sonner";
 import { toggleServiceActiveAction } from "@/app/actions/servicios";
 import { TONE_BG, TONE_TEXT, cx } from "@/components/admin/ui";
 
@@ -19,7 +20,7 @@ export default function ServiceActiveToggle({
         await toggleServiceActiveAction(id, !isActivo);
       } catch (e) {
         console.error(e);
-        alert("Error al cambiar estado");
+        toast.error("No se pudo cambiar el estado del servicio. Inténtalo de nuevo.");
       }
     });
   };

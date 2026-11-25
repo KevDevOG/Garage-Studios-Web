@@ -48,13 +48,15 @@ function buildPreset(params: RawParams): FinancePreset {
 }
 
 export default async function NuevaFinanzaPage(props: { searchParams: Promise<RawParams> }) {
-  // Sesión + lista de administradores, validada una vez por petición.
-  const { user } = await getAdminSession();
+  // La sesión (validada una vez por petición) y el catálogo público de
+  // servicios no dependen entre sí: se piden a la vez.
+  const [{ user }, services, searchParams] = await Promise.all([
+    getAdminSession(),
+    getActiveServices(),
+    props.searchParams,
+  ]);
 
   if (!user) redirect("/admin/login");
-
-  const searchParams = await props.searchParams;
-  const services = await getActiveServices();
 
   return (
     <Page width="narrow">

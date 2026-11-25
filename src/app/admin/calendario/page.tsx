@@ -9,6 +9,7 @@ import MonthGrid from "@/components/admin/agenda/MonthGrid";
 import WeekGrid from "@/components/admin/agenda/WeekGrid";
 import {
   PACK_BLOCK_SELECT,
+  SESSION_SELECT,
   amountDue,
   manualBlockToEvent,
   occupiesSlot,
@@ -20,7 +21,6 @@ import {
   type SessionRowData,
 } from "@/components/admin/agenda/events";
 import { EmptyState, LinkButton, Notice, Page, Panel, Segmented, buttonClass } from "@/components/admin/ui";
-import { getReservations } from "@/app/actions/calendario";
 import {
   addDays,
   addMonths,
@@ -34,6 +34,7 @@ import {
   type AgendaView,
 } from "@/lib/agenda";
 import { getAdminSession } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { formatIsoDateEs, isValidIsoDate, nowMinutesInStudio, todayInStudio } from "@/lib/dates";
 import { capitalizeFirst, formatEUR, plural } from "@/lib/format";
 import { redirect } from "next/navigation";
@@ -103,13 +104,21 @@ export default async function CalendarioPage({
   const startDate = days[0];
   const endDate = days[days.length - 1];
 
-  // La sesión se valida una vez por petición (también la usa getReservations).
-  const { supabase, user } = await getAdminSession();
-  if (!user) redirect("/admin/login");
+  const supabase = await createClient();
 
-  // Las tres consultas son independientes: en paralelo.
-  const [reservasRes, bloquesRes, bloqueosRes] = await Promise.all([
-    getReservations(startDate, endDate),
+  // Una sola ronda en paralelo: la validación de sesión (deduplicada por
+  // petición) y las tres lecturas. Las lecturas van con la sesión de las
+  // cookies y las protege RLS; nada se pinta si la validación falla.
+  const [session, reservasRes, bloquesRes, bloqueosRes] = await Promise.all([
+    getAdminSession(),
+    supabase
+      .from("reserva")
+      .select(SESSION_SELECT)
+      .gte("fecha_reserva", startDate)
+      .lte("fecha_reserva", endDate)
+      .is("deleted_at", null)
+      .order("fecha_reserva", { ascending: true })
+      .order("hora_inicio", { ascending: true }),
     supabase
       .from("reserva_bloque")
       .select(PACK_BLOCK_SELECT)
@@ -123,13 +132,15 @@ export default async function CalendarioPage({
       .is("deleted_at", null),
   ]);
 
-  if (!reservasRes.ok) console.error("[calendario] Error leyendo reservas:", reservasRes.error);
+  if (!session.user) redirect("/admin/login");
+
+  if (reservasRes.error) console.error("[calendario] Error leyendo reservas:", reservasRes.error.message);
   if (bloquesRes.error) console.error("[calendario] Error leyendo bloques de pack:", bloquesRes.error.message);
   if (bloqueosRes.error) console.error("[calendario] Error leyendo bloqueos:", bloqueosRes.error.message);
 
-  const hasError = !reservasRes.ok || Boolean(bloquesRes.error) || Boolean(bloqueosRes.error);
+  const hasError = Boolean(reservasRes.error) || Boolean(bloquesRes.error) || Boolean(bloqueosRes.error);
 
-  const reservas: SessionRowData[] = (reservasRes.ok ? reservasRes.data : []).map(withClienteStats);
+  const reservas = ((reservasRes.data ?? []) as unknown as SessionRowData[]).map(withClienteStats);
   const bloqueosManuales = (bloqueosRes.data ?? []) as unknown as ManualBlock[];
 
   // Bloques de pack: heredan datos de la reserva padre (precio, contacto, pago).
